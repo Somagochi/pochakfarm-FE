@@ -1,5 +1,7 @@
 import { Alert, Platform, StyleSheet, Text, Pressable, View } from 'react-native';
 
+import { env } from '@/src/shared/config/env';
+
 import { isAuthCancelledError } from '../lib/authError';
 import { useSocialLogin } from '../model/useSocialLogin';
 import type { SocialLoginProvider } from '../model/types';
@@ -88,11 +90,13 @@ function getProviderName(provider: SocialLoginProvider) {
 }
 
 function getLoginErrorMessage(provider: SocialLoginProvider, error: unknown) {
+  const apiBaseUrl = env.apiBaseUrl || '(empty)';
+
   if (error instanceof Error && error.message) {
-    return `${getProviderName(provider)} 로그인 중 문제가 발생했습니다.\n\n${error.message}`;
+    return `${getProviderName(provider)} 로그인 중 문제가 발생했습니다.\n\n${error.message}\n\nAPI URL: ${apiBaseUrl}`;
   }
 
-  return `${getProviderName(provider)} 로그인 중 문제가 발생했습니다.`;
+  return `${getProviderName(provider)} 로그인 중 문제가 발생했습니다.\n\nAPI URL: ${apiBaseUrl}`;
 }
 
 const styles = StyleSheet.create({
