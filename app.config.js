@@ -80,6 +80,8 @@ plugins.push([
   },
 ]);
 
+plugins.push('./plugins/with-android-cleartext-network');
+
 module.exports = {
   expo: {
     ...expo,
