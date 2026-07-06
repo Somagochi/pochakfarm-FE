@@ -1,4 +1,34 @@
 const { expo } = require('./app.json');
+const fs = require('fs');
+const path = require('path');
+
+function loadLocalEnv() {
+  const envPath = path.join(__dirname, '.env');
+
+  if (!fs.existsSync(envPath)) {
+    return;
+  }
+
+  const envFile = fs.readFileSync(envPath, 'utf8');
+
+  for (const line of envFile.split(/\r?\n/)) {
+    const match = line.match(/^\s*([\w.-]+)\s*=\s*(.*)?\s*$/);
+
+    if (!match) {
+      continue;
+    }
+
+    const [, key, rawValue = ''] = match;
+
+    if (process.env[key] !== undefined) {
+      continue;
+    }
+
+    process.env[key] = rawValue.replace(/^['"]|['"]$/g, '');
+  }
+}
+
+loadLocalEnv();
 
 const kakaoAppKey =
   process.env.KAKAO_NATIVE_APP_KEY ?? process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY;
@@ -28,6 +58,10 @@ if (kakaoAppKey) {
       kotlinVersion: '2.1.20',
     },
   ]);
+} else {
+  console.warn(
+    '[app.config] KAKAO_NATIVE_APP_KEY 또는 EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY가 없어 카카오 네이티브 설정을 건너뜁니다.',
+  );
 }
 
 plugins.push([

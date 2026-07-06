@@ -4,11 +4,10 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { login as kakaoSdkLogin } from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
-import { env } from '@/src/shared/config/env';
-
 import { socialLoginApi } from '../api/socialLoginApi';
 import { AuthCancelledError } from '../lib/authError';
 import { saveServiceToken } from '../lib/tokenStorage';
+import { initializeNaverLogin } from './useInitializeSocialLogin';
 import type { SocialLoginProvider } from './types';
 
 type AppleAuthError = {
@@ -26,9 +25,7 @@ async function getKakaoAccessToken() {
 }
 
 async function getNaverAccessToken() {
-  if (!env.naver.consumerKey || !env.naver.consumerSecret) {
-    throw new Error('네이버 로그인 환경변수가 설정되지 않았습니다.');
-  }
+  initializeNaverLogin();
 
   const response = await NaverLogin.login();
 
