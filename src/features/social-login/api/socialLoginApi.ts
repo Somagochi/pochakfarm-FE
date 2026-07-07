@@ -7,9 +7,19 @@ type SocialLoginRequest = {
   token: string;
 };
 
-export function socialLoginApi(provider: SocialLoginProvider, token: string) {
-  return apiClient.post<ServiceToken, SocialLoginRequest>('/api/auth/login', {
+type SocialLoginResponse = {
+  data: {
+    token: ServiceToken;
+    isNew: boolean;
+  };
+  datetime: string;
+};
+
+export async function socialLoginApi(provider: SocialLoginProvider, token: string) {
+  const response = await apiClient.post<SocialLoginResponse, SocialLoginRequest>('/api/auth/login', {
     provider,
     token,
   });
+
+  return response.data.token;
 }
