@@ -30,11 +30,20 @@ async function getNaverAccessToken() {
   const response = await NaverLogin.login();
 
   if (!response.isSuccess) {
-    if (response.failureResponse?.isCancel) {
+    const failure = response.failureResponse;
+
+    if (failure?.isCancel) {
       throw new AuthCancelledError();
     }
 
-    throw new Error(response.failureResponse?.message ?? '네이버 로그인에 실패했습니다.');
+    const detailMessages = [
+      failure?.message,
+      failure?.lastErrorCodeFromNaverSDK && `code: ${failure.lastErrorCodeFromNaverSDK}`,
+      failure?.lastErrorDescriptionFromNaverSDK &&
+        `description: ${failure.lastErrorDescriptionFromNaverSDK}`,
+    ].filter(Boolean);
+
+    throw new Error(detailMessages.join('\n') || '네이버 로그인에 실패했습니다.');
   }
 
   const accessToken = response.successResponse?.accessToken;
