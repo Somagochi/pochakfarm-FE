@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { LogoutButton } from '@/src/features/logout';
 import { SocialLoginButtons } from '@/src/features/social-login';
 
 export function HomeScreen() {
@@ -10,6 +11,9 @@ export function HomeScreen() {
         <Text style={styles.subtitle}>사진으로 동물을 포착해 농장에 담아보세요.</Text>
       </View>
       <SocialLoginButtons />
+      <View style={styles.logout}>
+        <LogoutButton />
+      </View>
     </View>
   );
 }
@@ -34,5 +38,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
+  },
+  logout: {
+    marginTop: 12,
   },
 });
