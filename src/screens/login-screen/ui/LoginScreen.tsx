@@ -2,12 +2,12 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { SocialLoginButtons } from '@/src/features/social-login';
 
-export function HomeScreen() {
+export function LoginScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>포착팜</Text>
-        <Text style={styles.subtitle}>사진으로 동물을 포착해 농장에 담아보세요.</Text>
+        <Text style={styles.title}>로그인</Text>
+        <Text style={styles.subtitle}>소셜 계정으로 포착팜을 시작해보세요.</Text>
       </View>
       <SocialLoginButtons />
     </View>
@@ -36,3 +36,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+
