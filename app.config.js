@@ -85,12 +85,13 @@ plugins.push('./plugins/with-android-cleartext-network');
 module.exports = {
   expo: {
     ...expo,
+    owner: 'somagochi2026',
     plugins,
     extra: {
       ...expo.extra,
       eas: {
         ...expo.extra?.eas,
-        projectId: '3c781a21-7b8c-4233-a664-df7d0d3d1091',
+        projectId: '731d8550-fe31-4f47-9128-df9b0a8a1580',
       },
     },
   },
