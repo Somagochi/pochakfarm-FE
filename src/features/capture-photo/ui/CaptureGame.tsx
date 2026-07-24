@@ -20,11 +20,13 @@ const SUCCESS_DISTANCE = 72;
 const SUCCESS_SCALE = 0.38;
 const MIN_THROW_DISTANCE = 24;
 const MIN_THROW_VELOCITY = 0.18;
+const MAX_THROWS = 3;
 const USE_PHOTO_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/use-photo-prompt.png');
 const RETAKE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/retake-button.png');
 const USE_PHOTO_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/use-photo-button.png');
 
 type CaptureResult = 'success' | 'failure' | null;
+type FailureReason = 'timeout' | 'attempts' | null;
 
 type CaptureGameProps = {
   photoUri: string;
@@ -41,6 +43,8 @@ export function CaptureGame({
   const insets = useSafeAreaInsets();
   const [secondsLeft, setSecondsLeft] = useState(CAPTURE_SECONDS);
   const [result, setResult] = useState<CaptureResult>(null);
+  const [failureReason, setFailureReason] = useState<FailureReason>(null);
+  const [throwsUsed, setThrowsUsed] = useState(0);
   const [isThrowing, setIsThrowing] = useState(false);
   const [isFrameVisible, setIsFrameVisible] = useState(true);
   const [showSuccessEffect, setShowSuccessEffect] = useState(false);
@@ -71,12 +75,16 @@ export function CaptureGame({
     [height, insets.bottom, width],
   );
 
-  const finishGame = (nextResult: Exclude<CaptureResult, null>) => {
+  const finishGame = (
+    nextResult: Exclude<CaptureResult, null>,
+    nextFailureReason: FailureReason = null,
+  ) => {
     if (resultRef.current) {
       return;
     }
 
     resultRef.current = nextResult;
+    setFailureReason(nextFailureReason);
     setResult(nextResult);
   };
 
@@ -88,7 +96,7 @@ export function CaptureGame({
     const timer = setInterval(() => {
       setSecondsLeft((current) => {
         if (current <= 1) {
-          finishGame('failure');
+          finishGame('failure', 'timeout');
           return 0;
         }
 
@@ -281,6 +289,8 @@ export function CaptureGame({
           }
 
           setIsThrowing(true);
+          const nextThrowsUsed = throwsUsed + 1;
+          setThrowsUsed(nextThrowsUsed);
 
           const upwardSpeed = Math.abs(gestureState.vy);
           const horizontalOffset = Math.max(
@@ -348,6 +358,11 @@ export function CaptureGame({
               return;
             }
 
+            if (nextThrowsUsed >= MAX_THROWS) {
+              finishGame('failure', 'attempts');
+              return;
+            }
+
             respawnFrame();
           });
         },
@@ -363,6 +378,7 @@ export function CaptureGame({
       throwArc,
       throwRotation,
       throwScale,
+      throwsUsed,
       width,
     ],
   );
@@ -413,6 +429,9 @@ export function CaptureGame({
 
       <Text style={[styles.guideText, { top: insets.top + 192 }]}>
         액자를 위로 튕겨 포착하세요!
+      </Text>
+      <Text style={[styles.remainingThrowsText, { top: insets.top + 226 }]}>
+        남은 액자 {MAX_THROWS - throwsUsed}개
       </Text>
 
       <View
@@ -583,7 +602,9 @@ export function CaptureGame({
             <Ionicons color="#7B6650" name="time-outline" size={46} />
             <Text style={styles.resultTitle}>포착 실패</Text>
             <Text style={styles.resultDescription}>
-              제한 시간이 지났어요. 다시 도전해 보세요.
+              {failureReason === 'attempts'
+                ? '액자를 모두 사용했어요. 다시 도전해 보세요.'
+                : '제한 시간이 지났어요. 다시 도전해 보세요.'}
             </Text>
             <View style={styles.resultActions}>
               <Pressable
@@ -681,6 +702,17 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     color: '#FFFFFF',
     fontSize: 22,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 3,
+  },
+  remainingThrowsText: {
+    position: 'absolute',
+    zIndex: 2,
+    alignSelf: 'center',
+    color: '#FFF4A8',
+    fontSize: 15,
     fontWeight: '800',
     textShadowColor: 'rgba(0, 0, 0, 0.7)',
     textShadowOffset: { width: 1, height: 2 },
