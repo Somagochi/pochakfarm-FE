@@ -1,34 +1,5 @@
-import { StyleSheet, View } from "react-native";
-import { LoginScreen } from "../screens/login-screen";
+import { Redirect } from 'expo-router';
 
 export default function Page() {
-  return (
-    <View style={styles.container}>
-      <View style={styles.main}>
-        <LoginScreen></LoginScreen>
-      </View>
-    </View>
-  );
+  return <Redirect href="/(tabs)" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    padding: 24,
-  },
-  main: {
-    flex: 1,
-    justifyContent: "center",
-    maxWidth: 960,
-    marginHorizontal: "auto",
-  },
-  title: {
-    fontSize: 64,
-    fontWeight: "bold",
-  },
-  subtitle: {
-    fontSize: 36,
-    color: "#38434D",
-  },
-});
