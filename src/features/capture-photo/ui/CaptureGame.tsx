@@ -20,7 +20,6 @@ const SUCCESS_DISTANCE = 72;
 const SUCCESS_SCALE = 0.38;
 const MIN_THROW_DISTANCE = 24;
 const MIN_THROW_VELOCITY = 0.18;
-const CAPTURE_SUCCESS_RATE = 0.3;
 const USE_PHOTO_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/use-photo-prompt.png');
 const RETAKE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/retake-button.png');
 const USE_PHOTO_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/use-photo-button.png');
@@ -44,7 +43,6 @@ export function CaptureGame({
   const [result, setResult] = useState<CaptureResult>(null);
   const [isThrowing, setIsThrowing] = useState(false);
   const [isFrameVisible, setIsFrameVisible] = useState(true);
-  const [showChanceMiss, setShowChanceMiss] = useState(false);
   const [showSuccessEffect, setShowSuccessEffect] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
@@ -52,7 +50,6 @@ export function CaptureGame({
   const throwScale = useRef(new Animated.Value(1)).current;
   const throwArc = useRef(new Animated.Value(0)).current;
   const throwOpacity = useRef(new Animated.Value(1)).current;
-  const chanceMissProgress = useRef(new Animated.Value(0)).current;
   const successEffectProgress = useRef(new Animated.Value(0)).current;
   const bottomSheetTranslateY = useRef(new Animated.Value(340)).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
@@ -258,29 +255,6 @@ export function CaptureGame({
     throwScale,
   ]);
 
-  const playChanceMissEffect = useCallback(() => {
-    setShowChanceMiss(true);
-    chanceMissProgress.setValue(0);
-
-    Animated.sequence([
-      Animated.timing(chanceMissProgress, {
-        toValue: 1,
-        duration: 180,
-        easing: Easing.out(Easing.back(1.6)),
-        useNativeDriver: true,
-      }),
-      Animated.delay(220),
-      Animated.timing(chanceMissProgress, {
-        toValue: 0,
-        duration: 220,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setShowChanceMiss(false);
-      respawnFrame();
-    });
-  }, [chanceMissProgress, respawnFrame]);
-
   const panResponder = useMemo(
     () =>
       PanResponder.create({
@@ -370,14 +344,7 @@ export function CaptureGame({
               pulseScaleValue.current <= SUCCESS_SCALE;
 
             if (isPositionMatched && isTimingMatched) {
-              const isCaptured = Math.random() < CAPTURE_SUCCESS_RATE;
-
-              if (isCaptured) {
-                finishGame('success');
-                return;
-              }
-
-              playChanceMissEffect();
+              finishGame('success');
               return;
             }
 
@@ -389,7 +356,6 @@ export function CaptureGame({
     [
       frameOrigin.y,
       isThrowing,
-      playChanceMissEffect,
       resetFrame,
       respawnFrame,
       targetCenter.y,
@@ -505,32 +471,6 @@ export function CaptureGame({
         </Animated.View>
       )}
 
-      {showChanceMiss && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.chanceMissEffect,
-            {
-              left: targetCenter.x - 70,
-              opacity: chanceMissProgress,
-              top: targetCenter.y - 70,
-              transform: [
-                {
-                  scale: chanceMissProgress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.65, 1.15],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.chanceMissRing}>
-            <Ionicons color="#FFD55C" name="sparkles" size={38} />
-          </View>
-          <Text style={styles.chanceMissText}>아깝다!</Text>
-        </Animated.View>
-      )}
       <Text
         pointerEvents="none"
         style={[
@@ -813,34 +753,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#233D2B',
     backgroundColor: '#31533B',
-  },
-  chanceMissEffect: {
-    position: 'absolute',
-    zIndex: 6,
-    width: 140,
-    height: 140,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chanceMissRing: {
-    width: 92,
-    height: 92,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 5,
-    borderColor: '#FFD55C',
-    borderRadius: 46,
-    backgroundColor: 'rgba(88, 58, 20, 0.55)',
-  },
-  chanceMissText: {
-    position: 'absolute',
-    bottom: -2,
-    color: '#FFF4C7',
-    fontSize: 22,
-    fontWeight: '900',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 2 },
-    textShadowRadius: 3,
   },
   successBottomSheet: {
     position: 'absolute',
