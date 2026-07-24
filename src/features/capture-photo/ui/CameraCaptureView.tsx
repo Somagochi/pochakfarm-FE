@@ -39,6 +39,7 @@ export function CameraCaptureView() {
     try {
       const photo = await cameraRef.current.takePictureAsync({
         quality: 1,
+        shutterSound: false,
       });
 
       if (photo?.uri) {
@@ -86,6 +87,7 @@ export function CameraCaptureView() {
   return (
     <View style={styles.container}>
       <CameraView
+        animateShutter={false}
         facing="back"
         flash="off"
         ref={cameraRef}
