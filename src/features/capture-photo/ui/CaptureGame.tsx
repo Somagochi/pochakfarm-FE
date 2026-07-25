@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Image,
@@ -12,6 +13,8 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useRemovePhotoBackground } from '../model/useRemovePhotoBackground';
 
 const CAPTURE_SECONDS = 10;
 const FRAME_SIZE = 96;
@@ -59,6 +62,12 @@ export function CaptureGame({
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
+  const {
+    errorMessage: segmentationError,
+    removeBackground,
+    resultUri: segmentedPhotoUri,
+    state: segmentationState,
+  } = useRemovePhotoBackground();
 
   const targetCenter = useMemo(
     () => ({
@@ -137,6 +146,14 @@ export function CaptureGame({
       pulseScale.removeListener(listenerId);
     };
   }, [pulseScale, result]);
+
+  useEffect(() => {
+    if (result !== 'success') {
+      return;
+    }
+
+    void removeBackground(photoUri);
+  }, [photoUri, removeBackground, result]);
 
   useEffect(() => {
     if (result !== 'success') {
@@ -507,12 +524,30 @@ export function CaptureGame({
           accessibilityViewIsModal
           style={styles.successOnlyScreen}
         >
-          <Image
-            resizeMode="cover"
-            source={{ uri: photoUri }}
-            style={StyleSheet.absoluteFill}
-          />
-          <View pointerEvents="none" style={styles.successPhotoDim} />
+          {segmentedPhotoUri ? (
+            <View style={styles.segmentedPreview}>
+              <View style={styles.previewCircle} />
+              <Image
+                accessibilityLabel="배경이 제거된 동물 사진"
+                resizeMode="contain"
+                source={{ uri: segmentedPhotoUri }}
+                style={styles.segmentedPhoto}
+              />
+              <Text style={styles.segmentedTitle}>동물 포착 완료!</Text>
+              <Text style={styles.segmentedDescription}>
+                배경을 깔끔하게 분리했어요
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Image
+                resizeMode="cover"
+                source={{ uri: photoUri }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View pointerEvents="none" style={styles.successPhotoDim} />
+            </>
+          )}
 
           {showSuccessEffect && (
             <Animated.View
@@ -545,7 +580,37 @@ export function CaptureGame({
             </Animated.View>
           )}
 
-          {showSuccessModal && (
+          {segmentationState === 'processing' && !showSuccessEffect && (
+            <View style={styles.processingCard}>
+              <ActivityIndicator color="#31533B" size="large" />
+              <Text style={styles.processingTitle}>동물을 분리하고 있어요</Text>
+              <Text style={styles.processingDescription}>
+                첫 실행에서는 모델 준비에 잠시 시간이 걸릴 수 있어요
+              </Text>
+            </View>
+          )}
+
+          {segmentationState === 'error' && (
+            <View style={styles.processingCard}>
+              <Ionicons color="#7B6650" name="alert-circle-outline" size={44} />
+              <Text style={styles.processingTitle}>동물을 분리하지 못했어요</Text>
+              <Text style={styles.processingDescription}>
+                {segmentationError}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void removeBackground(photoUri)}
+                style={({ pressed }) => [
+                  styles.segmentationRetryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.segmentationRetryText}>다시 시도</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {showSuccessModal && segmentationState === 'success' && (
             <Animated.View
               style={[
                 styles.successBottomSheet,
@@ -811,6 +876,73 @@ const styles = StyleSheet.create({
   successPhotoDim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(15, 28, 14, 0.12)',
+  },
+  segmentedPreview: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 150,
+    backgroundColor: '#E8F2D8',
+  },
+  previewCircle: {
+    position: 'absolute',
+    width: 330,
+    height: 330,
+    borderRadius: 165,
+    backgroundColor: '#FFF9E9',
+  },
+  segmentedPhoto: {
+    width: '88%',
+    height: '58%',
+  },
+  segmentedTitle: {
+    marginTop: 18,
+    color: '#31533B',
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  segmentedDescription: {
+    marginTop: 6,
+    color: '#66805E',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  processingCard: {
+    position: 'absolute',
+    top: '38%',
+    right: 28,
+    left: 28,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    borderRadius: 24,
+    backgroundColor: '#FFF9E9',
+  },
+  processingTitle: {
+    marginTop: 14,
+    color: '#31533B',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  processingDescription: {
+    marginTop: 8,
+    color: '#66805E',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  segmentationRetryButton: {
+    marginTop: 18,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#31533B',
+  },
+  segmentationRetryText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
   },
   successEffect: {
     position: 'absolute',
