@@ -1,4 +1,5 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
@@ -26,6 +27,7 @@ export function CameraCaptureView() {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const insets = useSafeAreaInsets();
 
@@ -52,6 +54,33 @@ export function CameraCaptureView() {
     }
   };
 
+  const handleSelectPhoto = async () => {
+    if (isSelectingPhoto) {
+      return;
+    }
+
+    setIsSelectingPhoto(true);
+
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 1,
+      });
+      const selectedPhoto = result.assets?.[0];
+
+      if (!result.canceled && selectedPhoto?.uri) {
+        setCapturedPhotoUri(selectedPhoto.uri);
+      }
+    } catch {
+      Alert.alert(
+        '사진 선택 실패',
+        '앨범에서 사진을 불러오지 못했습니다. 다시 시도해 주세요.',
+      );
+    } finally {
+      setIsSelectingPhoto(false);
+    }
+  };
+
   if (!permission) {
     return (
       <View style={styles.permissionScreen}>
@@ -69,6 +98,15 @@ export function CameraCaptureView() {
         </Text>
         <Pressable onPress={requestPermission} style={styles.permissionButton}>
           <Text style={styles.permissionButtonText}>카메라 권한 허용</Text>
+        </Pressable>
+        <Pressable
+          disabled={isSelectingPhoto}
+          onPress={handleSelectPhoto}
+          style={styles.albumPermissionButton}
+        >
+          <Text style={styles.albumPermissionButtonText}>
+            앨범에서 사진 선택
+          </Text>
         </Pressable>
       </View>
     );
@@ -157,12 +195,11 @@ export function CameraCaptureView() {
         <Pressable
           accessibilityLabel="앨범에서 사진 선택"
           accessibilityRole="button"
-          onPress={() =>
-            Alert.alert('앨범', '앨범 사진 선택 기능은 다음 단계에서 연결됩니다.')
-          }
+          disabled={isSelectingPhoto}
+          onPress={handleSelectPhoto}
           style={({ pressed }) => [
             styles.albumButton,
-            pressed && styles.buttonPressed,
+            (pressed || isSelectingPhoto) && styles.buttonPressed,
           ]}
         >
           <Image
@@ -369,6 +406,20 @@ const styles = StyleSheet.create({
   },
   permissionButtonText: {
     color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  albumPermissionButton: {
+    marginTop: 12,
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderWidth: 2,
+    borderColor: '#31533B',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  albumPermissionButtonText: {
+    color: '#31533B',
     fontSize: 16,
     fontWeight: '700',
   },
