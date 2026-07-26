@@ -7,8 +7,8 @@ type SubjectSegmentationNativeModule = {
 };
 
 function getSubjectSegmentationModule() {
-  if (Platform.OS !== 'android') {
-    throw new Error('동물 배경 분리는 현재 Android에서만 지원합니다.');
+  if (Platform.OS !== 'android' && Platform.OS !== 'ios') {
+    throw new Error('동물 배경 분리는 현재 Android와 iOS에서만 지원합니다.');
   }
 
   return requireNativeModule<SubjectSegmentationNativeModule>(
