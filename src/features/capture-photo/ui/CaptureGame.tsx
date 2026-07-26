@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
+  Easing,
   Image,
   PanResponder,
   Pressable,
@@ -12,13 +14,22 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useRemovePhotoBackground } from '../model/useRemovePhotoBackground';
+
 const CAPTURE_SECONDS = 10;
 const FRAME_SIZE = 96;
 const TARGET_SIZE = 310;
 const SUCCESS_DISTANCE = 72;
 const SUCCESS_SCALE = 0.38;
+const MIN_THROW_DISTANCE = 24;
+const MIN_THROW_VELOCITY = 0.18;
+const MAX_THROWS = 3;
+const USE_PHOTO_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/use-photo-prompt.png');
+const RETAKE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/retake-button.png');
+const USE_PHOTO_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/use-photo-button.png');
 
 type CaptureResult = 'success' | 'failure' | null;
+type FailureReason = 'timeout' | 'attempts' | null;
 
 type CaptureGameProps = {
   photoUri: string;
@@ -35,10 +46,28 @@ export function CaptureGame({
   const insets = useSafeAreaInsets();
   const [secondsLeft, setSecondsLeft] = useState(CAPTURE_SECONDS);
   const [result, setResult] = useState<CaptureResult>(null);
-  const dragPosition = useRef(new Animated.ValueXY()).current;
+  const [failureReason, setFailureReason] = useState<FailureReason>(null);
+  const [throwsUsed, setThrowsUsed] = useState(0);
+  const [isThrowing, setIsThrowing] = useState(false);
+  const [isFrameVisible, setIsFrameVisible] = useState(true);
+  const [showSuccessEffect, setShowSuccessEffect] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const throwPosition = useRef(new Animated.ValueXY()).current;
+  const throwRotation = useRef(new Animated.Value(0)).current;
+  const throwScale = useRef(new Animated.Value(1)).current;
+  const throwArc = useRef(new Animated.Value(0)).current;
+  const throwOpacity = useRef(new Animated.Value(1)).current;
+  const successEffectProgress = useRef(new Animated.Value(0)).current;
+  const bottomSheetTranslateY = useRef(new Animated.Value(340)).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
+  const {
+    errorMessage: segmentationError,
+    removeBackground,
+    resultUri: segmentedPhotoUri,
+    state: segmentationState,
+  } = useRemovePhotoBackground();
 
   const targetCenter = useMemo(
     () => ({
@@ -55,12 +84,16 @@ export function CaptureGame({
     [height, insets.bottom, width],
   );
 
-  const finishGame = (nextResult: Exclude<CaptureResult, null>) => {
+  const finishGame = (
+    nextResult: Exclude<CaptureResult, null>,
+    nextFailureReason: FailureReason = null,
+  ) => {
     if (resultRef.current) {
       return;
     }
 
     resultRef.current = nextResult;
+    setFailureReason(nextFailureReason);
     setResult(nextResult);
   };
 
@@ -72,7 +105,7 @@ export function CaptureGame({
     const timer = setInterval(() => {
       setSecondsLeft((current) => {
         if (current <= 1) {
-          finishGame('failure');
+          finishGame('failure', 'timeout');
           return 0;
         }
 
@@ -114,50 +147,263 @@ export function CaptureGame({
     };
   }, [pulseScale, result]);
 
+  useEffect(() => {
+    if (result !== 'success') {
+      return;
+    }
+
+    void removeBackground(photoUri);
+  }, [photoUri, removeBackground, result]);
+
+  useEffect(() => {
+    if (result !== 'success') {
+      return;
+    }
+
+    setShowSuccessEffect(true);
+    successEffectProgress.setValue(0);
+
+    Animated.sequence([
+      Animated.timing(successEffectProgress, {
+        toValue: 1,
+        duration: 200,
+        easing: Easing.out(Easing.back(1.8)),
+        useNativeDriver: true,
+      }),
+      Animated.delay(300),
+      Animated.timing(successEffectProgress, {
+        toValue: 0,
+        duration: 240,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowSuccessEffect(false);
+      setShowSuccessModal(true);
+    });
+  }, [result, successEffectProgress]);
+
+  useEffect(() => {
+    if (!showSuccessModal) {
+      return;
+    }
+
+    Animated.spring(bottomSheetTranslateY, {
+      toValue: 0,
+      speed: 16,
+      bounciness: 3,
+      useNativeDriver: true,
+    }).start();
+  }, [bottomSheetTranslateY, showSuccessModal]);
+
+  const resetFrame = useCallback(() => {
+    Animated.parallel([
+      Animated.spring(throwPosition, {
+        toValue: { x: 0, y: 0 },
+        speed: 18,
+        bounciness: 8,
+        useNativeDriver: true,
+      }),
+      Animated.timing(throwRotation, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(throwScale, {
+        toValue: 1,
+        speed: 18,
+        bounciness: 6,
+        useNativeDriver: true,
+      }),
+      Animated.timing(throwArc, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(throwOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => setIsThrowing(false));
+  }, [
+    throwArc,
+    throwOpacity,
+    throwPosition,
+    throwRotation,
+    throwScale,
+  ]);
+
+  const respawnFrame = useCallback(() => {
+    Animated.timing(throwOpacity, {
+      toValue: 0,
+      duration: 140,
+      useNativeDriver: true,
+    }).start(() => {
+      setIsFrameVisible(false);
+
+      Animated.parallel([
+        Animated.timing(throwPosition, {
+          toValue: { x: 0, y: 0 },
+          duration: 0,
+          useNativeDriver: true,
+        }),
+        Animated.timing(throwRotation, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+        Animated.timing(throwArc, {
+          toValue: 0,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+        Animated.timing(throwScale, {
+          toValue: 1,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+        Animated.timing(throwOpacity, {
+          toValue: 1,
+          duration: 0,
+          useNativeDriver: true,
+        }),
+      ]).start(() => {
+        setIsFrameVisible(true);
+        setIsThrowing(false);
+      });
+    });
+  }, [
+    throwArc,
+    throwOpacity,
+    throwPosition,
+    throwRotation,
+    throwScale,
+  ]);
+
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => !resultRef.current,
-        onMoveShouldSetPanResponder: () => !resultRef.current,
+        onStartShouldSetPanResponder: () =>
+          !isThrowing && !resultRef.current,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          !isThrowing &&
+          !resultRef.current &&
+          (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3),
         onPanResponderMove: (_, gestureState) => {
-          dragPosition.setValue({
-            x: gestureState.dx,
-            y: gestureState.dy,
+          throwPosition.setValue({
+            x: Math.max(-14, Math.min(14, gestureState.dx * 0.12)),
+            y: Math.max(-16, Math.min(8, gestureState.dy * 0.1)),
           });
         },
         onPanResponderRelease: (_, gestureState) => {
-          const frameCenterX =
-            frameOrigin.x + gestureState.dx + FRAME_SIZE / 2;
-          const frameCenterY =
-            frameOrigin.y + gestureState.dy + FRAME_SIZE / 2;
-          const distance = Math.hypot(
-            frameCenterX - targetCenter.x,
-            frameCenterY - targetCenter.y,
-          );
-          const isPositionMatched = distance <= SUCCESS_DISTANCE;
-          const isTimingMatched = pulseScaleValue.current <= SUCCESS_SCALE;
+          const isUpwardFlick =
+            gestureState.dy <= -MIN_THROW_DISTANCE &&
+            gestureState.vy <= -MIN_THROW_VELOCITY;
 
-          if (isPositionMatched && isTimingMatched) {
-            finishGame('success');
+          if (!isUpwardFlick) {
+            resetFrame();
             return;
           }
 
-          Animated.spring(dragPosition, {
-            toValue: { x: 0, y: 0 },
-            speed: 18,
-            bounciness: 8,
-            useNativeDriver: false,
-          }).start();
+          setIsThrowing(true);
+          const nextThrowsUsed = throwsUsed + 1;
+          setThrowsUsed(nextThrowsUsed);
+
+          const upwardSpeed = Math.abs(gestureState.vy);
+          const horizontalOffset = Math.max(
+            -width * 0.42,
+            Math.min(
+              width * 0.42,
+              gestureState.dx * 1.35 + gestureState.vx * 80,
+            ),
+          );
+          const destinationY =
+            targetCenter.y - (frameOrigin.y + FRAME_SIZE / 2);
+          const flightDuration = Math.max(
+            320,
+            Math.min(650, 680 - upwardSpeed * 180),
+          );
+
+          Animated.parallel([
+            Animated.timing(throwPosition, {
+              toValue: {
+                x: horizontalOffset,
+                y: destinationY,
+              },
+              duration: flightDuration,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+            Animated.timing(throwRotation, {
+              toValue: gestureState.vx < 0 ? -1 : 1,
+              duration: flightDuration,
+              easing: Easing.linear,
+              useNativeDriver: true,
+            }),
+            Animated.timing(throwScale, {
+              toValue: 0.72,
+              duration: flightDuration,
+              easing: Easing.out(Easing.quad),
+              useNativeDriver: true,
+            }),
+            Animated.sequence([
+              Animated.timing(throwArc, {
+                toValue: -42,
+                duration: flightDuration * 0.48,
+                easing: Easing.out(Easing.quad),
+                useNativeDriver: true,
+              }),
+              Animated.timing(throwArc, {
+                toValue: 0,
+                duration: flightDuration * 0.52,
+                easing: Easing.in(Easing.quad),
+                useNativeDriver: true,
+              }),
+            ]),
+          ]).start(({ finished }) => {
+            if (!finished || resultRef.current) {
+              return;
+            }
+
+            const isPositionMatched =
+              Math.abs(horizontalOffset) <= SUCCESS_DISTANCE;
+            const isTimingMatched =
+              pulseScaleValue.current <= SUCCESS_SCALE;
+
+            if (isPositionMatched && isTimingMatched) {
+              finishGame('success');
+              return;
+            }
+
+            if (nextThrowsUsed >= MAX_THROWS) {
+              finishGame('failure', 'attempts');
+              return;
+            }
+
+            respawnFrame();
+          });
         },
-        onPanResponderTerminate: () => {
-          Animated.spring(dragPosition, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
-        },
+        onPanResponderTerminate: resetFrame,
       }),
-    [dragPosition, frameOrigin, targetCenter],
+    [
+      frameOrigin.y,
+      isThrowing,
+      resetFrame,
+      respawnFrame,
+      targetCenter.y,
+      throwPosition,
+      throwArc,
+      throwRotation,
+      throwScale,
+      throwsUsed,
+      width,
+    ],
   );
+
+  const frameRotation = throwRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   return (
     <View style={styles.container}>
@@ -199,7 +445,10 @@ export function CaptureGame({
       </View>
 
       <Text style={[styles.guideText, { top: insets.top + 192 }]}>
-        액자를 던져 포착하세요!
+        액자를 위로 튕겨 포착하세요!
+      </Text>
+      <Text style={[styles.remainingThrowsText, { top: insets.top + 226 }]}>
+        남은 액자 {MAX_THROWS - throwsUsed}개
       </Text>
 
       <View
@@ -213,8 +462,6 @@ export function CaptureGame({
         ]}
       >
         <View style={[styles.targetRing, styles.targetRingOuter]} />
-        <View style={[styles.targetRing, styles.targetRingMiddle]} />
-        <View style={[styles.targetRing, styles.targetRingInner]} />
         <Animated.View
           style={[
             styles.pulseRing,
@@ -228,25 +475,38 @@ export function CaptureGame({
         </View>
       </View>
 
-      <Animated.View
-        accessibilityLabel="포착 액자"
-        accessibilityRole="button"
-        style={[
-          styles.draggableFrame,
-          {
-            left: frameOrigin.x,
-            top: frameOrigin.y,
-            transform: dragPosition.getTranslateTransform(),
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.frameOuter}>
-          <View style={styles.frameInner}>
-            <Ionicons color="#FFF4DA" name="paw" size={34} />
+      {isFrameVisible && (
+        <Animated.View
+          style={[
+            styles.throwingFrame,
+            {
+              left: frameOrigin.x,
+              opacity: throwOpacity,
+              top: frameOrigin.y,
+              transform: [
+                ...throwPosition.getTranslateTransform(),
+                { translateY: throwArc },
+                { rotate: frameRotation },
+                { scale: throwScale },
+              ],
+            },
+          ]}
+          {...panResponder.panHandlers}
+        >
+          <View
+            accessibilityLabel="위로 튕겨 던지는 포착 액자"
+            accessibilityRole="button"
+            style={styles.frameButton}
+          >
+            <View style={styles.frameOuter}>
+              <View style={styles.frameInner}>
+                <Ionicons color="#FFF4DA" name="paw" size={34} />
+              </View>
+            </View>
           </View>
-        </View>
-      </Animated.View>
+        </Animated.View>
+      )}
+
       <Text
         pointerEvents="none"
         style={[
@@ -259,20 +519,156 @@ export function CaptureGame({
         액자 던지기
       </Text>
 
-      {result && (
+      {result === 'success' && (
+        <View
+          accessibilityViewIsModal
+          style={styles.successOnlyScreen}
+        >
+          {segmentedPhotoUri ? (
+            <View style={styles.segmentedPreview}>
+              <View style={styles.previewCircle} />
+              <Image
+                accessibilityLabel="배경이 제거된 동물 사진"
+                resizeMode="contain"
+                source={{ uri: segmentedPhotoUri }}
+                style={styles.segmentedPhoto}
+              />
+              <Text style={styles.segmentedTitle}>동물 포착 완료!</Text>
+              <Text style={styles.segmentedDescription}>
+                배경을 깔끔하게 분리했어요
+              </Text>
+            </View>
+          ) : (
+            <>
+              <Image
+                resizeMode="cover"
+                source={{ uri: photoUri }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View pointerEvents="none" style={styles.successPhotoDim} />
+            </>
+          )}
+
+          {showSuccessEffect && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.successEffect,
+                {
+                  opacity: successEffectProgress,
+                  transform: [
+                    {
+                      scale: successEffectProgress.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.45, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.successEffectRing}>
+                <Ionicons color="#FFF4A8" name="paw" size={58} />
+              </View>
+              <Ionicons
+                color="#FFD34D"
+                name="sparkles"
+                size={48}
+                style={styles.successSparkle}
+              />
+              <Text style={styles.successEffectText}>포착 성공!</Text>
+            </Animated.View>
+          )}
+
+          {segmentationState === 'processing' && !showSuccessEffect && (
+            <View style={styles.processingCard}>
+              <ActivityIndicator color="#31533B" size="large" />
+              <Text style={styles.processingTitle}>동물을 분리하고 있어요</Text>
+              <Text style={styles.processingDescription}>
+                첫 실행에서는 모델 준비에 잠시 시간이 걸릴 수 있어요
+              </Text>
+            </View>
+          )}
+
+          {segmentationState === 'error' && (
+            <View style={styles.processingCard}>
+              <Ionicons color="#7B6650" name="alert-circle-outline" size={44} />
+              <Text style={styles.processingTitle}>동물을 분리하지 못했어요</Text>
+              <Text style={styles.processingDescription}>
+                {segmentationError}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => void removeBackground(photoUri)}
+                style={({ pressed }) => [
+                  styles.segmentationRetryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.segmentationRetryText}>다시 시도</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {showSuccessModal && segmentationState === 'success' && (
+            <Animated.View
+              style={[
+                styles.successBottomSheet,
+                {
+                  paddingBottom: insets.bottom + 24,
+                  transform: [{ translateY: bottomSheetTranslateY }],
+                },
+            ]}
+          >
+              <Image
+                accessibilityLabel="이 이미지를 가지고 만들어볼까요?"
+                resizeMode="contain"
+                source={USE_PHOTO_PROMPT_IMAGE}
+                style={styles.bottomSheetTitleImage}
+              />
+              <View style={styles.bottomSheetActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onRetry}
+                style={({ pressed }) => [
+                    styles.decisionButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={RETAKE_BUTTON_IMAGE}
+                    style={styles.decisionButtonImage}
+                  />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onClose}
+                  style={({ pressed }) => [
+                    styles.decisionButton,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={USE_PHOTO_BUTTON_IMAGE}
+                    style={styles.decisionButtonImage}
+                  />
+                </Pressable>
+              </View>
+            </Animated.View>
+          )}
+        </View>
+      )}
+
+      {result === 'failure' && (
         <View style={styles.resultOverlay}>
           <View style={styles.resultCard}>
-            <Ionicons
-              color={result === 'success' ? '#D99A00' : '#7B6650'}
-              name={result === 'success' ? 'sparkles' : 'time-outline'}
-              size={46}
-            />
-            <Text style={styles.resultTitle}>
-              {result === 'success' ? '포착 성공!' : '포착 실패'}
-            </Text>
+            <Ionicons color="#7B6650" name="time-outline" size={46} />
+            <Text style={styles.resultTitle}>포착 실패</Text>
             <Text style={styles.resultDescription}>
-              {result === 'success'
-                ? '동물을 성공적으로 포착했어요.'
+              {failureReason === 'attempts'
+                ? '액자를 모두 사용했어요. 다시 도전해 보세요.'
                 : '제한 시간이 지났어요. 다시 도전해 보세요.'}
             </Text>
             <View style={styles.resultActions}>
@@ -376,6 +772,17 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 2 },
     textShadowRadius: 3,
   },
+  remainingThrowsText: {
+    position: 'absolute',
+    zIndex: 2,
+    alignSelf: 'center',
+    color: '#FFF4A8',
+    fontSize: 15,
+    fontWeight: '800',
+    textShadowColor: 'rgba(0, 0, 0, 0.7)',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 3,
+  },
   target: {
     position: 'absolute',
     width: TARGET_SIZE,
@@ -392,14 +799,6 @@ const styles = StyleSheet.create({
   targetRingOuter: {
     width: TARGET_SIZE,
     height: TARGET_SIZE,
-  },
-  targetRingMiddle: {
-    width: TARGET_SIZE * 0.72,
-    height: TARGET_SIZE * 0.72,
-  },
-  targetRingInner: {
-    width: TARGET_SIZE * 0.44,
-    height: TARGET_SIZE * 0.44,
   },
   pulseRing: {
     position: 'absolute',
@@ -418,9 +817,13 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     backgroundColor: 'rgba(255, 201, 61, 0.3)',
   },
-  draggableFrame: {
+  throwingFrame: {
     position: 'absolute',
     zIndex: 4,
+    width: FRAME_SIZE,
+    height: FRAME_SIZE,
+  },
+  frameButton: {
     width: FRAME_SIZE,
     height: FRAME_SIZE,
     alignItems: 'center',
@@ -447,6 +850,153 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#233D2B',
     backgroundColor: '#31533B',
+  },
+  successBottomSheet: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    zIndex: 10,
+    alignItems: 'center',
+    paddingTop: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 4,
+    borderRightWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: '#C8B998',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    backgroundColor: '#FFFCF5',
+  },
+  successOnlyScreen: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    backgroundColor: '#000000',
+  },
+  successPhotoDim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(15, 28, 14, 0.12)',
+  },
+  segmentedPreview: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 150,
+    backgroundColor: '#E8F2D8',
+  },
+  previewCircle: {
+    position: 'absolute',
+    width: 330,
+    height: 330,
+    borderRadius: 165,
+    backgroundColor: '#FFF9E9',
+  },
+  segmentedPhoto: {
+    width: '88%',
+    height: '58%',
+  },
+  segmentedTitle: {
+    marginTop: 18,
+    color: '#31533B',
+    fontSize: 26,
+    fontWeight: '900',
+  },
+  segmentedDescription: {
+    marginTop: 6,
+    color: '#66805E',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  processingCard: {
+    position: 'absolute',
+    top: '38%',
+    right: 28,
+    left: 28,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 28,
+    borderRadius: 24,
+    backgroundColor: '#FFF9E9',
+  },
+  processingTitle: {
+    marginTop: 14,
+    color: '#31533B',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  processingDescription: {
+    marginTop: 8,
+    color: '#66805E',
+    fontSize: 14,
+    fontWeight: '600',
+    lineHeight: 20,
+    textAlign: 'center',
+  },
+  segmentationRetryButton: {
+    marginTop: 18,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: '#31533B',
+  },
+  segmentationRetryText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  successEffect: {
+    position: 'absolute',
+    top: '37%',
+    alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successEffectRing: {
+    width: 138,
+    height: 138,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 7,
+    borderColor: '#FFD34D',
+    borderRadius: 69,
+    backgroundColor: 'rgba(49, 83, 59, 0.78)',
+    shadowColor: '#FFD34D',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  successSparkle: {
+    position: 'absolute',
+    top: -18,
+    right: -22,
+  },
+  successEffectText: {
+    marginTop: 18,
+    color: '#FFF4A8',
+    fontSize: 30,
+    fontWeight: '900',
+    textShadowColor: 'rgba(0, 0, 0, 0.8)',
+    textShadowOffset: { width: 1, height: 2 },
+    textShadowRadius: 3,
+  },
+  bottomSheetTitleImage: {
+    width: 194,
+    height: 28,
+  },
+  bottomSheetActions: {
+    width: '100%',
+    flexDirection: 'row',
+    marginTop: 1.74,
+    columnGap: 4,
+  },
+  decisionButton: {
+    flex: 1,
+    aspectRatio: 80 / 27,
+  },
+  decisionButtonImage: {
+    width: '100%',
+    height: '100%',
   },
   throwLabel: {
     position: 'absolute',

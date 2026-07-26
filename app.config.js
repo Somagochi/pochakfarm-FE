@@ -76,11 +76,13 @@ plugins.push([
   {
     android: {
       extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/'],
+      minSdkVersion: 24,
     },
   },
 ]);
 
 plugins.push('./plugins/with-android-cleartext-network');
+plugins.push('./plugins/with-subject-segmentation');
 
 module.exports = {
   expo: {
