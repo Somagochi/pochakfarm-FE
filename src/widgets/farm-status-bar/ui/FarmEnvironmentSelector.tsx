@@ -35,7 +35,7 @@ const ENVIRONMENTS = [
 }[];
 
 export type FarmEnvironment = (typeof ENVIRONMENTS)[number]['key'];
-export type SelectableFarmEnvironment = Exclude<FarmEnvironment, 'sky'>;
+export type SelectableFarmEnvironment = FarmEnvironment;
 
 const ENVIRONMENT_MENUS: Record<FarmEnvironment, ImageSourcePropType> = {
   sky: require('@/src/shared/assets/images/farm-status/environment-menu-sky.png'),
@@ -56,12 +56,10 @@ export function FarmEnvironmentSelector({
   const [isOpen, setIsOpen] = useState(false);
   const selectedSource =
     ENVIRONMENTS.find(({ key }) => key === selectedEnvironment)?.source ??
-    ENVIRONMENTS[1].source;
+    ENVIRONMENTS[0].source;
 
   const selectEnvironment = (environment: FarmEnvironment) => {
-    if (environment !== 'sky') {
-      onSelectEnvironment(environment);
-    }
+    onSelectEnvironment(environment);
     setIsOpen(false);
   };
 
@@ -94,15 +92,12 @@ export function FarmEnvironmentSelector({
                 accessibilityLabel={`${label} 환경 선택`}
                 accessibilityRole="button"
                 accessibilityState={{
-                  disabled: key === 'sky',
                   selected: selectedEnvironment === key,
                 }}
-                disabled={key === 'sky'}
                 key={key}
                 onPress={() => selectEnvironment(key)}
                 style={({ pressed }) => [
                   styles.menuButton,
-                  key === 'sky' && styles.disabledMenuButton,
                   pressed && styles.menuButtonPressed,
                 ]}
               />
@@ -146,8 +141,5 @@ const styles = StyleSheet.create({
   },
   menuButtonPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
-  },
-  disabledMenuButton: {
-    opacity: 0.45,
   },
 });

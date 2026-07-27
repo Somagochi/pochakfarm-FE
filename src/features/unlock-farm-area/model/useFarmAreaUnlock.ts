@@ -5,7 +5,9 @@ const FARM_UNLOCK_STORAGE_KEY = 'farm-unlocked-area-count';
 const DEFAULT_UNLOCKED_AREA_COUNT = 1;
 const MAX_AREA_COUNT = 4;
 
-export function useFarmAreaUnlock(environment: 'land' | 'sea' | 'space') {
+export function useFarmAreaUnlock(
+  environment: 'sky' | 'land' | 'sea' | 'space',
+) {
   const storageKey =
     environment === 'land'
       ? FARM_UNLOCK_STORAGE_KEY

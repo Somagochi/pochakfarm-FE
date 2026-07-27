@@ -12,6 +12,10 @@ import {
 } from '@/src/features/unlock-farm-area';
 
 const ENVIRONMENT_ASSETS = {
+  sky: {
+    background: require('@/src/shared/assets/images/farm/sky-background.png'),
+    unlock: require('@/src/shared/assets/images/farm/unlock-sky-area.png'),
+  },
   land: {
     background: require('@/src/shared/assets/images/farm/farm-background.png'),
     unlock: require('@/src/shared/assets/images/farm/unlock-area.png'),
@@ -35,7 +39,7 @@ const FARM_AREAS = [
 ];
 
 type FarmFieldProps = {
-  environment: 'land' | 'sea' | 'space';
+  environment: 'sky' | 'land' | 'sea' | 'space';
   width: number;
 };
 
