@@ -11,12 +11,22 @@ import {
   useFarmAreaUnlock,
 } from '@/src/features/unlock-farm-area';
 
-const FARM_IMAGE = require('@/src/shared/assets/images/farm/farm-background.png');
-const { width: imageWidth, height: imageHeight } =
-  Image.resolveAssetSource(FARM_IMAGE);
+const ENVIRONMENT_ASSETS = {
+  land: {
+    background: require('@/src/shared/assets/images/farm/farm-background.png'),
+    unlock: require('@/src/shared/assets/images/farm/unlock-area.png'),
+  },
+  sea: {
+    background: require('@/src/shared/assets/images/farm/sea-background.png'),
+    unlock: require('@/src/shared/assets/images/farm/unlock-sea-area.png'),
+  },
+  space: {
+    background: require('@/src/shared/assets/images/farm/space-background.png'),
+    unlock: require('@/src/shared/assets/images/farm/unlock-space-area.png'),
+  },
+} as const;
 const REFERENCE_SCREEN_WIDTH = 411;
 const BASE_SLOT_SIZE = 58.4;
-const FARM_IMAGE_RATIO = imageHeight / imageWidth;
 const FARM_AREAS = [
   { areaNumber: 4, sourceCenterY: 700 },
   { areaNumber: 3, sourceCenterY: 1312 },
@@ -25,13 +35,18 @@ const FARM_AREAS = [
 ];
 
 type FarmFieldProps = {
+  environment: 'land' | 'sea' | 'space';
   width: number;
 };
 
-export function FarmField({ width }: FarmFieldProps) {
-  const { isReady, unlockArea, unlockedAreaCount } = useFarmAreaUnlock();
-  const canvasHeight = width * FARM_IMAGE_RATIO;
-  const imageScale = width / imageWidth;
+export function FarmField({ environment, width }: FarmFieldProps) {
+  const { background, unlock } = ENVIRONMENT_ASSETS[environment];
+  const { width: imageWidth, height: imageHeight } =
+    Image.resolveAssetSource(background);
+  const { isReady, unlockArea, unlockedAreaCount } =
+    useFarmAreaUnlock(environment);
+  const farmImageRatio = imageHeight / imageWidth;
+  const canvasHeight = width * farmImageRatio;
   const uiScale = width / REFERENCE_SCREEN_WIDTH;
   const slotSize = BASE_SLOT_SIZE * uiScale;
 
@@ -62,7 +77,7 @@ export function FarmField({ width }: FarmFieldProps) {
     <View style={[styles.canvas, { width, height: canvasHeight }]}>
       <Image
         resizeMode="contain"
-        source={FARM_IMAGE}
+        source={background}
         style={{ width, height: canvasHeight }}
       />
 
@@ -73,7 +88,9 @@ export function FarmField({ width }: FarmFieldProps) {
             style={[
               styles.areaRow,
               {
-                top: sourceCenterY * imageScale - slotSize / 2,
+                top:
+                  (sourceCenterY / 2983) * canvasHeight -
+                  slotSize / 2,
               },
             ]}
           >
@@ -83,6 +100,7 @@ export function FarmField({ width }: FarmFieldProps) {
               onPressSlot={() => router.push('/(tabs)/capture')}
               onPressUnlock={() => void handleUnlock(areaNumber)}
               scale={uiScale}
+              unlockImageSource={unlock}
             />
           </View>
         );

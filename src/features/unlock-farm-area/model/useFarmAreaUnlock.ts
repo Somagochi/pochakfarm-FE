@@ -5,7 +5,11 @@ const FARM_UNLOCK_STORAGE_KEY = 'farm-unlocked-area-count';
 const DEFAULT_UNLOCKED_AREA_COUNT = 1;
 const MAX_AREA_COUNT = 4;
 
-export function useFarmAreaUnlock() {
+export function useFarmAreaUnlock(environment: 'land' | 'sea' | 'space') {
+  const storageKey =
+    environment === 'land'
+      ? FARM_UNLOCK_STORAGE_KEY
+      : `${FARM_UNLOCK_STORAGE_KEY}-${environment}`;
   const [unlockedAreaCount, setUnlockedAreaCount] = useState(
     DEFAULT_UNLOCKED_AREA_COUNT,
   );
@@ -15,7 +19,7 @@ export function useFarmAreaUnlock() {
     async function loadUnlockedAreaCount() {
       try {
         const storedValue = await AsyncStorage.getItem(
-          FARM_UNLOCK_STORAGE_KEY,
+          storageKey,
         );
         const parsedValue = Number(storedValue);
 
@@ -32,7 +36,7 @@ export function useFarmAreaUnlock() {
     }
 
     void loadUnlockedAreaCount();
-  }, []);
+  }, [storageKey]);
 
   const unlockArea = useCallback(
     async (areaNumber: number) => {
@@ -44,7 +48,7 @@ export function useFarmAreaUnlock() {
 
       try {
         await AsyncStorage.setItem(
-          FARM_UNLOCK_STORAGE_KEY,
+          storageKey,
           String(areaNumber),
         );
         return true;
@@ -53,7 +57,7 @@ export function useFarmAreaUnlock() {
         return false;
       }
     },
-    [isReady, unlockedAreaCount],
+    [isReady, storageKey, unlockedAreaCount],
   );
 
   return {
