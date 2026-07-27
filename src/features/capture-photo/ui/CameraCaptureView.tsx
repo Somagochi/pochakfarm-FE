@@ -1,7 +1,7 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -9,6 +9,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,21 +19,63 @@ import { CaptureGame } from './CaptureGame';
 const CLOSE_IMAGE = require('@/src/shared/assets/images/capture/capture-close.png');
 const CAPTURE_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-title.png');
 const REMAINING_COUNT_IMAGE = require('@/src/shared/assets/images/capture/remaining-count.png');
-const CAPTURE_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/capture-guide.png');
+const CAPTURE_GUIDE_IMAGES = [
+  require('@/src/shared/assets/images/capture/capture-guide-angle.png'),
+  require('@/src/shared/assets/images/capture/capture-guide-subject.png'),
+  require('@/src/shared/assets/images/capture/capture-guide-copyright.png'),
+] as const;
 const ALBUM_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/album-button.png');
 const HELP_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/help-button.png');
 const SHUTTER_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/shutter-button.png');
+const CAPTURE_LIMIT_IMAGE = require('@/src/shared/assets/images/capture/capture-limit.png');
+const CAPTURE_COIN_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/capture-coin-dialog.png');
+const CAMERA_PERMISSION_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-dialog.png');
+const CAMERA_CARD_ASPECT_RATIO = 426 / 656;
+const CAMERA_CARD_HORIZONTAL_MARGIN = 11;
+const CAMERA_CARD_BUTTON_GAP = 24;
+const BOTTOM_BUTTON_SIZE = 64;
+const MAX_CAPTURE_COUNT = 5;
 
 export function CameraCaptureView() {
+  const { height: screenHeight, width: screenWidth } =
+    useWindowDimensions();
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
+  const [guideIndex, setGuideIndex] = useState(0);
+  const [remainingCaptureCount, setRemainingCaptureCount] =
+    useState(MAX_CAPTURE_COUNT);
+  const [isCoinDialogVisible, setIsCoinDialogVisible] = useState(false);
   const insets = useSafeAreaInsets();
+  const cameraCardTop = insets.top + 117;
+  const bottomControlsTop =
+    screenHeight - insets.bottom - 28 - BOTTOM_BUTTON_SIZE;
+  const availableCameraCardHeight =
+    bottomControlsTop - cameraCardTop - CAMERA_CARD_BUTTON_GAP;
+  const cameraCardWidth = Math.min(
+    screenWidth - CAMERA_CARD_HORIZONTAL_MARGIN * 2,
+    availableCameraCardHeight * CAMERA_CARD_ASPECT_RATIO,
+  );
+
+  useEffect(() => {
+    const guideTimer = setInterval(() => {
+      setGuideIndex(
+        (currentIndex) =>
+          (currentIndex + 1) % CAPTURE_GUIDE_IMAGES.length,
+      );
+    }, 3000);
+
+    return () => clearInterval(guideTimer);
+  }, []);
 
   const handleCapture = async () => {
-    if (!cameraRef.current || isCapturing) {
+    if (
+      !cameraRef.current ||
+      isCapturing ||
+      remainingCaptureCount === 0
+    ) {
       return;
     }
 
@@ -45,6 +88,9 @@ export function CameraCaptureView() {
       });
 
       if (photo?.uri) {
+        setRemainingCaptureCount((currentCount) =>
+          Math.max(0, currentCount - 1),
+        );
         setCapturedPhotoUri(photo.uri);
       }
     } catch {
@@ -55,7 +101,7 @@ export function CameraCaptureView() {
   };
 
   const handleSelectPhoto = async () => {
-    if (isSelectingPhoto) {
+    if (isSelectingPhoto || remainingCaptureCount === 0) {
       return;
     }
 
@@ -69,6 +115,9 @@ export function CameraCaptureView() {
       const selectedPhoto = result.assets?.[0];
 
       if (!result.canceled && selectedPhoto?.uri) {
+        setRemainingCaptureCount((currentCount) =>
+          Math.max(0, currentCount - 1),
+        );
         setCapturedPhotoUri(selectedPhoto.uri);
       }
     } catch {
@@ -89,25 +138,36 @@ export function CameraCaptureView() {
     );
   }
 
+  const handleUseCoins = () => {
+    setRemainingCaptureCount(1);
+    setIsCoinDialogVisible(false);
+  };
+
   if (!permission.granted) {
     return (
-      <View style={styles.permissionScreen}>
-        <Text style={styles.permissionTitle}>카메라 권한이 필요해요</Text>
-        <Text style={styles.permissionDescription}>
-          동물을 포착하려면 카메라 사용을 허용해 주세요.
-        </Text>
-        <Pressable onPress={requestPermission} style={styles.permissionButton}>
-          <Text style={styles.permissionButtonText}>카메라 권한 허용</Text>
-        </Pressable>
-        <Pressable
-          disabled={isSelectingPhoto}
-          onPress={handleSelectPhoto}
-          style={styles.albumPermissionButton}
-        >
-          <Text style={styles.albumPermissionButtonText}>
-            앨범에서 사진 선택
-          </Text>
-        </Pressable>
+      <View style={styles.permissionModalScreen}>
+        <View style={styles.permissionDimOverlay}>
+          <View style={styles.permissionDialog}>
+            <Image
+              accessibilityLabel="카메라 접근이 필요해요"
+              resizeMode="contain"
+              source={CAMERA_PERMISSION_DIALOG_IMAGE}
+              style={styles.permissionDialogImage}
+            />
+            <Pressable
+              accessibilityLabel="카메라 권한 안내 닫기"
+              accessibilityRole="button"
+              onPress={() => router.replace('/(tabs)/farm')}
+              style={styles.permissionDialogCloseButton}
+            />
+            <Pressable
+              accessibilityLabel="카메라 권한 허용하기"
+              accessibilityRole="button"
+              onPress={requestPermission}
+              style={styles.permissionDialogAllowButton}
+            />
+          </View>
+        </View>
       </View>
     );
   }
@@ -124,16 +184,6 @@ export function CameraCaptureView() {
 
   return (
     <View style={styles.container}>
-      <CameraView
-        animateShutter={false}
-        facing="back"
-        flash="off"
-        ref={cameraRef}
-        style={StyleSheet.absoluteFill}
-      />
-
-      <View style={styles.dimOverlay} pointerEvents="none" />
-
       <View style={[styles.captureHeader, { top: insets.top + 8 }]}>
         <Pressable
           accessibilityLabel="카메라 닫기"
@@ -158,7 +208,7 @@ export function CameraCaptureView() {
         </View>
 
         <View
-          accessibilityLabel="남은횟수 5 / 5"
+          accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${MAX_CAPTURE_COUNT}`}
           style={styles.remainingCountGroup}
         >
           <Image
@@ -166,22 +216,70 @@ export function CameraCaptureView() {
             source={REMAINING_COUNT_IMAGE}
             style={styles.remainingCountImage}
           />
-          <Text style={styles.remainingCountText}>5 / 5</Text>
+          <Text style={styles.remainingCountText}>
+            {remainingCaptureCount} / {MAX_CAPTURE_COUNT}
+          </Text>
         </View>
       </View>
 
       <Image
-        accessibilityLabel="화면 각도에 맞춰 촬영해주세요"
+        accessibilityLabel="촬영 가이드"
         resizeMode="contain"
-        source={CAPTURE_GUIDE_IMAGE}
-        style={[styles.guideImage, { top: insets.top + 89.2 }]}
+        source={CAPTURE_GUIDE_IMAGES[guideIndex]}
+        style={[styles.guideImage, { top: insets.top + 67 }]}
       />
 
-      <View pointerEvents="none" style={styles.focusFrame}>
-        <View style={[styles.corner, styles.topLeftCorner]} />
-        <View style={[styles.corner, styles.topRightCorner]} />
-        <View style={[styles.corner, styles.bottomLeftCorner]} />
-        <View style={[styles.corner, styles.bottomRightCorner]} />
+      <View
+        style={[
+          styles.cameraCard,
+          {
+            top: cameraCardTop,
+            width: cameraCardWidth,
+          },
+        ]}
+      >
+        <View style={styles.cameraBezel}>
+          <View style={styles.cameraViewport}>
+            <CameraView
+              animateShutter={false}
+              facing="back"
+              flash="off"
+              ref={cameraRef}
+              style={StyleSheet.absoluteFill}
+            />
+            <View style={styles.dimOverlay} pointerEvents="none" />
+            <View pointerEvents="none" style={styles.focusFrame}>
+              <View style={[styles.corner, styles.topLeftCorner]} />
+              <View style={[styles.corner, styles.topRightCorner]} />
+              <View style={[styles.corner, styles.bottomLeftCorner]} />
+              <View style={[styles.corner, styles.bottomRightCorner]} />
+            </View>
+            {remainingCaptureCount === 0 && (
+              <View style={styles.captureLimitOverlay}>
+                <View style={styles.captureLimitContent}>
+                  <Image
+                    accessibilityLabel="오늘의 포착 기회를 모두 사용했어요"
+                    resizeMode="contain"
+                    source={CAPTURE_LIMIT_IMAGE}
+                    style={styles.captureLimitImage}
+                  />
+                  <Pressable
+                    accessibilityLabel="200코인으로 포착하기"
+                    accessibilityRole="button"
+                    onPress={() => setIsCoinDialogVisible(true)}
+                    style={({ pressed }) => [
+                      styles.captureLimitButton,
+                      pressed && styles.buttonPressed,
+                    ]}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+          <Text pointerEvents="none" style={styles.cameraBrand}>
+            POCHAKFARM
+          </Text>
+        </View>
       </View>
 
       <View
@@ -195,11 +293,14 @@ export function CameraCaptureView() {
         <Pressable
           accessibilityLabel="앨범에서 사진 선택"
           accessibilityRole="button"
-          disabled={isSelectingPhoto}
+          disabled={
+            isSelectingPhoto || remainingCaptureCount === 0
+          }
           onPress={handleSelectPhoto}
           style={({ pressed }) => [
             styles.albumButton,
             (pressed || isSelectingPhoto) && styles.buttonPressed,
+            remainingCaptureCount === 0 && styles.disabledButton,
           ]}
         >
           <Image
@@ -212,11 +313,12 @@ export function CameraCaptureView() {
         <Pressable
           accessibilityLabel="사진 촬영"
           accessibilityRole="button"
-          disabled={isCapturing}
+          disabled={isCapturing || remainingCaptureCount === 0}
           onPress={handleCapture}
           style={({ pressed }) => [
             styles.shutterButton,
             (pressed || isCapturing) && styles.buttonPressed,
+            remainingCaptureCount === 0 && styles.disabledButton,
           ]}
         >
           <Image
@@ -247,6 +349,37 @@ export function CameraCaptureView() {
           />
         </Pressable>
       </View>
+
+      {isCoinDialogVisible && (
+        <View style={styles.dialogOverlay}>
+          <View style={styles.coinDialog}>
+            <Image
+              accessibilityLabel="200코인으로 포착 기회를 추가할까요?"
+              resizeMode="contain"
+              source={CAPTURE_COIN_DIALOG_IMAGE}
+              style={styles.coinDialogImage}
+            />
+            <Pressable
+              accessibilityLabel="닫기"
+              accessibilityRole="button"
+              onPress={() => setIsCoinDialogVisible(false)}
+              style={styles.dialogCloseButton}
+            />
+            <Pressable
+              accessibilityLabel="취소하기"
+              accessibilityRole="button"
+              onPress={() => setIsCoinDialogVisible(false)}
+              style={styles.dialogCancelButton}
+            />
+            <Pressable
+              accessibilityLabel="200코인 사용"
+              accessibilityRole="button"
+              onPress={handleUseCoins}
+              style={styles.dialogConfirmButton}
+            />
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -254,11 +387,11 @@ export function CameraCaptureView() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: '#F8F2E7',
   },
   dimOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.08)',
+    backgroundColor: 'rgba(0, 0, 0, 0.03)',
   },
   captureHeader: {
     position: 'absolute',
@@ -275,6 +408,7 @@ const styles = StyleSheet.create({
   captureTitleImage: {
     width: 79,
     height: 28,
+    tintColor: '#32322D',
   },
   captureTitleSlot: {
     position: 'absolute',
@@ -285,6 +419,7 @@ const styles = StyleSheet.create({
   remainingCountImage: {
     width: 43,
     height: 11,
+    tintColor: '#32322D',
   },
   remainingCountGroup: {
     flexDirection: 'row',
@@ -292,25 +427,83 @@ const styles = StyleSheet.create({
     columnGap: 5,
   },
   remainingCountText: {
-    color: '#FFFFFF',
+    color: '#32322D',
     fontSize: 14,
     fontWeight: '800',
-    textShadowColor: 'rgba(0, 0, 0, 0.65)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
   },
   guideImage: {
     position: 'absolute',
-    width: 215,
+    width: 267,
     height: 28,
     alignSelf: 'center',
   },
+  cameraCard: {
+    position: 'absolute',
+    alignSelf: 'center',
+    aspectRatio: CAMERA_CARD_ASPECT_RATIO,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    borderWidth: 3,
+    borderColor: '#D5C6AF',
+    borderRadius: 28,
+    backgroundColor: '#FFFDF7',
+  },
+  cameraBezel: {
+    flex: 1,
+    padding: 8,
+    paddingBottom: 34,
+    borderWidth: 4,
+    borderColor: '#302D2E',
+    borderRadius: 14,
+    backgroundColor: '#4A4648',
+  },
+  cameraViewport: {
+    flex: 1,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#252324',
+    borderRadius: 9,
+    backgroundColor: '#242224',
+  },
+  cameraBrand: {
+    position: 'absolute',
+    right: 0,
+    bottom: 5,
+    left: 0,
+    color: '#F5EEDF',
+    fontFamily: 'monospace',
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textAlign: 'center',
+  },
+  captureLimitOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(34, 31, 29, 0.68)',
+  },
+  captureLimitContent: {
+    width: 266,
+    height: 290.24,
+  },
+  captureLimitImage: {
+    width: 266,
+    height: 290.24,
+  },
+  captureLimitButton: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    left: 0,
+    height: 72,
+  },
   focusFrame: {
     position: 'absolute',
-    top: '24%',
-    left: '9%',
+    top: '11%',
     right: '9%',
-    height: '45%',
+    bottom: '13%',
+    left: '9%',
   },
   corner: {
     position: 'absolute',
@@ -379,49 +572,82 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
   },
+  disabledButton: {
+    opacity: 0.45,
+  },
+  dialogOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(31, 29, 27, 0.58)',
+  },
+  coinDialog: {
+    width: 280,
+    height: 208,
+  },
+  coinDialogImage: {
+    width: 280,
+    height: 208,
+  },
+  dialogCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+  },
+  dialogCancelButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 32,
+    width: 103,
+    height: 36,
+  },
+  dialogConfirmButton: {
+    position: 'absolute',
+    right: 32,
+    bottom: 30,
+    width: 103,
+    height: 36,
+  },
   permissionScreen: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
     backgroundColor: '#FFF9E9',
   },
-  permissionTitle: {
-    color: '#31533B',
-    fontSize: 22,
-    fontWeight: '800',
+  permissionModalScreen: {
+    flex: 1,
+    backgroundColor: '#F8F2E7',
   },
-  permissionDescription: {
-    marginTop: 10,
-    color: '#5E6E62',
-    fontSize: 15,
-    textAlign: 'center',
+  permissionDimOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(31, 29, 27, 0.58)',
   },
-  permissionButton: {
-    marginTop: 24,
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    borderRadius: 12,
-    backgroundColor: '#31533B',
+  permissionDialog: {
+    width: 280,
+    height: 186,
   },
-  permissionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+  permissionDialogImage: {
+    width: 280,
+    height: 186,
   },
-  albumPermissionButton: {
-    marginTop: 12,
-    paddingHorizontal: 22,
-    paddingVertical: 13,
-    borderWidth: 2,
-    borderColor: '#31533B',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+  permissionDialogCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
   },
-  albumPermissionButtonText: {
-    color: '#31533B',
-    fontSize: 16,
-    fontWeight: '700',
+  permissionDialogAllowButton: {
+    position: 'absolute',
+    bottom: 30,
+    left: 90,
+    width: 100,
+    height: 36,
   },
   buttonPressed: {
     opacity: 0.65,
