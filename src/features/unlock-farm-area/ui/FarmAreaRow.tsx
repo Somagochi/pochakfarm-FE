@@ -1,18 +1,16 @@
 import {
   Image,
+  type ImageSourcePropType,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
 
 const FARM_SLOT_IMAGE = require('@/src/shared/assets/images/farm/farm-slot.png');
-const UNLOCK_AREA_IMAGE = require('@/src/shared/assets/images/farm/unlock-area.png');
-
 const BASE_SLOT_SIZE = 58.4;
 const BASE_SLOT_GAP = 26.6;
 const SLOT_COUNT = 4;
 const BASE_UNLOCK_IMAGE_WIDTH = 112;
-const BASE_UNLOCK_IMAGE_HEIGHT = 88.76;
 
 type FarmAreaRowProps = {
   areaNumber: number;
@@ -20,6 +18,7 @@ type FarmAreaRowProps = {
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
   scale: number;
+  unlockImageSource: ImageSourcePropType;
 };
 
 export function FarmAreaRow({
@@ -28,12 +27,16 @@ export function FarmAreaRow({
   onPressSlot,
   onPressUnlock,
   scale,
+  unlockImageSource,
 }: FarmAreaRowProps) {
   const slotSize = BASE_SLOT_SIZE * scale;
   const slotGap = BASE_SLOT_GAP * scale;
   const rowWidth = slotSize * SLOT_COUNT + slotGap * (SLOT_COUNT - 1);
   const unlockImageWidth = BASE_UNLOCK_IMAGE_WIDTH * scale;
-  const unlockImageHeight = BASE_UNLOCK_IMAGE_HEIGHT * scale;
+  const { width: sourceWidth, height: sourceHeight } =
+    Image.resolveAssetSource(unlockImageSource);
+  const unlockImageHeight =
+    BASE_UNLOCK_IMAGE_WIDTH * (sourceHeight / sourceWidth) * scale;
 
   return (
     <View
@@ -88,7 +91,7 @@ export function FarmAreaRow({
         >
           <Image
             resizeMode="contain"
-            source={UNLOCK_AREA_IMAGE}
+            source={unlockImageSource}
             style={styles.unlockImage}
           />
         </Pressable>

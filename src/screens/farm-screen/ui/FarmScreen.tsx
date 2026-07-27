@@ -8,10 +8,13 @@ import {
   FarmEnvironmentSelector,
   FarmStatusBar,
   FarmUtilityButtons,
+  type SelectableFarmEnvironment,
 } from '@/src/widgets/farm-status-bar';
 
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
+  const [selectedEnvironment, setSelectedEnvironment] =
+    useState<SelectableFarmEnvironment>('land');
   const [contentSize, setContentSize] = useState({
     height: 0,
     width: 0,
@@ -38,15 +41,22 @@ export function FarmScreen() {
         <ScrollView
           bounces={false}
           contentContainerStyle={styles.content}
+          key={selectedEnvironment}
           showsVerticalScrollIndicator={false}
         >
-          <FarmField width={contentSize.width} />
+          <FarmField
+            environment={selectedEnvironment}
+            width={contentSize.width}
+          />
         </ScrollView>
       )}
       <View style={[styles.statusControls, { top: insets.top + 2.2 }]}>
         <FarmStatusBar />
         <View style={styles.actionButton}>
-          <FarmEnvironmentSelector />
+          <FarmEnvironmentSelector
+            onSelectEnvironment={setSelectedEnvironment}
+            selectedEnvironment={selectedEnvironment}
+          />
         </View>
       </View>
       <View style={[styles.rightControls, { top: insets.top + 2.2 }]}>

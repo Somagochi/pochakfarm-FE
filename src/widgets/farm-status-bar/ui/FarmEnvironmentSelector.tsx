@@ -34,25 +34,34 @@ const ENVIRONMENTS = [
   source: ImageSourcePropType;
 }[];
 
-type EnvironmentKey = (typeof ENVIRONMENTS)[number]['key'];
+export type FarmEnvironment = (typeof ENVIRONMENTS)[number]['key'];
+export type SelectableFarmEnvironment = Exclude<FarmEnvironment, 'sky'>;
 
-const ENVIRONMENT_MENUS: Record<EnvironmentKey, ImageSourcePropType> = {
+const ENVIRONMENT_MENUS: Record<FarmEnvironment, ImageSourcePropType> = {
   sky: require('@/src/shared/assets/images/farm-status/environment-menu-sky.png'),
   land: require('@/src/shared/assets/images/farm-status/environment-menu-land.png'),
   sea: require('@/src/shared/assets/images/farm-status/environment-menu-sea.png'),
   space: require('@/src/shared/assets/images/farm-status/environment-menu-space.png'),
 };
 
-export function FarmEnvironmentSelector() {
+type FarmEnvironmentSelectorProps = {
+  selectedEnvironment: SelectableFarmEnvironment;
+  onSelectEnvironment: (environment: SelectableFarmEnvironment) => void;
+};
+
+export function FarmEnvironmentSelector({
+  selectedEnvironment,
+  onSelectEnvironment,
+}: FarmEnvironmentSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedEnvironment, setSelectedEnvironment] =
-    useState<EnvironmentKey>('land');
   const selectedSource =
     ENVIRONMENTS.find(({ key }) => key === selectedEnvironment)?.source ??
     ENVIRONMENTS[1].source;
 
-  const selectEnvironment = (environment: EnvironmentKey) => {
-    setSelectedEnvironment(environment);
+  const selectEnvironment = (environment: FarmEnvironment) => {
+    if (environment !== 'sky') {
+      onSelectEnvironment(environment);
+    }
     setIsOpen(false);
   };
 
@@ -85,12 +94,15 @@ export function FarmEnvironmentSelector() {
                 accessibilityLabel={`${label} 환경 선택`}
                 accessibilityRole="button"
                 accessibilityState={{
+                  disabled: key === 'sky',
                   selected: selectedEnvironment === key,
                 }}
+                disabled={key === 'sky'}
                 key={key}
                 onPress={() => selectEnvironment(key)}
                 style={({ pressed }) => [
                   styles.menuButton,
+                  key === 'sky' && styles.disabledMenuButton,
                   pressed && styles.menuButtonPressed,
                 ]}
               />
@@ -134,5 +146,8 @@ const styles = StyleSheet.create({
   },
   menuButtonPressed: {
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  },
+  disabledMenuButton: {
+    opacity: 0.45,
   },
 });
