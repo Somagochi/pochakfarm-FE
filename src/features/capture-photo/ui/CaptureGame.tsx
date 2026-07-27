@@ -32,6 +32,10 @@ const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-fram
 const THROW_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/throw-guide.png');
 const TIMER_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/timer-background.png');
 const TIMER_CLOCK_IMAGE = require('@/src/shared/assets/images/capture/timer-clock.png');
+const OPPORTUNITY_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-background.png');
+const OPPORTUNITY_LABEL_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-label.png');
+const OPPORTUNITY_USED_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-used.png');
+const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-available.png');
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
@@ -442,11 +446,34 @@ export function CaptureGame({
             />
           </View>
         </View>
-        <View style={styles.opportunityCard}>
-          <Text style={styles.opportunityLabel}>남은 기회</Text>
-          <Text style={styles.opportunityCount}>
-            {MAX_THROWS - throwsUsed}
-          </Text>
+        <View
+          accessibilityLabel={`남은 기회 ${MAX_THROWS - throwsUsed}개`}
+          style={styles.opportunityCard}
+        >
+          <Image
+            resizeMode="stretch"
+            source={OPPORTUNITY_BACKGROUND_IMAGE}
+            style={styles.opportunityBackground}
+          />
+          <Image
+            resizeMode="contain"
+            source={OPPORTUNITY_LABEL_IMAGE}
+            style={styles.opportunityLabel}
+          />
+          <View style={styles.opportunityFrames}>
+            {Array.from({ length: MAX_THROWS }, (_, index) => (
+              <Image
+                key={index}
+                resizeMode="contain"
+                source={
+                  index < throwsUsed
+                    ? OPPORTUNITY_USED_IMAGE
+                    : OPPORTUNITY_AVAILABLE_IMAGE
+                }
+                style={styles.opportunityFrame}
+              />
+            ))}
+          </View>
         </View>
       </View>
 
@@ -742,7 +769,8 @@ const styles = StyleSheet.create({
     zIndex: 3,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
+    columnGap: 5.27,
   },
   timerCard: {
     width: 191,
@@ -787,33 +815,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5BE20',
   },
   opportunityCard: {
-    width: 168,
+    width: 140.71,
     height: 40,
-    paddingHorizontal: 10,
+    paddingHorizontal: 7,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 3,
-    borderColor: '#C4AE8A',
-    borderRadius: 9,
-    backgroundColor: '#FFF9EC',
+    columnGap: 5.27,
+  },
+  opportunityBackground: {
+    position: 'absolute',
+    width: 140.71,
+    height: 40,
   },
   opportunityLabel: {
-    color: '#4A4338',
-    fontSize: 15,
-    fontWeight: '700',
+    width: 43.37,
+    height: 14,
   },
-  opportunityCount: {
-    width: 27,
-    height: 27,
-    color: '#9C6C25',
-    fontSize: 18,
-    fontWeight: '900',
-    lineHeight: 27,
-    textAlign: 'center',
-    borderWidth: 2,
-    borderColor: '#D7A651',
-    backgroundColor: '#FFF0C7',
+  opportunityFrames: {
+    flexDirection: 'row',
+    columnGap: 3,
+  },
+  opportunityFrame: {
+    width: 24,
+    height: 24,
   },
   guideImage: {
     position: 'absolute',
