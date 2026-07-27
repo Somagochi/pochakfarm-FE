@@ -17,16 +17,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRemovePhotoBackground } from '../model/useRemovePhotoBackground';
 
 const CAPTURE_SECONDS = 10;
-const FRAME_SIZE = 96;
+const FRAME_SIZE = 80;
 const TARGET_SIZE = 310;
 const SUCCESS_DISTANCE = 72;
 const SUCCESS_SCALE = 0.38;
 const MIN_THROW_DISTANCE = 24;
 const MIN_THROW_VELOCITY = 0.18;
 const MAX_THROWS = 3;
+const CAMERA_CARD_ASPECT_RATIO = 414 / 635;
 const USE_PHOTO_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/use-photo-prompt.png');
 const RETAKE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/retake-button.png');
 const USE_PHOTO_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/use-photo-button.png');
+const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-frame.png');
+const THROW_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/throw-guide.png');
+const TIMER_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/timer-background.png');
+const TIMER_CLOCK_IMAGE = require('@/src/shared/assets/images/capture/timer-clock.png');
+const OPPORTUNITY_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-background.png');
+const OPPORTUNITY_LABEL_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-label.png');
+const OPPORTUNITY_USED_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-used.png');
+const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-available.png');
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
@@ -79,9 +88,15 @@ export function CaptureGame({
   const frameOrigin = useMemo(
     () => ({
       x: width / 2 - FRAME_SIZE / 2,
-      y: height - insets.bottom - 172,
+      y: height - insets.bottom - 125,
     }),
     [height, insets.bottom, width],
+  );
+  const cameraCardTop = insets.top + 128;
+  const cameraCardWidth = Math.min(
+    width - 30,
+    (frameOrigin.y - cameraCardTop - 20) *
+      CAMERA_CARD_ASPECT_RATIO,
   );
 
   const finishGame = (
@@ -407,49 +422,88 @@ export function CaptureGame({
 
   return (
     <View style={styles.container}>
-      <Image
-        resizeMode="cover"
-        source={{ uri: photoUri }}
-        style={StyleSheet.absoluteFill}
-      />
-      <View pointerEvents="none" style={styles.dimOverlay} />
-
-      <View style={[styles.topControls, { top: insets.top + 12 }]}>
-        <Pressable
-          accessibilityLabel="포착 종료"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Ionicons color="#31533B" name="close" size={34} />
-        </Pressable>
-        <Ionicons color="#FFF9E9" name="flash" size={42} />
-      </View>
-
-      <View style={[styles.timerCard, { top: insets.top + 96 }]}>
-        <View style={styles.timerRow}>
-          <Ionicons color="#FFF9E9" name="stopwatch-outline" size={34} />
-          <Text style={styles.timerText}>{secondsLeft}s</Text>
-        </View>
-        <View style={styles.timerTrack}>
-          <View
-            style={[
-              styles.timerProgress,
-              { width: `${(secondsLeft / CAPTURE_SECONDS) * 100}%` },
-            ]}
+      <View style={[styles.gameStatusRow, { top: insets.top + 18 }]}>
+        <View style={styles.timerCard}>
+          <Image
+            resizeMode="stretch"
+            source={TIMER_BACKGROUND_IMAGE}
+            style={styles.timerBackground}
           />
+          <View style={styles.timerRow}>
+            <Image
+              resizeMode="contain"
+              source={TIMER_CLOCK_IMAGE}
+              style={styles.timerClock}
+            />
+            <Text style={styles.timerText}>{secondsLeft}초</Text>
+          </View>
+          <View style={styles.timerTrack}>
+            <View
+              style={[
+                styles.timerProgress,
+                { width: `${(secondsLeft / CAPTURE_SECONDS) * 100}%` },
+              ]}
+            />
+          </View>
+        </View>
+        <View
+          accessibilityLabel={`남은 기회 ${MAX_THROWS - throwsUsed}개`}
+          style={styles.opportunityCard}
+        >
+          <Image
+            resizeMode="stretch"
+            source={OPPORTUNITY_BACKGROUND_IMAGE}
+            style={styles.opportunityBackground}
+          />
+          <Image
+            resizeMode="contain"
+            source={OPPORTUNITY_LABEL_IMAGE}
+            style={styles.opportunityLabel}
+          />
+          <View style={styles.opportunityFrames}>
+            {Array.from({ length: MAX_THROWS }, (_, index) => (
+              <Image
+                key={index}
+                resizeMode="contain"
+                source={
+                  index < throwsUsed
+                    ? OPPORTUNITY_USED_IMAGE
+                    : OPPORTUNITY_AVAILABLE_IMAGE
+                }
+                style={styles.opportunityFrame}
+              />
+            ))}
+          </View>
         </View>
       </View>
 
-      <Text style={[styles.guideText, { top: insets.top + 192 }]}>
-        액자를 위로 튕겨 포착하세요!
-      </Text>
-      <Text style={[styles.remainingThrowsText, { top: insets.top + 226 }]}>
-        남은 액자 {MAX_THROWS - throwsUsed}개
-      </Text>
+      <Image
+        accessibilityLabel="타이밍에 맞춰 액자를 던지세요"
+        resizeMode="contain"
+        source={THROW_GUIDE_IMAGE}
+        style={[styles.guideImage, { top: insets.top + 83 }]}
+      />
+
+      <View
+        style={[
+          styles.cameraCard,
+          { top: cameraCardTop, width: cameraCardWidth },
+        ]}
+      >
+        <View style={styles.cameraBezel}>
+          <View style={styles.cameraViewport}>
+            <Image
+              resizeMode="cover"
+              source={{ uri: photoUri }}
+              style={StyleSheet.absoluteFill}
+            />
+            <View pointerEvents="none" style={styles.dimOverlay} />
+          </View>
+          <Text pointerEvents="none" style={styles.cameraBrand}>
+            POCHAKFARM
+          </Text>
+        </View>
+      </View>
 
       <View
         pointerEvents="none"
@@ -498,11 +552,11 @@ export function CaptureGame({
             accessibilityRole="button"
             style={styles.frameButton}
           >
-            <View style={styles.frameOuter}>
-              <View style={styles.frameInner}>
-                <Ionicons color="#FFF4DA" name="paw" size={34} />
-              </View>
-            </View>
+            <Image
+              resizeMode="contain"
+              source={THROW_FRAME_IMAGE}
+              style={styles.throwFrameImage}
+            />
           </View>
         </Animated.View>
       )}
@@ -702,86 +756,134 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: '#F8F2E7',
   },
   dimOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(12, 24, 12, 0.14)',
+    backgroundColor: 'rgba(34, 29, 24, 0.05)',
   },
-  topControls: {
+  gameStatusRow: {
     position: 'absolute',
-    right: 18,
-    left: 16,
+    right: 15,
+    left: 15,
     zIndex: 3,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  closeButton: {
-    width: 50,
-    height: 50,
-    alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    borderBottomWidth: 4,
-    borderColor: '#BBAE8C',
-    backgroundColor: '#FFF4DA',
+    columnGap: 5.27,
   },
   timerCard: {
+    width: 191,
+    height: 40,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 7,
+  },
+  timerBackground: {
     position: 'absolute',
-    alignSelf: 'center',
-    width: 164,
-    zIndex: 2,
-    padding: 12,
-    borderWidth: 3,
-    borderColor: 'rgba(255, 249, 225, 0.55)',
-    borderRadius: 24,
-    backgroundColor: 'rgba(28, 48, 23, 0.88)',
+    width: 191,
+    height: 40,
   },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    columnGap: 10,
+    columnGap: 4,
+  },
+  timerClock: {
+    width: 18,
+    height: 18,
   },
   timerText: {
-    color: '#FFC83D',
-    fontSize: 34,
-    fontWeight: '700',
+    color: '#32322D',
+    fontFamily: 'monospace',
+    fontSize: 18,
+    fontWeight: '900',
   },
   timerTrack: {
-    height: 10,
-    marginTop: 8,
+    flex: 1,
+    height: 12,
     overflow: 'hidden',
-    borderRadius: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 2,
+    borderColor: '#6C604D',
+    borderRadius: 7,
+    backgroundColor: '#FFF7DB',
   },
   timerProgress: {
     height: '100%',
-    borderRadius: 5,
-    backgroundColor: '#FFC83D',
+    borderRadius: 4,
+    backgroundColor: '#F5BE20',
   },
-  guideText: {
+  opportunityCard: {
+    width: 140.71,
+    height: 40,
+    paddingHorizontal: 7,
+    flexDirection: 'row',
+    alignItems: 'center',
+    columnGap: 5.27,
+  },
+  opportunityBackground: {
+    position: 'absolute',
+    width: 140.71,
+    height: 40,
+  },
+  opportunityLabel: {
+    width: 43.37,
+    height: 14,
+  },
+  opportunityFrames: {
+    flexDirection: 'row',
+    columnGap: 3,
+  },
+  opportunityFrame: {
+    width: 24,
+    height: 24,
+  },
+  guideImage: {
     position: 'absolute',
     zIndex: 2,
+    width: 267,
+    height: 28,
     alignSelf: 'center',
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '800',
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
-    textShadowOffset: { width: 1, height: 2 },
-    textShadowRadius: 3,
   },
-  remainingThrowsText: {
+  cameraCard: {
     position: 'absolute',
-    zIndex: 2,
     alignSelf: 'center',
-    color: '#FFF4A8',
-    fontSize: 15,
-    fontWeight: '800',
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
-    textShadowOffset: { width: 1, height: 2 },
-    textShadowRadius: 3,
+    aspectRatio: CAMERA_CARD_ASPECT_RATIO,
+    padding: 20,
+    borderWidth: 3,
+    borderColor: '#D5C6AF',
+    borderRadius: 28,
+    backgroundColor: '#FFFDF7',
+  },
+  cameraBezel: {
+    flex: 1,
+    padding: 8,
+    paddingBottom: 38,
+    borderWidth: 4,
+    borderColor: '#302D2E',
+    borderRadius: 14,
+    backgroundColor: '#4A4648',
+  },
+  cameraViewport: {
+    flex: 1,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#252324',
+    borderRadius: 9,
+    backgroundColor: '#242224',
+  },
+  cameraBrand: {
+    position: 'absolute',
+    right: 0,
+    bottom: 6,
+    left: 0,
+    color: '#F5EEDF',
+    fontFamily: 'monospace',
+    fontSize: 19,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textAlign: 'center',
   },
   target: {
     position: 'absolute',
@@ -826,30 +928,10 @@ const styles = StyleSheet.create({
   frameButton: {
     width: FRAME_SIZE,
     height: FRAME_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 5,
-    borderColor: '#FFF9E9',
-    borderRadius: FRAME_SIZE / 2,
-    backgroundColor: 'rgba(255, 249, 225, 0.94)',
   },
-  frameOuter: {
-    width: 65,
-    height: 65,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 6,
-    borderColor: '#B58A45',
-    backgroundColor: '#E8C77A',
-  },
-  frameInner: {
-    width: 47,
-    height: 47,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#233D2B',
-    backgroundColor: '#31533B',
+  throwFrameImage: {
+    width: 80,
+    height: 80,
   },
   successBottomSheet: {
     position: 'absolute',
@@ -1001,12 +1083,9 @@ const styles = StyleSheet.create({
   throwLabel: {
     position: 'absolute',
     alignSelf: 'center',
-    color: '#FFFFFF',
-    fontSize: 20,
+    color: '#987A50',
+    fontSize: 14,
     fontWeight: '700',
-    textShadowColor: 'rgba(0, 0, 0, 0.7)',
-    textShadowOffset: { width: 1, height: 2 },
-    textShadowRadius: 3,
   },
   resultOverlay: {
     ...StyleSheet.absoluteFillObject,

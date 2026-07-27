@@ -1,4 +1,3 @@
-const { expo } = require('./app.json');
 const fs = require('fs');
 const path = require('path');
 
@@ -32,11 +31,6 @@ loadLocalEnv();
 
 const kakaoAppKey =
   process.env.KAKAO_NATIVE_APP_KEY ?? process.env.EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY;
-const naverUrlScheme =
-  process.env.NAVER_SERVICE_URL_SCHEME_IOS ??
-  process.env.EXPO_PUBLIC_NAVER_SERVICE_URL_SCHEME_IOS ??
-  expo.scheme ??
-  'pochakfarm';
 
 const configuredByAppConfig = [
   '@react-native-seoul/kakao-login',
@@ -44,57 +38,62 @@ const configuredByAppConfig = [
   'expo-build-properties',
 ];
 
-const plugins = expo.plugins.filter((plugin) => {
-  const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
+module.exports = ({ config }) => {
+  const naverUrlScheme =
+    process.env.NAVER_SERVICE_URL_SCHEME_IOS ??
+    process.env.EXPO_PUBLIC_NAVER_SERVICE_URL_SCHEME_IOS ??
+    config.scheme ??
+    'pochakfarm';
+  const plugins = (config.plugins ?? []).filter((plugin) => {
+    const pluginName = Array.isArray(plugin) ? plugin[0] : plugin;
 
-  return !configuredByAppConfig.includes(pluginName);
-});
+    return !configuredByAppConfig.includes(pluginName);
+  });
 
-if (kakaoAppKey) {
+  if (kakaoAppKey) {
+    plugins.push([
+      '@react-native-seoul/kakao-login',
+      {
+        kakaoAppKey,
+        kotlinVersion: '2.1.20',
+      },
+    ]);
+  } else {
+    console.warn(
+      '[app.config] KAKAO_NATIVE_APP_KEY 또는 EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY가 없어 카카오 네이티브 설정을 건너뜁니다.',
+    );
+  }
+
   plugins.push([
-    '@react-native-seoul/kakao-login',
+    '@react-native-seoul/naver-login',
     {
-      kakaoAppKey,
-      kotlinVersion: '2.1.20',
+      urlScheme: naverUrlScheme,
     },
   ]);
-} else {
-  console.warn(
-    '[app.config] KAKAO_NATIVE_APP_KEY 또는 EXPO_PUBLIC_KAKAO_NATIVE_APP_KEY가 없어 카카오 네이티브 설정을 건너뜁니다.',
-  );
-}
 
-plugins.push([
-  '@react-native-seoul/naver-login',
-  {
-    urlScheme: naverUrlScheme,
-  },
-]);
-
-plugins.push([
-  'expo-build-properties',
-  {
-    android: {
-      extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/'],
-      minSdkVersion: 24,
+  plugins.push([
+    'expo-build-properties',
+    {
+      android: {
+        extraMavenRepos: ['https://devrepo.kakao.com/nexus/content/groups/public/'],
+        minSdkVersion: 24,
+      },
     },
-  },
-]);
+  ]);
 
-plugins.push('./plugins/with-android-cleartext-network');
-plugins.push('./plugins/with-subject-segmentation');
+  plugins.push('./plugins/with-android-cleartext-network');
+  plugins.push('./plugins/with-subject-segmentation');
 
-module.exports = {
-  expo: {
-    ...expo,
+  return {
+    ...config,
     owner: 'somagochi2026',
     plugins,
     extra: {
-      ...expo.extra,
+      ...config.extra,
       eas: {
-        ...expo.extra?.eas,
+        ...config.extra?.eas,
         projectId: '731d8550-fe31-4f47-9128-df9b0a8a1580',
       },
     },
-  },
+  };
 };
