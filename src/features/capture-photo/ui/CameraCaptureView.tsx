@@ -5,7 +5,9 @@ import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +32,8 @@ const SHUTTER_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/shutter
 const CAPTURE_LIMIT_IMAGE = require('@/src/shared/assets/images/capture/capture-limit.png');
 const CAPTURE_COIN_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/capture-coin-dialog.png');
 const CAMERA_PERMISSION_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-dialog.png');
+const CAPTURE_PROBABILITY_MODAL_IMAGE = require('@/src/shared/assets/images/capture/capture-probability-modal.png');
+const CAMERA_PERMISSION_TOAST_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-toast.png');
 const CAMERA_CARD_ASPECT_RATIO = 426 / 656;
 const CAMERA_CARD_HORIZONTAL_MARGIN = 11;
 const CAMERA_CARD_BUTTON_GAP = 24;
@@ -48,6 +52,10 @@ export function CameraCaptureView() {
   const [remainingCaptureCount, setRemainingCaptureCount] =
     useState(MAX_CAPTURE_COUNT);
   const [isCoinDialogVisible, setIsCoinDialogVisible] = useState(false);
+  const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
+  const [isPermissionToastVisible, setIsPermissionToastVisible] =
+    useState(false);
+  const permissionToastOpacity = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
   const cameraCardTop = insets.top + 117;
   const bottomControlsTop =
@@ -69,6 +77,48 @@ export function CameraCaptureView() {
 
     return () => clearInterval(guideTimer);
   }, []);
+
+  useEffect(() => {
+    if (!isPermissionToastVisible || !permission?.granted) {
+      return;
+    }
+
+    permissionToastOpacity.setValue(0);
+
+    const toastAnimation = Animated.sequence([
+      Animated.timing(permissionToastOpacity, {
+        duration: 200,
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2000),
+      Animated.timing(permissionToastOpacity, {
+        duration: 200,
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]);
+
+    toastAnimation.start(({ finished }) => {
+      if (finished) {
+        setIsPermissionToastVisible(false);
+      }
+    });
+
+    return () => toastAnimation.stop();
+  }, [
+    isPermissionToastVisible,
+    permission?.granted,
+    permissionToastOpacity,
+  ]);
+
+  const handleRequestPermission = async () => {
+    const nextPermission = await requestPermission();
+
+    if (nextPermission.granted) {
+      setIsPermissionToastVisible(true);
+    }
+  };
 
   const handleCapture = async () => {
     if (
@@ -163,7 +213,7 @@ export function CameraCaptureView() {
             <Pressable
               accessibilityLabel="카메라 권한 허용하기"
               accessibilityRole="button"
-              onPress={requestPermission}
+              onPress={handleRequestPermission}
               style={styles.permissionDialogAllowButton}
             />
           </View>
@@ -331,12 +381,7 @@ export function CameraCaptureView() {
         <Pressable
           accessibilityLabel="촬영 도움말"
           accessibilityRole="button"
-          onPress={() =>
-            Alert.alert(
-              '촬영 도움말',
-              '동물이 흰색 프레임 안에 들어오도록 맞춘 뒤 촬영해 주세요.',
-            )
-          }
+          onPress={() => setIsHelpModalVisible(true)}
           style={({ pressed }) => [
             styles.helpButton,
             pressed && styles.buttonPressed,
@@ -349,6 +394,26 @@ export function CameraCaptureView() {
           />
         </Pressable>
       </View>
+
+      {isPermissionToastVisible && (
+        <Animated.View
+          pointerEvents="none"
+          style={[
+            styles.permissionToast,
+            {
+              bottom: insets.bottom + 108,
+              opacity: permissionToastOpacity,
+            },
+          ]}
+        >
+          <Image
+            accessibilityLabel="카메라 접근을 허용했습니다."
+            resizeMode="contain"
+            source={CAMERA_PERMISSION_TOAST_IMAGE}
+            style={styles.permissionToastImage}
+          />
+        </Animated.View>
+      )}
 
       {isCoinDialogVisible && (
         <View style={styles.dialogOverlay}>
@@ -380,6 +445,31 @@ export function CameraCaptureView() {
           </View>
         </View>
       )}
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setIsHelpModalVisible(false)}
+        statusBarTranslucent
+        transparent
+        visible={isHelpModalVisible}
+      >
+        <View style={styles.helpModalOverlay}>
+          <View style={styles.helpModal}>
+            <Image
+              accessibilityLabel="내 포착 확률 보기"
+              resizeMode="contain"
+              source={CAPTURE_PROBABILITY_MODAL_IMAGE}
+              style={styles.helpModalImage}
+            />
+            <Pressable
+              accessibilityLabel="포착 확률 안내 닫기"
+              accessibilityRole="button"
+              onPress={() => setIsHelpModalVisible(false)}
+              style={styles.helpModalCloseButton}
+            />
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -575,6 +665,17 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.45,
   },
+  permissionToast: {
+    position: 'absolute',
+    zIndex: 9,
+    width: 293,
+    height: 54,
+    alignSelf: 'center',
+  },
+  permissionToastImage: {
+    width: 293,
+    height: 54,
+  },
   dialogOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 10,
@@ -610,6 +711,27 @@ const styles = StyleSheet.create({
     bottom: 30,
     width: 103,
     height: 36,
+  },
+  helpModalOverlay: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(31, 29, 27, 0.68)',
+  },
+  helpModal: {
+    width: 328,
+    height: 626,
+  },
+  helpModalImage: {
+    width: 328,
+    height: 626,
+  },
+  helpModalCloseButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 40,
+    height: 40,
   },
   permissionScreen: {
     flex: 1,
