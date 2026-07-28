@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CreatureDetailSheet } from '@/src/widgets/creature-detail-sheet';
 import { FarmField } from '@/src/widgets/farm-field';
 import {
   CoinBalanceBar,
@@ -15,6 +16,8 @@ export function FarmScreen() {
   const insets = useSafeAreaInsets();
   const [selectedEnvironment, setSelectedEnvironment] =
     useState<SelectableFarmEnvironment>('land');
+  const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
+    useState(false);
   const [contentSize, setContentSize] = useState({
     height: 0,
     width: 0,
@@ -46,6 +49,9 @@ export function FarmScreen() {
         >
           <FarmField
             environment={selectedEnvironment}
+            onPressCreature={() =>
+              setIsCreatureDetailVisible(true)
+            }
             width={contentSize.width}
           />
         </ScrollView>
@@ -65,6 +71,12 @@ export function FarmScreen() {
           <FarmUtilityButtons />
         </View>
       </View>
+      {isCreatureDetailVisible && (
+        <CreatureDetailSheet
+          onClose={() => setIsCreatureDetailVisible(false)}
+          width={contentSize.width}
+        />
+      )}
     </View>
   );
 }

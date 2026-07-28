@@ -39,6 +39,17 @@ const CAMERA_CARD_HORIZONTAL_MARGIN = 11;
 const CAMERA_CARD_BUTTON_GAP = 24;
 const BOTTOM_BUTTON_SIZE = 64;
 const MAX_CAPTURE_COUNT = 5;
+const HELP_MODAL_REFERENCE_WIDTH = 328;
+const HELP_MODAL_REFERENCE_HEIGHT = 626;
+const MOCK_USER_LEVEL = 1;
+const MOCK_REMAINING_CAPTURES = 12;
+const MOCK_LEVEL_PROGRESS = 0.77;
+const MOCK_CAPTURE_COUNTS = [
+  { color: '#E9B400', count: 23, label: '하늘' },
+  { color: '#2F7D35', count: 8, label: '땅' },
+  { color: '#2185A8', count: 15, label: '바다' },
+  { color: '#4A38A7', count: 3, label: '우주' },
+] as const;
 
 export function CameraCaptureView() {
   const { height: screenHeight, width: screenWidth } =
@@ -66,6 +77,14 @@ export function CameraCaptureView() {
     screenWidth - CAMERA_CARD_HORIZONTAL_MARGIN * 2,
     availableCameraCardHeight * CAMERA_CARD_ASPECT_RATIO,
   );
+  const helpModalScale = Math.min(
+    screenWidth / 411,
+    (screenHeight * 0.92) / HELP_MODAL_REFERENCE_HEIGHT,
+  );
+  const helpModalWidth =
+    HELP_MODAL_REFERENCE_WIDTH * helpModalScale;
+  const helpModalHeight =
+    HELP_MODAL_REFERENCE_HEIGHT * helpModalScale;
 
   useEffect(() => {
     const guideTimer = setInterval(() => {
@@ -454,18 +473,132 @@ export function CameraCaptureView() {
         visible={isHelpModalVisible}
       >
         <View style={styles.helpModalOverlay}>
-          <View style={styles.helpModal}>
+          <View
+            style={[
+              styles.helpModal,
+              {
+                width: helpModalWidth,
+                height: helpModalHeight,
+              },
+            ]}
+          >
             <Image
               accessibilityLabel="내 포착 확률 보기"
               resizeMode="contain"
               source={CAPTURE_PROBABILITY_MODAL_IMAGE}
-              style={styles.helpModalImage}
+              style={{
+                width: helpModalWidth,
+                height: helpModalHeight,
+              }}
             />
+            <Text
+              accessibilityLabel={`현재 레벨 ${MOCK_USER_LEVEL}`}
+              style={[
+                styles.helpModalLevel,
+                {
+                  top: 199 * helpModalScale,
+                  left: 32 * helpModalScale,
+                  width: 39 * helpModalScale,
+                  fontSize: 13 * helpModalScale,
+                },
+              ]}
+            >
+              {MOCK_USER_LEVEL}
+            </Text>
+            <Text
+              accessibilityLabel={`다음 레벨까지 포착 ${MOCK_REMAINING_CAPTURES}회 남았어요`}
+              style={[
+                styles.helpModalProgressMessage,
+                {
+                  top: 191 * helpModalScale,
+                  left: 90 * helpModalScale,
+                  width: 192.75 * helpModalScale,
+                  fontSize: 8 * helpModalScale,
+                  lineHeight: 11 * helpModalScale,
+                },
+              ]}
+            >
+              다음 레벨까지{' '}
+              <Text style={styles.helpModalProgressHighlight}>
+                포착 {MOCK_REMAINING_CAPTURES}회
+              </Text>{' '}
+              남았어요
+            </Text>
+            <View
+              accessibilityLabel={`현재 경험치 ${Math.round(MOCK_LEVEL_PROGRESS * 100)}퍼센트`}
+              style={[
+                styles.helpModalProgressTrack,
+                {
+                  top: 211 * helpModalScale,
+                  left: 90 * helpModalScale,
+                  width: 192.75 * helpModalScale,
+                  height: 8 * helpModalScale,
+                  borderRadius: 4 * helpModalScale,
+                },
+              ]}
+            >
+              <View
+                style={[
+                  styles.helpModalProgressFill,
+                  {
+                    width: `${MOCK_LEVEL_PROGRESS * 100}%`,
+                    borderRadius: 4 * helpModalScale,
+                  },
+                ]}
+              />
+            </View>
+            <View
+              style={[
+                styles.helpModalCaptureCounts,
+                {
+                  top: 394 * helpModalScale,
+                  left: 31 * helpModalScale,
+                  width: 265 * helpModalScale,
+                  height: 18 * helpModalScale,
+                },
+              ]}
+            >
+              {MOCK_CAPTURE_COUNTS.map(
+                ({ color, count, label }) => (
+                  <Text
+                    accessibilityLabel={`${label} 타입 ${count}번 포착`}
+                    key={label}
+                    style={[
+                      styles.helpModalCaptureCount,
+                      {
+                        color,
+                        width: 66.25 * helpModalScale,
+                        fontSize: 14 * helpModalScale,
+                        lineHeight: 17 * helpModalScale,
+                      },
+                    ]}
+                  >
+                    {count}
+                    <Text
+                      style={[
+                        styles.helpModalCaptureCountUnit,
+                        { fontSize: 9 * helpModalScale },
+                      ]}
+                    >
+                      번
+                    </Text>
+                  </Text>
+                ),
+              )}
+            </View>
             <Pressable
               accessibilityLabel="포착 확률 안내 닫기"
               accessibilityRole="button"
               onPress={() => setIsHelpModalVisible(false)}
-              style={styles.helpModalCloseButton}
+              style={[
+                styles.helpModalCloseButton,
+                {
+                  top: 8 * helpModalScale,
+                  right: 8 * helpModalScale,
+                  width: 40 * helpModalScale,
+                  height: 40 * helpModalScale,
+                },
+              ]}
             />
           </View>
         </View>
@@ -718,20 +851,52 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(31, 29, 27, 0.68)',
   },
-  helpModal: {
-    width: 328,
-    height: 626,
+  helpModal: {},
+  helpModalLevel: {
+    position: 'absolute',
+    color: '#FFF4DD',
+    fontFamily: 'EliceDXNeolli-Bold',
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
   },
-  helpModalImage: {
-    width: 328,
-    height: 626,
+  helpModalProgressMessage: {
+    position: 'absolute',
+    color: '#6D5A44',
+    fontFamily: 'EliceDXNeolli-Medium',
+    includeFontPadding: false,
+    textAlign: 'left',
+    textAlignVertical: 'center',
+  },
+  helpModalProgressHighlight: {
+    color: '#F1B900',
+    fontFamily: 'EliceDXNeolli-Bold',
+  },
+  helpModalProgressTrack: {
+    position: 'absolute',
+    overflow: 'hidden',
+    backgroundColor: '#FFFDF8',
+  },
+  helpModalProgressFill: {
+    height: '100%',
+    backgroundColor: '#F9CA42',
+  },
+  helpModalCaptureCounts: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  helpModalCaptureCount: {
+    fontFamily: 'EliceDXNeolli-Bold',
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  helpModalCaptureCountUnit: {
+    fontFamily: 'EliceDXNeolli-Bold',
   },
   helpModalCloseButton: {
     position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 40,
-    height: 40,
   },
   permissionScreen: {
     flex: 1,

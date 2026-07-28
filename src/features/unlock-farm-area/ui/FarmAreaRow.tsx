@@ -3,6 +3,7 @@ import {
   type ImageSourcePropType,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 
@@ -14,7 +15,14 @@ const BASE_UNLOCK_IMAGE_WIDTH = 112;
 
 type FarmAreaRowProps = {
   areaNumber: number;
+  creatureSlot?: {
+    animalImageSource: ImageSourcePropType;
+    name: string;
+    nameplateImageSource: ImageSourcePropType;
+    slotNumber: number;
+  };
   isUnlocked: boolean;
+  onPressCreature?: () => void;
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
   scale: number;
@@ -23,7 +31,9 @@ type FarmAreaRowProps = {
 
 export function FarmAreaRow({
   areaNumber,
+  creatureSlot,
   isUnlocked,
+  onPressCreature,
   onPressSlot,
   onPressUnlock,
   scale,
@@ -52,6 +62,71 @@ export function FarmAreaRow({
       {isUnlocked &&
         Array.from({ length: SLOT_COUNT }, (_, index) => {
           const slotNumber = index + 1;
+
+          if (slotNumber === creatureSlot?.slotNumber) {
+            const nameplateWidth = slotSize;
+            const nameplateHeight = nameplateWidth * (144 / 529);
+            const animalSize = slotSize;
+
+            return (
+              <Pressable
+                accessibilityLabel={`${creatureSlot.name} 농장 슬롯`}
+                accessibilityRole="button"
+                key={slotNumber}
+                onPress={onPressCreature}
+                style={({ pressed }) => [
+                  styles.creatureSlot,
+                  { width: slotSize, height: slotSize },
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Image
+                  resizeMode="contain"
+                  source={creatureSlot.animalImageSource}
+                  style={[
+                    styles.creatureImage,
+                    {
+                      top: slotSize * 0.04,
+                      width: animalSize,
+                      height: animalSize,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.nameplate,
+                    {
+                      top: -nameplateHeight * 0.62,
+                      width: nameplateWidth,
+                      height: nameplateHeight,
+                    },
+                  ]}
+                >
+                  <Image
+                    resizeMode="stretch"
+                    source={creatureSlot.nameplateImageSource}
+                    style={[
+                      styles.nameplateImage,
+                      {
+                        width: nameplateWidth,
+                        height: nameplateHeight,
+                      },
+                    ]}
+                  />
+                  <Text
+                    adjustsFontSizeToFit
+                    numberOfLines={1}
+                    style={[
+                      styles.creatureName,
+                      { fontSize: 10 * scale },
+                    ]}
+                  >
+                    {creatureSlot.name}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          }
 
           return (
             <Pressable
@@ -103,6 +178,30 @@ export function FarmAreaRow({
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
+  },
+  creatureSlot: {
+    alignItems: 'center',
+    overflow: 'visible',
+  },
+  creatureImage: {
+    position: 'absolute',
+  },
+  nameplate: {
+    position: 'absolute',
+    zIndex: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 1,
+  },
+  nameplateImage: {
+    position: 'absolute',
+  },
+  creatureName: {
+    color: '#6B4B27',
+    fontFamily: 'EliceDXNeolli-Bold',
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
   },
   slotButton: {},
   unlockButton: {
