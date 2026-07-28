@@ -1,5 +1,7 @@
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 const NOTIFICATION_BUTTON = require('@/src/shared/assets/images/farm-status/notification-button.png');
 const SEARCH_BUTTON = require('@/src/shared/assets/images/farm-status/search-button.png');
 
@@ -37,11 +39,11 @@ export function FarmUtilityButtons({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    gap: 4.4,
+    gap: scaleByDeviceWidth(4.4),
   },
   buttonImage: {
-    width: 30.68,
-    height: 29.07,
+    width: scaleByDeviceWidth(30.68),
+    height: scaleByDeviceWidth(29.07),
   },
   pressed: {
     opacity: 0.8,

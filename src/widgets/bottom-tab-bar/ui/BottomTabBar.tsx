@@ -6,9 +6,11 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TAB_BAR_CONTENT_HEIGHT = 72;
+const TAB_BAR_CONTENT_HEIGHT = scaleByDeviceWidth(72);
 const CAPTURE_LABEL_IMAGE = require('@/src/shared/assets/images/bottom-tab-bar/capture-label.png');
 
 const TAB_IMAGES: Record<string, ImageSourcePropType> = {
@@ -141,30 +143,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-evenly',
   },
   tabButton: {
-    width: 48,
-    height: 38,
+    width: scaleByDeviceWidth(48),
+    height: scaleByDeviceWidth(38),
     alignItems: 'center',
     justifyContent: 'center',
   },
   captureButton: {
-    width: 64,
-    height: 80,
+    width: scaleByDeviceWidth(64),
+    height: scaleByDeviceWidth(80),
     alignItems: 'center',
     justifyContent: 'flex-start',
-    transform: [{ translateY: -21 }],
+    transform: [{ translateY: scaleByDeviceWidth(-21) }],
   },
   tabImage: {
-    width: 48,
-    height: 38,
+    width: scaleByDeviceWidth(48),
+    height: scaleByDeviceWidth(38),
   },
   captureImage: {
-    width: 64,
-    height: 64,
+    width: scaleByDeviceWidth(64),
+    height: scaleByDeviceWidth(64),
   },
   captureLabel: {
-    width: 19,
-    height: 10,
-    marginTop: 6,
+    width: scaleByDeviceWidth(19),
+    height: scaleByDeviceWidth(10),
+    marginTop: scaleByDeviceWidth(6),
   },
   focused: {
     opacity: 1,
@@ -174,9 +176,9 @@ const styles = StyleSheet.create({
   },
   activeIndicator: {
     position: 'absolute',
-    bottom: -8,
-    width: 5,
-    height: 5,
+    bottom: scaleByDeviceWidth(-8),
+    width: scaleByDeviceWidth(5),
+    height: scaleByDeviceWidth(5),
     backgroundColor: '#D99A00',
   },
   pressed: {
