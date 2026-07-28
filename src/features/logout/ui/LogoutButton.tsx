@@ -1,5 +1,7 @@
 import { Alert, Pressable, StyleSheet, Text } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 import { useLogout } from '../model/useLogout';
 
 export function LogoutButton() {
@@ -36,13 +38,13 @@ function getLogoutErrorMessage(error: unknown) {
 
 const styles = StyleSheet.create({
   button: {
-    minHeight: 48,
-    borderRadius: 8,
+    minHeight: scaleByDeviceWidth(48),
+    borderRadius: scaleByDeviceWidth(8),
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: scaleByDeviceWidth(16),
     backgroundColor: '#F2F4F7',
-    borderWidth: 1,
+    borderWidth: scaleByDeviceWidth(1),
     borderColor: '#D0D5DD',
   },
   disabled: {
@@ -50,7 +52,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#344054',
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     fontWeight: '700',
   },
 });

@@ -1,5 +1,7 @@
 import { Alert, Platform, StyleSheet, Text, Pressable, View } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 import { env } from '@/src/shared/config/env';
 
 import { isAuthCancelledError } from '../lib/authError';
@@ -102,20 +104,20 @@ function getLoginErrorMessage(provider: SocialLoginProvider, error: unknown) {
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    gap: 10,
+    gap: scaleByDeviceWidth(10),
   },
   button: {
-    minHeight: 48,
-    borderRadius: 8,
+    minHeight: scaleByDeviceWidth(48),
+    borderRadius: scaleByDeviceWidth(8),
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: scaleByDeviceWidth(16),
   },
   disabled: {
     opacity: 0.45,
   },
   buttonText: {
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     fontWeight: '700',
   },
 });

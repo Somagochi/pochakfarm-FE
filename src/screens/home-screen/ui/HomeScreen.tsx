@@ -1,5 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 import { LogoutButton } from '@/src/features/logout';
 import { SocialLoginButtons } from '@/src/features/social-login';
 
@@ -22,24 +24,24 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    padding: 24,
+    padding: scaleByDeviceWidth(24),
     backgroundColor: '#fff',
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: scaleByDeviceWidth(32),
   },
   title: {
-    fontSize: 28,
+    fontSize: scaleByDeviceWidth(28),
     fontWeight: '700',
-    marginBottom: 12,
+    marginBottom: scaleByDeviceWidth(12),
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: scaleByDeviceWidth(16),
     color: '#666',
     textAlign: 'center',
   },
   logout: {
-    marginTop: 12,
+    marginTop: scaleByDeviceWidth(12),
   },
 });
