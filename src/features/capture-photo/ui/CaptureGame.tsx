@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -39,6 +40,20 @@ const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
+
+async function triggerFailedThrowHaptics() {
+  try {
+    await Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Error,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    await Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Error,
+    );
+  } catch {
+    // 햅틱을 지원하지 않는 환경에서도 게임 진행은 계속합니다.
+  }
+}
 
 type CaptureGameProps = {
   photoUri: string;
@@ -389,6 +404,8 @@ export function CaptureGame({
               finishGame('success');
               return;
             }
+
+            void triggerFailedThrowHaptics();
 
             if (nextThrowsUsed >= MAX_THROWS) {
               finishGame('failure', 'attempts');
