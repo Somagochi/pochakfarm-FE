@@ -704,6 +704,97 @@ import { useCreateCreatureFromPhoto } from '@/features/create-creature-from-phot
 
 import { useCreateCreatureFromPhoto } from '@/features/create-creature-from-photo';
 
+## 반응형 UI 크기 및 위치 적용 규칙
+
+사용자가 UI 요소의 크기나 위치를 숫자로 전달하더라도, 해당 값을
+디바이스에 고정된 픽셀값으로 그대로 적용하지 않습니다.
+
+프로젝트의 UI 디자인 기준 화면 너비는 `411`입니다. 숫자로 전달된
+디자인 값은 `src/shared/lib/layout.ts`의 `scaleByDeviceWidth`를 사용해
+현재 디바이스 가로 너비 비율로 변환합니다.
+
+```ts
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+```
+
+다음 시각적 값에는 기본적으로 `scaleByDeviceWidth`를 적용합니다.
+
+- 크기: `width`, `height`, `minWidth`, `maxWidth`, `minHeight`, `maxHeight`
+- 위치: `top`, `right`, `bottom`, `left`
+- 간격: `margin`, `padding`, `gap` 계열
+- 텍스트: `fontSize`, `lineHeight`
+- 장식: `borderRadius`, `borderWidth`, 그림자 크기
+- 이동: `translateX`, `translateY`, 애니메이션 이동 거리
+- 터치 영역: `hitSlop`
+
+```ts
+const styles = StyleSheet.create({
+  icon: {
+    width: scaleByDeviceWidth(48),
+    height: scaleByDeviceWidth(48),
+  },
+  button: {
+    position: 'absolute',
+    right: scaleByDeviceWidth(20),
+    bottom: scaleByDeviceWidth(24),
+    paddingHorizontal: scaleByDeviceWidth(16),
+  },
+});
+```
+
+이미지와 아이콘은 가로와 세로에 같은 배율을 적용해 종횡비를
+유지합니다. 가능하면 한 축을 기준으로 원본 비율을 계산합니다.
+
+```ts
+const imageWidth = scaleByDeviceWidth(120);
+const imageHeight = imageWidth * (originalHeight / originalWidth);
+```
+
+요소가 특정 부모나 이미지 안에 배치되는 경우에는 부모 크기 대비
+비율 계산을 우선합니다.
+
+```ts
+{
+  top: parentHeight * (designTop / designParentHeight),
+  left: parentWidth * (designLeft / designParentWidth),
+  width: parentWidth * (designWidth / designParentWidth),
+}
+```
+
+이미 화면이나 부모 크기를 기준으로 계산된 값에는
+`scaleByDeviceWidth`를 다시 적용하지 않습니다.
+
+```ts
+{
+  width: screenWidth * 0.8,
+  top: parentHeight * 0.25,
+}
+```
+
+Safe Area와 함께 사용할 때는 Safe Area 값이 아닌 추가 디자인 값만
+변환합니다.
+
+```ts
+{
+  top: insets.top + scaleByDeviceWidth(12),
+  bottom: insets.bottom + scaleByDeviceWidth(24),
+}
+```
+
+다음 값에는 `scaleByDeviceWidth`를 적용하지 않습니다.
+
+- `flex`, `opacity`, `zIndex`
+- 퍼센트 값과 `aspectRatio`
+- 이미 계산된 비율이나 배수
+- 애니메이션 시간과 투명도 및 스케일 값
+- API 및 비즈니스 로직에서 사용하는 숫자
+- 배열 인덱스, 개수, 상태값, 확률값
+- `0`
+- `StyleSheet.hairlineWidth`
+
+UI 작업을 완료하기 전에 고정 크기와 위치가 남아 있지 않은지,
+이미지 종횡비가 유지되는지, 비율이 중복 적용되지 않았는지 확인합니다.
+마지막으로 린트와 TypeScript 검사를 실행합니다.
 
 ### 작업 완료 전 체크리스트
 
