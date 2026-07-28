@@ -34,6 +34,7 @@ const CAPTURE_COIN_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/ca
 const CAMERA_PERMISSION_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-dialog.png');
 const CAPTURE_PROBABILITY_MODAL_IMAGE = require('@/src/shared/assets/images/capture/capture-probability-modal.png');
 const CAMERA_PERMISSION_TOAST_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-toast.png');
+const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
 const CAMERA_CARD_ASPECT_RATIO = 426 / 656;
 const CAMERA_CARD_HORIZONTAL_MARGIN = 11;
 const CAMERA_CARD_BUTTON_GAP = 24;
@@ -326,9 +327,11 @@ export function CameraCaptureView() {
               </View>
             )}
           </View>
-          <Text pointerEvents="none" style={styles.cameraBrand}>
-            POCHAKFARM
-          </Text>
+          <Image
+            resizeMode="contain"
+            source={CAMERA_BRAND_IMAGE}
+            style={styles.cameraBrand}
+          />
         </View>
       </View>
 
@@ -557,15 +560,11 @@ const styles = StyleSheet.create({
   },
   cameraBrand: {
     position: 'absolute',
-    right: 0,
     bottom: 5,
-    left: 0,
-    color: '#F5EEDF',
-    fontFamily: 'monospace',
-    fontSize: 19,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    textAlign: 'center',
+    left: '50%',
+    width: 142,
+    height: 15.55,
+    marginLeft: -71,
   },
   captureLimitOverlay: {
     ...StyleSheet.absoluteFillObject,
