@@ -836,8 +836,8 @@ const styles = StyleSheet.create({
     columnGap: 3,
   },
   opportunityFrame: {
-    width: 24,
-    height: 24,
+    width: 21.35,
+    height: 21.35,
   },
   guideImage: {
     position: 'absolute',
