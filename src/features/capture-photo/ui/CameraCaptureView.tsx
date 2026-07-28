@@ -14,6 +14,8 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
@@ -36,9 +38,9 @@ const CAPTURE_PROBABILITY_MODAL_IMAGE = require('@/src/shared/assets/images/capt
 const CAMERA_PERMISSION_TOAST_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-toast.png');
 const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
 const CAMERA_CARD_ASPECT_RATIO = 426 / 656;
-const CAMERA_CARD_HORIZONTAL_MARGIN = 11;
-const CAMERA_CARD_BUTTON_GAP = 24;
-const BOTTOM_BUTTON_SIZE = 64;
+const CAMERA_CARD_HORIZONTAL_MARGIN = scaleByDeviceWidth(11);
+const CAMERA_CARD_BUTTON_GAP = scaleByDeviceWidth(24);
+const BOTTOM_BUTTON_SIZE = scaleByDeviceWidth(64);
 const MAX_CAPTURE_COUNT = 5;
 const HELP_MODAL_REFERENCE_WIDTH = 328;
 const HELP_MODAL_REFERENCE_HEIGHT = 626;
@@ -69,9 +71,12 @@ export function CameraCaptureView() {
     useState(false);
   const permissionToastOpacity = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
-  const cameraCardTop = insets.top + 117;
+  const cameraCardTop = insets.top + scaleByDeviceWidth(117);
   const bottomControlsTop =
-    screenHeight - insets.bottom - 28 - BOTTOM_BUTTON_SIZE;
+    screenHeight -
+    insets.bottom -
+    scaleByDeviceWidth(28) -
+    BOTTOM_BUTTON_SIZE;
   const availableCameraCardHeight =
     bottomControlsTop - cameraCardTop - CAMERA_CARD_BUTTON_GAP;
   const cameraCardWidth = Math.min(
@@ -254,7 +259,12 @@ export function CameraCaptureView() {
 
   return (
     <View style={styles.container}>
-      <View style={[styles.captureHeader, { top: insets.top + 8 }]}>
+      <View
+        style={[
+          styles.captureHeader,
+          { top: insets.top + scaleByDeviceWidth(8) },
+        ]}
+      >
         <Pressable
           accessibilityLabel="카메라 닫기"
           accessibilityRole="button"
@@ -296,7 +306,10 @@ export function CameraCaptureView() {
         accessibilityLabel="촬영 가이드"
         resizeMode="contain"
         source={CAPTURE_GUIDE_IMAGES[guideIndex]}
-        style={[styles.guideImage, { top: insets.top + 67 }]}
+        style={[
+          styles.guideImage,
+          { top: insets.top + scaleByDeviceWidth(67) },
+        ]}
       />
 
       <View
@@ -358,7 +371,7 @@ export function CameraCaptureView() {
         style={[
           styles.bottomControls,
           {
-            bottom: insets.bottom + 28,
+            bottom: insets.bottom + scaleByDeviceWidth(28),
           },
         ]}
       >
@@ -423,7 +436,7 @@ export function CameraCaptureView() {
           style={[
             styles.permissionToast,
             {
-              bottom: insets.bottom + 108,
+              bottom: insets.bottom + scaleByDeviceWidth(108),
               opacity: permissionToastOpacity,
             },
           ]}
@@ -621,19 +634,19 @@ const styles = StyleSheet.create({
   },
   captureHeader: {
     position: 'absolute',
-    left: 16,
-    right: 16,
+    left: scaleByDeviceWidth(16),
+    right: scaleByDeviceWidth(16),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   closeImage: {
-    width: 48,
-    height: 50.4,
+    width: scaleByDeviceWidth(48),
+    height: scaleByDeviceWidth(50.4),
   },
   captureTitleImage: {
-    width: 79,
-    height: 28,
+    width: scaleByDeviceWidth(79),
+    height: scaleByDeviceWidth(28),
     tintColor: '#32322D',
   },
   captureTitleSlot: {
@@ -643,61 +656,61 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   remainingCountImage: {
-    width: 43,
-    height: 11,
+    width: scaleByDeviceWidth(43),
+    height: scaleByDeviceWidth(11),
     tintColor: '#32322D',
   },
   remainingCountGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: 5,
+    columnGap: scaleByDeviceWidth(5),
   },
   remainingCountText: {
     color: '#32322D',
-    fontSize: 14,
+    fontSize: scaleByDeviceWidth(14),
     fontWeight: '800',
   },
   guideImage: {
     position: 'absolute',
-    width: 267,
-    height: 28,
+    width: scaleByDeviceWidth(267),
+    height: scaleByDeviceWidth(28),
     alignSelf: 'center',
   },
   cameraCard: {
     position: 'absolute',
     alignSelf: 'center',
     aspectRatio: CAMERA_CARD_ASPECT_RATIO,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-    borderWidth: 3,
+    paddingHorizontal: scaleByDeviceWidth(20),
+    paddingVertical: scaleByDeviceWidth(18),
+    borderWidth: scaleByDeviceWidth(3),
     borderColor: '#D5C6AF',
-    borderRadius: 28,
+    borderRadius: scaleByDeviceWidth(28),
     backgroundColor: '#FFFDF7',
   },
   cameraBezel: {
     flex: 1,
-    padding: 8,
-    paddingBottom: 34,
-    borderWidth: 4,
+    padding: scaleByDeviceWidth(8),
+    paddingBottom: scaleByDeviceWidth(34),
+    borderWidth: scaleByDeviceWidth(4),
     borderColor: '#302D2E',
-    borderRadius: 14,
+    borderRadius: scaleByDeviceWidth(14),
     backgroundColor: '#4A4648',
   },
   cameraViewport: {
     flex: 1,
     overflow: 'hidden',
-    borderWidth: 3,
+    borderWidth: scaleByDeviceWidth(3),
     borderColor: '#252324',
-    borderRadius: 9,
+    borderRadius: scaleByDeviceWidth(9),
     backgroundColor: '#242224',
   },
   cameraBrand: {
     position: 'absolute',
-    bottom: 5,
+    bottom: scaleByDeviceWidth(5),
     left: '50%',
-    width: 142,
-    height: 15.55,
-    marginLeft: -71,
+    width: scaleByDeviceWidth(142),
+    height: scaleByDeviceWidth(15.55),
+    marginLeft: scaleByDeviceWidth(-71),
   },
   captureLimitOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -706,19 +719,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 31, 29, 0.68)',
   },
   captureLimitContent: {
-    width: 266,
-    height: 290.24,
+    width: scaleByDeviceWidth(266),
+    height: scaleByDeviceWidth(290.24),
   },
   captureLimitImage: {
-    width: 266,
-    height: 290.24,
+    width: scaleByDeviceWidth(266),
+    height: scaleByDeviceWidth(290.24),
   },
   captureLimitButton: {
     position: 'absolute',
     right: 0,
     bottom: 0,
     left: 0,
-    height: 72,
+    height: scaleByDeviceWidth(72),
   },
   focusFrame: {
     position: 'absolute',
@@ -729,37 +742,37 @@ const styles = StyleSheet.create({
   },
   corner: {
     position: 'absolute',
-    width: 48,
-    height: 48,
+    width: scaleByDeviceWidth(48),
+    height: scaleByDeviceWidth(48),
     borderColor: '#FFFFFF',
   },
   topLeftCorner: {
     top: 0,
     left: 0,
-    borderTopWidth: 6,
-    borderLeftWidth: 6,
-    borderTopLeftRadius: 12,
+    borderTopWidth: scaleByDeviceWidth(6),
+    borderLeftWidth: scaleByDeviceWidth(6),
+    borderTopLeftRadius: scaleByDeviceWidth(12),
   },
   topRightCorner: {
     top: 0,
     right: 0,
-    borderTopWidth: 6,
-    borderRightWidth: 6,
-    borderTopRightRadius: 12,
+    borderTopWidth: scaleByDeviceWidth(6),
+    borderRightWidth: scaleByDeviceWidth(6),
+    borderTopRightRadius: scaleByDeviceWidth(12),
   },
   bottomLeftCorner: {
     bottom: 0,
     left: 0,
-    borderBottomWidth: 6,
-    borderLeftWidth: 6,
-    borderBottomLeftRadius: 12,
+    borderBottomWidth: scaleByDeviceWidth(6),
+    borderLeftWidth: scaleByDeviceWidth(6),
+    borderBottomLeftRadius: scaleByDeviceWidth(12),
   },
   bottomRightCorner: {
     right: 0,
     bottom: 0,
-    borderRightWidth: 6,
-    borderBottomWidth: 6,
-    borderBottomRightRadius: 12,
+    borderRightWidth: scaleByDeviceWidth(6),
+    borderBottomWidth: scaleByDeviceWidth(6),
+    borderBottomRightRadius: scaleByDeviceWidth(12),
   },
   bottomControls: {
     position: 'absolute',
@@ -768,31 +781,31 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    columnGap: 40,
+    columnGap: scaleByDeviceWidth(40),
   },
   albumButton: {
-    width: 60.95,
-    height: 64,
+    width: scaleByDeviceWidth(60.95),
+    height: scaleByDeviceWidth(64),
   },
   albumButtonImage: {
-    width: 60.95,
-    height: 64,
+    width: scaleByDeviceWidth(60.95),
+    height: scaleByDeviceWidth(64),
   },
   helpButton: {
-    width: 60.95,
-    height: 64,
+    width: scaleByDeviceWidth(60.95),
+    height: scaleByDeviceWidth(64),
   },
   helpButtonImage: {
-    width: 60.95,
-    height: 64,
+    width: scaleByDeviceWidth(60.95),
+    height: scaleByDeviceWidth(64),
   },
   shutterButton: {
-    width: 64,
-    height: 64,
+    width: scaleByDeviceWidth(64),
+    height: scaleByDeviceWidth(64),
   },
   shutterButtonImage: {
-    width: 64,
-    height: 64,
+    width: scaleByDeviceWidth(64),
+    height: scaleByDeviceWidth(64),
   },
   disabledButton: {
     opacity: 0.45,
@@ -800,13 +813,13 @@ const styles = StyleSheet.create({
   permissionToast: {
     position: 'absolute',
     zIndex: 9,
-    width: 293,
-    height: 54,
+    width: scaleByDeviceWidth(293),
+    height: scaleByDeviceWidth(54),
     alignSelf: 'center',
   },
   permissionToastImage: {
-    width: 293,
-    height: 54,
+    width: scaleByDeviceWidth(293),
+    height: scaleByDeviceWidth(54),
   },
   dialogOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -816,33 +829,33 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(31, 29, 27, 0.58)',
   },
   coinDialog: {
-    width: 280,
-    height: 208,
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(208),
   },
   coinDialogImage: {
-    width: 280,
-    height: 208,
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(208),
   },
   dialogCloseButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 30,
-    height: 30,
+    top: scaleByDeviceWidth(10),
+    right: scaleByDeviceWidth(10),
+    width: scaleByDeviceWidth(30),
+    height: scaleByDeviceWidth(30),
   },
   dialogCancelButton: {
     position: 'absolute',
-    bottom: 30,
-    left: 32,
-    width: 103,
-    height: 36,
+    bottom: scaleByDeviceWidth(30),
+    left: scaleByDeviceWidth(32),
+    width: scaleByDeviceWidth(103),
+    height: scaleByDeviceWidth(36),
   },
   dialogConfirmButton: {
     position: 'absolute',
-    right: 32,
-    bottom: 30,
-    width: 103,
-    height: 36,
+    right: scaleByDeviceWidth(32),
+    bottom: scaleByDeviceWidth(30),
+    width: scaleByDeviceWidth(103),
+    height: scaleByDeviceWidth(36),
   },
   helpModalOverlay: {
     flex: 1,
@@ -914,26 +927,26 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(31, 29, 27, 0.58)',
   },
   permissionDialog: {
-    width: 280,
-    height: 186,
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(186),
   },
   permissionDialogImage: {
-    width: 280,
-    height: 186,
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(186),
   },
   permissionDialogCloseButton: {
     position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 30,
-    height: 30,
+    top: scaleByDeviceWidth(10),
+    right: scaleByDeviceWidth(10),
+    width: scaleByDeviceWidth(30),
+    height: scaleByDeviceWidth(30),
   },
   permissionDialogAllowButton: {
     position: 'absolute',
-    bottom: 30,
-    left: 90,
-    width: 100,
-    height: 36,
+    bottom: scaleByDeviceWidth(30),
+    left: scaleByDeviceWidth(90),
+    width: scaleByDeviceWidth(100),
+    height: scaleByDeviceWidth(36),
   },
   buttonPressed: {
     opacity: 0.65,

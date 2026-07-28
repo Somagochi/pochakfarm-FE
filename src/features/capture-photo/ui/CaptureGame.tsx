@@ -13,16 +13,18 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
+
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRemovePhotoBackground } from '../model/useRemovePhotoBackground';
 
 const CAPTURE_SECONDS = 10;
-const FRAME_SIZE = 80;
-const TARGET_SIZE = 310;
-const SUCCESS_DISTANCE = 72;
+const FRAME_SIZE = scaleByDeviceWidth(80);
+const TARGET_SIZE = scaleByDeviceWidth(310);
+const SUCCESS_DISTANCE = scaleByDeviceWidth(72);
 const SUCCESS_SCALE = 0.38;
-const MIN_THROW_DISTANCE = 24;
+const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
 const MAX_THROWS = 3;
 const CAMERA_CARD_ASPECT_RATIO = 414 / 635;
@@ -85,7 +87,9 @@ export function CaptureGame({
   const throwArc = useRef(new Animated.Value(0)).current;
   const throwOpacity = useRef(new Animated.Value(1)).current;
   const successEffectProgress = useRef(new Animated.Value(0)).current;
-  const bottomSheetTranslateY = useRef(new Animated.Value(340)).current;
+  const bottomSheetTranslateY = useRef(
+    new Animated.Value(scaleByDeviceWidth(340)),
+  ).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
@@ -106,14 +110,14 @@ export function CaptureGame({
   const frameOrigin = useMemo(
     () => ({
       x: width / 2 - FRAME_SIZE / 2,
-      y: height - insets.bottom - 125,
+      y: height - insets.bottom - scaleByDeviceWidth(125),
     }),
     [height, insets.bottom, width],
   );
-  const cameraCardTop = insets.top + 128;
+  const cameraCardTop = insets.top + scaleByDeviceWidth(128);
   const cameraCardWidth = Math.min(
-    width - 30,
-    (frameOrigin.y - cameraCardTop - 20) *
+    width - scaleByDeviceWidth(30),
+    (frameOrigin.y - cameraCardTop - scaleByDeviceWidth(20)) *
       CAMERA_CARD_ASPECT_RATIO,
   );
 
@@ -381,7 +385,7 @@ export function CaptureGame({
             }),
             Animated.sequence([
               Animated.timing(throwArc, {
-                toValue: -42,
+                toValue: scaleByDeviceWidth(-42),
                 duration: flightDuration * 0.48,
                 easing: Easing.out(Easing.quad),
                 useNativeDriver: true,
@@ -450,7 +454,12 @@ export function CaptureGame({
 
   return (
     <View style={styles.container}>
-      <View style={[styles.gameStatusRow, { top: insets.top + 18 }]}>
+      <View
+        style={[
+          styles.gameStatusRow,
+          { top: insets.top + scaleByDeviceWidth(18) },
+        ]}
+      >
         <View style={styles.timerCard}>
           <Image
             resizeMode="stretch"
@@ -509,7 +518,10 @@ export function CaptureGame({
         accessibilityLabel="타이밍에 맞춰 액자를 던지세요"
         resizeMode="contain"
         source={THROW_GUIDE_IMAGE}
-        style={[styles.guideImage, { top: insets.top + 83 }]}
+        style={[
+          styles.guideImage,
+          { top: insets.top + scaleByDeviceWidth(83) },
+        ]}
       />
 
       <View
@@ -703,7 +715,8 @@ export function CaptureGame({
               style={[
                 styles.successBottomSheet,
                 {
-                  paddingBottom: insets.bottom + 24,
+                  paddingBottom:
+                    insets.bottom + scaleByDeviceWidth(24),
                   transform: [{ translateY: bottomSheetTranslateY }],
                 },
             ]}
@@ -798,122 +811,122 @@ const styles = StyleSheet.create({
   },
   gameStatusRow: {
     position: 'absolute',
-    right: 15,
-    left: 15,
+    right: scaleByDeviceWidth(15),
+    left: scaleByDeviceWidth(15),
     zIndex: 3,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    columnGap: 5.27,
+    columnGap: scaleByDeviceWidth(5.27),
   },
   timerCard: {
-    width: 191,
-    height: 40,
-    paddingHorizontal: 12,
+    width: scaleByDeviceWidth(191),
+    height: scaleByDeviceWidth(40),
+    paddingHorizontal: scaleByDeviceWidth(12),
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: 7,
+    columnGap: scaleByDeviceWidth(7),
   },
   timerBackground: {
     position: 'absolute',
-    width: 191,
-    height: 40,
+    width: scaleByDeviceWidth(191),
+    height: scaleByDeviceWidth(40),
   },
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: 4,
+    columnGap: scaleByDeviceWidth(4),
   },
   timerClock: {
-    width: 18,
-    height: 18,
+    width: scaleByDeviceWidth(18),
+    height: scaleByDeviceWidth(18),
   },
   timerText: {
     color: '#32322D',
     fontFamily: 'monospace',
-    fontSize: 18,
+    fontSize: scaleByDeviceWidth(18),
     fontWeight: '900',
   },
   timerTrack: {
     flex: 1,
-    height: 12,
+    height: scaleByDeviceWidth(12),
     overflow: 'hidden',
-    borderWidth: 2,
+    borderWidth: scaleByDeviceWidth(2),
     borderColor: '#6C604D',
-    borderRadius: 7,
+    borderRadius: scaleByDeviceWidth(7),
     backgroundColor: '#FFF7DB',
   },
   timerProgress: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: scaleByDeviceWidth(4),
     backgroundColor: '#F5BE20',
   },
   opportunityCard: {
-    width: 140.71,
-    height: 40,
-    paddingHorizontal: 7,
+    width: scaleByDeviceWidth(140.71),
+    height: scaleByDeviceWidth(40),
+    paddingHorizontal: scaleByDeviceWidth(7),
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: 5.27,
+    columnGap: scaleByDeviceWidth(5.27),
   },
   opportunityBackground: {
     position: 'absolute',
-    width: 140.71,
-    height: 40,
+    width: scaleByDeviceWidth(140.71),
+    height: scaleByDeviceWidth(40),
   },
   opportunityLabel: {
-    width: 43.37,
-    height: 14,
+    width: scaleByDeviceWidth(43.37),
+    height: scaleByDeviceWidth(14),
   },
   opportunityFrames: {
     flexDirection: 'row',
-    columnGap: 3,
+    columnGap: scaleByDeviceWidth(3),
   },
   opportunityFrame: {
-    width: 21.35,
-    height: 21.35,
+    width: scaleByDeviceWidth(21.35),
+    height: scaleByDeviceWidth(21.35),
   },
   guideImage: {
     position: 'absolute',
     zIndex: 2,
-    width: 267,
-    height: 28,
+    width: scaleByDeviceWidth(267),
+    height: scaleByDeviceWidth(28),
     alignSelf: 'center',
   },
   cameraCard: {
     position: 'absolute',
     alignSelf: 'center',
     aspectRatio: CAMERA_CARD_ASPECT_RATIO,
-    padding: 20,
-    borderWidth: 3,
+    padding: scaleByDeviceWidth(20),
+    borderWidth: scaleByDeviceWidth(3),
     borderColor: '#D5C6AF',
-    borderRadius: 28,
+    borderRadius: scaleByDeviceWidth(28),
     backgroundColor: '#FFFDF7',
   },
   cameraBezel: {
     flex: 1,
-    padding: 8,
-    paddingBottom: 38,
-    borderWidth: 4,
+    padding: scaleByDeviceWidth(8),
+    paddingBottom: scaleByDeviceWidth(38),
+    borderWidth: scaleByDeviceWidth(4),
     borderColor: '#302D2E',
-    borderRadius: 14,
+    borderRadius: scaleByDeviceWidth(14),
     backgroundColor: '#4A4648',
   },
   cameraViewport: {
     flex: 1,
     overflow: 'hidden',
-    borderWidth: 3,
+    borderWidth: scaleByDeviceWidth(3),
     borderColor: '#252324',
-    borderRadius: 9,
+    borderRadius: scaleByDeviceWidth(9),
     backgroundColor: '#242224',
   },
   cameraBrand: {
     position: 'absolute',
-    bottom: 6,
+    bottom: scaleByDeviceWidth(6),
     left: '50%',
-    width: 142,
-    height: 15.55,
-    marginLeft: -71,
+    width: scaleByDeviceWidth(142),
+    height: scaleByDeviceWidth(15.55),
+    marginLeft: scaleByDeviceWidth(-71),
   },
   target: {
     position: 'absolute',
@@ -938,8 +951,8 @@ const styles = StyleSheet.create({
     height: FRAME_SIZE,
   },
   throwFrameImage: {
-    width: 80,
-    height: 80,
+    width: scaleByDeviceWidth(80),
+    height: scaleByDeviceWidth(80),
   },
   successBottomSheet: {
     position: 'absolute',
@@ -948,14 +961,14 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 10,
     alignItems: 'center',
-    paddingTop: 16,
-    paddingHorizontal: 20,
-    borderTopWidth: 4,
-    borderRightWidth: 3,
-    borderLeftWidth: 3,
+    paddingTop: scaleByDeviceWidth(16),
+    paddingHorizontal: scaleByDeviceWidth(20),
+    borderTopWidth: scaleByDeviceWidth(4),
+    borderRightWidth: scaleByDeviceWidth(3),
+    borderLeftWidth: scaleByDeviceWidth(3),
     borderColor: '#C8B998',
-    borderTopLeftRadius: 22,
-    borderTopRightRadius: 22,
+    borderTopLeftRadius: scaleByDeviceWidth(22),
+    borderTopRightRadius: scaleByDeviceWidth(22),
     backgroundColor: '#FFFCF5',
   },
   successOnlyScreen: {
@@ -971,14 +984,14 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 150,
+    paddingBottom: scaleByDeviceWidth(150),
     backgroundColor: '#E8F2D8',
   },
   previewCircle: {
     position: 'absolute',
-    width: 330,
-    height: 330,
-    borderRadius: 165,
+    width: scaleByDeviceWidth(330),
+    height: scaleByDeviceWidth(330),
+    borderRadius: scaleByDeviceWidth(165),
     backgroundColor: '#FFF9E9',
   },
   segmentedPhoto: {
@@ -986,52 +999,52 @@ const styles = StyleSheet.create({
     height: '58%',
   },
   segmentedTitle: {
-    marginTop: 18,
+    marginTop: scaleByDeviceWidth(18),
     color: '#31533B',
-    fontSize: 26,
+    fontSize: scaleByDeviceWidth(26),
     fontWeight: '900',
   },
   segmentedDescription: {
-    marginTop: 6,
+    marginTop: scaleByDeviceWidth(6),
     color: '#66805E',
-    fontSize: 16,
+    fontSize: scaleByDeviceWidth(16),
     fontWeight: '700',
   },
   processingCard: {
     position: 'absolute',
     top: '38%',
-    right: 28,
-    left: 28,
+    right: scaleByDeviceWidth(28),
+    left: scaleByDeviceWidth(28),
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    borderRadius: 24,
+    paddingHorizontal: scaleByDeviceWidth(24),
+    paddingVertical: scaleByDeviceWidth(28),
+    borderRadius: scaleByDeviceWidth(24),
     backgroundColor: '#FFF9E9',
   },
   processingTitle: {
-    marginTop: 14,
+    marginTop: scaleByDeviceWidth(14),
     color: '#31533B',
-    fontSize: 20,
+    fontSize: scaleByDeviceWidth(20),
     fontWeight: '900',
   },
   processingDescription: {
-    marginTop: 8,
+    marginTop: scaleByDeviceWidth(8),
     color: '#66805E',
-    fontSize: 14,
+    fontSize: scaleByDeviceWidth(14),
     fontWeight: '600',
-    lineHeight: 20,
+    lineHeight: scaleByDeviceWidth(20),
     textAlign: 'center',
   },
   segmentationRetryButton: {
-    marginTop: 18,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
+    marginTop: scaleByDeviceWidth(18),
+    paddingHorizontal: scaleByDeviceWidth(24),
+    paddingVertical: scaleByDeviceWidth(12),
+    borderRadius: scaleByDeviceWidth(14),
     backgroundColor: '#31533B',
   },
   segmentationRetryText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     fontWeight: '800',
   },
   successEffect: {
@@ -1042,43 +1055,46 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   successEffectRing: {
-    width: 138,
-    height: 138,
+    width: scaleByDeviceWidth(138),
+    height: scaleByDeviceWidth(138),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 7,
+    borderWidth: scaleByDeviceWidth(7),
     borderColor: '#FFD34D',
-    borderRadius: 69,
+    borderRadius: scaleByDeviceWidth(69),
     backgroundColor: 'rgba(49, 83, 59, 0.78)',
     shadowColor: '#FFD34D',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.9,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowRadius: scaleByDeviceWidth(18),
+    elevation: scaleByDeviceWidth(12),
   },
   successSparkle: {
     position: 'absolute',
-    top: -18,
-    right: -22,
+    top: scaleByDeviceWidth(-18),
+    right: scaleByDeviceWidth(-22),
   },
   successEffectText: {
-    marginTop: 18,
+    marginTop: scaleByDeviceWidth(18),
     color: '#FFF4A8',
-    fontSize: 30,
+    fontSize: scaleByDeviceWidth(30),
     fontWeight: '900',
     textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 1, height: 2 },
-    textShadowRadius: 3,
+    textShadowOffset: {
+      width: scaleByDeviceWidth(1),
+      height: scaleByDeviceWidth(2),
+    },
+    textShadowRadius: scaleByDeviceWidth(3),
   },
   bottomSheetTitleImage: {
-    width: 194,
-    height: 28,
+    width: scaleByDeviceWidth(194),
+    height: scaleByDeviceWidth(28),
   },
   bottomSheetActions: {
     width: '100%',
     flexDirection: 'row',
-    marginTop: 1.74,
-    columnGap: 4,
+    marginTop: scaleByDeviceWidth(1.74),
+    columnGap: scaleByDeviceWidth(4),
   },
   decisionButton: {
     flex: 1,
@@ -1092,7 +1108,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignSelf: 'center',
     color: '#987A50',
-    fontSize: 14,
+    fontSize: scaleByDeviceWidth(14),
     fontWeight: '700',
   },
   resultOverlay: {
@@ -1100,59 +1116,59 @@ const styles = StyleSheet.create({
     zIndex: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: scaleByDeviceWidth(28),
     backgroundColor: 'rgba(10, 18, 10, 0.7)',
   },
   resultCard: {
     width: '100%',
-    maxWidth: 340,
+    maxWidth: scaleByDeviceWidth(340),
     alignItems: 'center',
-    padding: 26,
-    borderWidth: 4,
+    padding: scaleByDeviceWidth(26),
+    borderWidth: scaleByDeviceWidth(4),
     borderColor: '#D2BE8E',
-    borderRadius: 24,
+    borderRadius: scaleByDeviceWidth(24),
     backgroundColor: '#FFF4DA',
   },
   resultTitle: {
-    marginTop: 10,
+    marginTop: scaleByDeviceWidth(10),
     color: '#31533B',
-    fontSize: 28,
+    fontSize: scaleByDeviceWidth(28),
     fontWeight: '900',
   },
   resultDescription: {
-    marginTop: 8,
+    marginTop: scaleByDeviceWidth(8),
     color: '#5E6E62',
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     textAlign: 'center',
   },
   resultActions: {
     flexDirection: 'row',
-    marginTop: 24,
-    columnGap: 10,
+    marginTop: scaleByDeviceWidth(24),
+    columnGap: scaleByDeviceWidth(10),
   },
   secondaryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-    borderWidth: 2,
+    paddingHorizontal: scaleByDeviceWidth(20),
+    paddingVertical: scaleByDeviceWidth(13),
+    borderWidth: scaleByDeviceWidth(2),
     borderColor: '#31533B',
-    borderRadius: 12,
+    borderRadius: scaleByDeviceWidth(12),
   },
   secondaryButtonText: {
     color: '#31533B',
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     fontWeight: '700',
   },
   primaryButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 13,
-    borderWidth: 2,
+    paddingHorizontal: scaleByDeviceWidth(20),
+    paddingVertical: scaleByDeviceWidth(13),
+    borderWidth: scaleByDeviceWidth(2),
     borderColor: '#31533B',
-    borderRadius: 12,
+    borderRadius: scaleByDeviceWidth(12),
     backgroundColor: '#31533B',
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     fontWeight: '700',
   },
   pressed: {
