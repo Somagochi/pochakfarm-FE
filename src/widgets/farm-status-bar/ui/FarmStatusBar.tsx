@@ -1,5 +1,7 @@
 import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 const STATUS_BACKGROUND = require('@/src/shared/assets/images/farm-status/status-background.png');
 const PAW_ICON = require('@/src/shared/assets/images/farm-status/paw.png');
 
@@ -31,38 +33,38 @@ export function FarmStatusBar({
 
 const styles = StyleSheet.create({
   container: {
-    width: 144,
-    height: 32,
-    paddingHorizontal: 11,
+    width: scaleByDeviceWidth(144),
+    height: scaleByDeviceWidth(32),
+    paddingHorizontal: scaleByDeviceWidth(11),
     flexDirection: 'row',
     alignItems: 'center',
   },
   pawIcon: {
-    width: 14,
-    height: 14,
-    marginRight: 5,
+    width: scaleByDeviceWidth(14),
+    height: scaleByDeviceWidth(14),
+    marginRight: scaleByDeviceWidth(5),
   },
   name: {
-    maxWidth: 67,
+    maxWidth: scaleByDeviceWidth(67),
     color: '#332F27',
-    fontSize: 15,
+    fontSize: scaleByDeviceWidth(15),
     fontWeight: '700',
   },
   levelBadge: {
-    minWidth: 40,
-    height: 19,
+    minWidth: scaleByDeviceWidth(40),
+    height: scaleByDeviceWidth(19),
     marginLeft: 'auto',
-    paddingHorizontal: 5,
+    paddingHorizontal: scaleByDeviceWidth(5),
     alignItems: 'center',
     justifyContent: 'center',
     borderColor: '#CDB999',
-    borderRadius: 10,
-    borderWidth: 1,
+    borderRadius: scaleByDeviceWidth(10),
+    borderWidth: scaleByDeviceWidth(1),
     backgroundColor: '#E8DCC8',
   },
   level: {
     color: '#685A48',
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: scaleByDeviceWidth(12),
   },
 });

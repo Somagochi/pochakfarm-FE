@@ -9,6 +9,8 @@ import {
   View,
 } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 const BOTTOM_SHEET_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-bottom-sheet.png');
 const DETAIL_TOGGLE_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-toggle.png');
 const PROFILE_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-profile-label.png');
@@ -16,11 +18,11 @@ const CARD_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-card-
 const KKOMI_IMAGE = require('@/src/shared/assets/images/farm/kkomi.png');
 const JOURNEY_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-journey-label.png');
 const SHEET_ASPECT_RATIO = 1440 / 2756;
-const DETAIL_TOGGLE_WIDTH = 218;
-const DETAIL_TOGGLE_HEIGHT = 35;
+const DETAIL_TOGGLE_WIDTH = scaleByDeviceWidth(218);
+const DETAIL_TOGGLE_HEIGHT = scaleByDeviceWidth(35);
 const IMAGE_BOX_TOP_RATIO = 340 / 2756;
-const DETAIL_TOGGLE_GAP = 12;
-const JOURNEY_LABEL_WIDTH = 99;
+const DETAIL_TOGGLE_GAP = scaleByDeviceWidth(12);
+const JOURNEY_LABEL_WIDTH = scaleByDeviceWidth(99);
 const JOURNEY_LABEL_HEIGHT = JOURNEY_LABEL_WIDTH * (42 / 388);
 
 type CreatureDetailSheetProps = {
@@ -264,8 +266,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
   },
   detailLabel: {
-    width: 88,
-    height: 17,
+    width: scaleByDeviceWidth(88),
+    height: scaleByDeviceWidth(17),
   },
   creature: {
     position: 'absolute',
@@ -290,7 +292,7 @@ const styles = StyleSheet.create({
   valueText: {
     color: '#745D40',
     fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: 16,
+    fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
@@ -298,7 +300,7 @@ const styles = StyleSheet.create({
   smallValueText: {
     color: '#745D40',
     fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: 16,
+    fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
@@ -306,22 +308,22 @@ const styles = StyleSheet.create({
   skillContent: {
     position: 'absolute',
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: scaleByDeviceWidth(12),
   },
   skillName: {
     color: '#654300',
     fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: 16,
+    fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
-    lineHeight: 19,
+    lineHeight: scaleByDeviceWidth(19),
     textAlignVertical: 'center',
   },
   skillDescription: {
     color: '#654300',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: 10,
+    fontSize: scaleByDeviceWidth(10),
     includeFontPadding: false,
-    lineHeight: 15,
+    lineHeight: scaleByDeviceWidth(15),
     textAlignVertical: 'center',
   },
   journeyLabel: {

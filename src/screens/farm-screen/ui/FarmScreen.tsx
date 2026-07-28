@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CreatureDetailSheet } from '@/src/widgets/creature-detail-sheet';
@@ -56,7 +58,12 @@ export function FarmScreen() {
           />
         </ScrollView>
       )}
-      <View style={[styles.statusControls, { top: insets.top + 2.2 }]}>
+      <View
+        style={[
+          styles.statusControls,
+          { top: insets.top + scaleByDeviceWidth(2.2) },
+        ]}
+      >
         <FarmStatusBar />
         <View style={styles.actionButton}>
           <FarmEnvironmentSelector
@@ -65,7 +72,12 @@ export function FarmScreen() {
           />
         </View>
       </View>
-      <View style={[styles.rightControls, { top: insets.top + 2.2 }]}>
+      <View
+        style={[
+          styles.rightControls,
+          { top: insets.top + scaleByDeviceWidth(2.2) },
+        ]}
+      >
         <CoinBalanceBar />
         <View style={styles.utilityButtons}>
           <FarmUtilityButtons />
@@ -93,19 +105,19 @@ const styles = StyleSheet.create({
   },
   statusControls: {
     position: 'absolute',
-    left: 12,
+    left: scaleByDeviceWidth(12),
     zIndex: 1,
   },
   actionButton: {
-    marginTop: 4.4,
+    marginTop: scaleByDeviceWidth(4.4),
   },
   rightControls: {
     position: 'absolute',
-    right: 12,
+    right: scaleByDeviceWidth(12),
     zIndex: 1,
   },
   utilityButtons: {
-    marginTop: 4.4,
+    marginTop: scaleByDeviceWidth(4.4),
     alignSelf: 'flex-end',
   },
 });

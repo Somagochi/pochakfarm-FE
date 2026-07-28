@@ -7,6 +7,8 @@ import {
   View,
 } from 'react-native';
 
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+
 const ENVIRONMENTS = [
   {
     key: 'sky',
@@ -111,30 +113,30 @@ export function FarmEnvironmentSelector({
 
 const styles = StyleSheet.create({
   currentButton: {
-    width: 58.25,
-    height: 29.25,
+    width: scaleByDeviceWidth(58.25),
+    height: scaleByDeviceWidth(29.25),
   },
   menu: {
-    width: 264,
-    height: 80,
-    marginTop: 4.4,
+    width: scaleByDeviceWidth(264),
+    height: scaleByDeviceWidth(80),
+    marginTop: scaleByDeviceWidth(4.4),
   },
   menuImage: {
     position: 'absolute',
-    width: 264,
-    height: 80,
+    width: scaleByDeviceWidth(264),
+    height: scaleByDeviceWidth(80),
   },
   menuButtons: {
     height: '100%',
-    paddingHorizontal: 7,
-    paddingVertical: 7,
+    paddingHorizontal: scaleByDeviceWidth(7),
+    paddingVertical: scaleByDeviceWidth(7),
     flexDirection: 'row',
-    gap: 4,
+    gap: scaleByDeviceWidth(4),
   },
   menuButton: {
-    width: 59.5,
-    height: 66,
-    borderRadius: 4,
+    width: scaleByDeviceWidth(59.5),
+    height: scaleByDeviceWidth(66),
+    borderRadius: scaleByDeviceWidth(4),
   },
   pressed: {
     opacity: 0.8,
