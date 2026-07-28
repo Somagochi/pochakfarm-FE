@@ -31,6 +31,8 @@ const ENVIRONMENT_ASSETS = {
 } as const;
 const REFERENCE_SCREEN_WIDTH = 411;
 const BASE_SLOT_SIZE = 58.4;
+const KKOMI_IMAGE = require('@/src/shared/assets/images/farm/kkomi.png');
+const CREATURE_NAMEPLATE_IMAGE = require('@/src/shared/assets/images/farm/creature-nameplate.png');
 const FARM_AREAS = [
   { areaNumber: 4, sourceCenterY: 700 },
   { areaNumber: 3, sourceCenterY: 1312 },
@@ -40,10 +42,15 @@ const FARM_AREAS = [
 
 type FarmFieldProps = {
   environment: 'sky' | 'land' | 'sea' | 'space';
+  onPressCreature?: () => void;
   width: number;
 };
 
-export function FarmField({ environment, width }: FarmFieldProps) {
+export function FarmField({
+  environment,
+  onPressCreature,
+  width,
+}: FarmFieldProps) {
   const { background, unlock } = ENVIRONMENT_ASSETS[environment];
   const { width: imageWidth, height: imageHeight } =
     Image.resolveAssetSource(background);
@@ -100,7 +107,19 @@ export function FarmField({ environment, width }: FarmFieldProps) {
           >
             <FarmAreaRow
               areaNumber={areaNumber}
+              creatureSlot={
+                environment === 'land' && areaNumber === 1
+                  ? {
+                      animalImageSource: KKOMI_IMAGE,
+                      name: '꼬미',
+                      nameplateImageSource:
+                        CREATURE_NAMEPLATE_IMAGE,
+                      slotNumber: 1,
+                    }
+                  : undefined
+              }
               isUnlocked={areaNumber <= unlockedAreaCount}
+              onPressCreature={onPressCreature}
               onPressSlot={() => router.push('/(tabs)/capture')}
               onPressUnlock={() => void handleUnlock(areaNumber)}
               scale={uiScale}
