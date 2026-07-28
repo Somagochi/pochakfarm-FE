@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -36,9 +37,26 @@ const OPPORTUNITY_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture
 const OPPORTUNITY_LABEL_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-label.png');
 const OPPORTUNITY_USED_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-used.png');
 const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-available.png');
+const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
+const TARGET_START_IMAGE = require('@/src/shared/assets/images/capture/throw-target-start.png');
+const TARGET_END_IMAGE = require('@/src/shared/assets/images/capture/throw-target-end.png');
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
+
+async function triggerFailedThrowHaptics() {
+  try {
+    await Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Error,
+    );
+    await new Promise((resolve) => setTimeout(resolve, 120));
+    await Haptics.notificationAsync(
+      Haptics.NotificationFeedbackType.Error,
+    );
+  } catch {
+    // 햅틱을 지원하지 않는 환경에서도 게임 진행은 계속합니다.
+  }
+}
 
 type CaptureGameProps = {
   photoUri: string;
@@ -144,12 +162,12 @@ export function CaptureGame({
         Animated.timing(pulseScale, {
           toValue: 0.18,
           duration: 1150,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(pulseScale, {
           toValue: 1,
           duration: 1150,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     );
@@ -390,6 +408,8 @@ export function CaptureGame({
               return;
             }
 
+            void triggerFailedThrowHaptics();
+
             if (nextThrowsUsed >= MAX_THROWS) {
               finishGame('failure', 'attempts');
               return;
@@ -418,6 +438,14 @@ export function CaptureGame({
   const frameRotation = throwRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
+  });
+  const targetStartOpacity = pulseScale.interpolate({
+    inputRange: [0.18, 1],
+    outputRange: [0, 1],
+  });
+  const targetEndOpacity = pulseScale.interpolate({
+    inputRange: [0.18, 1],
+    outputRange: [1, 0],
   });
 
   return (
@@ -499,9 +527,11 @@ export function CaptureGame({
             />
             <View pointerEvents="none" style={styles.dimOverlay} />
           </View>
-          <Text pointerEvents="none" style={styles.cameraBrand}>
-            POCHAKFARM
-          </Text>
+          <Image
+            resizeMode="contain"
+            source={CAMERA_BRAND_IMAGE}
+            style={styles.cameraBrand}
+          />
         </View>
       </View>
 
@@ -515,18 +545,22 @@ export function CaptureGame({
           },
         ]}
       >
-        <View style={[styles.targetRing, styles.targetRingOuter]} />
-        <Animated.View
+        <Animated.Image
+          resizeMode="contain"
+          source={TARGET_START_IMAGE}
           style={[
-            styles.pulseRing,
-            {
-              transform: [{ scale: pulseScale }],
-            },
+            styles.targetMotionImage,
+            { opacity: targetStartOpacity },
           ]}
         />
-        <View style={styles.targetPoint}>
-          <Ionicons color="#FFF7D7" name="paw" size={32} />
-        </View>
+        <Animated.Image
+          resizeMode="contain"
+          source={TARGET_END_IMAGE}
+          style={[
+            styles.targetMotionImage,
+            { opacity: targetEndOpacity },
+          ]}
+        />
       </View>
 
       {isFrameVisible && (
@@ -836,8 +870,8 @@ const styles = StyleSheet.create({
     columnGap: 3,
   },
   opportunityFrame: {
-    width: 24,
-    height: 24,
+    width: 21.35,
+    height: 21.35,
   },
   guideImage: {
     position: 'absolute',
@@ -875,15 +909,11 @@ const styles = StyleSheet.create({
   },
   cameraBrand: {
     position: 'absolute',
-    right: 0,
     bottom: 6,
-    left: 0,
-    color: '#F5EEDF',
-    fontFamily: 'monospace',
-    fontSize: 19,
-    fontWeight: '900',
-    letterSpacing: 1.2,
-    textAlign: 'center',
+    left: '50%',
+    width: 142,
+    height: 15.55,
+    marginLeft: -71,
   },
   target: {
     position: 'absolute',
@@ -892,32 +922,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  targetRing: {
-    position: 'absolute',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 249, 225, 0.72)',
-    borderRadius: 999,
-  },
-  targetRingOuter: {
-    width: TARGET_SIZE,
-    height: TARGET_SIZE,
-  },
-  pulseRing: {
+  targetMotionImage: {
     position: 'absolute',
     width: TARGET_SIZE,
     height: TARGET_SIZE,
-    borderWidth: 4,
-    borderColor: '#FFF4C7',
-    borderRadius: TARGET_SIZE / 2,
-    backgroundColor: 'rgba(255, 249, 225, 0.05)',
-  },
-  targetPoint: {
-    width: 52,
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 26,
-    backgroundColor: 'rgba(255, 201, 61, 0.3)',
   },
   throwingFrame: {
     position: 'absolute',
