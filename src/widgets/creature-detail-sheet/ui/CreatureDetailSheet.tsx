@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Image,
   Modal,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +14,11 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BOTTOM_SHEET_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-bottom-sheet.png');
 const DETAIL_TOGGLE_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-toggle.png');
+const CARD_DETAIL_TOGGLE_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-card-toggle.png');
+const CREATURE_CARD_FRAME_IMAGE = require('@/src/shared/assets/images/farm/creature-card-frame.png');
+const CREATURE_CARD_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card.png');
+const CREATURE_CARD_BACK_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card-back.png');
+const CREATURE_CARD_NAME_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-card-name-field.png');
 const PROFILE_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-profile-label.png');
 const CARD_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-card-label.png');
 const DETAIL_FRAME_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-frame.png');
@@ -20,6 +26,21 @@ const CREATURE_IMAGE = require('@/src/shared/assets/images/farm/kkomi.png');
 const NAME_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-name-field.png');
 const TYPE_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-type-field.png');
 const TIER_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-tier-field.png');
+const CREATURE_TIER_IMAGES = {
+  S: require('@/src/shared/assets/images/farm/creature-tier-s.png'),
+} as const;
+const CREATURE_TYPE = '땅';
+const CREATURE_TIER: keyof typeof CREATURE_TIER_IMAGES = 'S';
+const CREATURE_TRAITS = [
+  {
+    name: '오물오물',
+    description: '작은 입으로 천천히 먹이를 오물오물 즐겨요.',
+  },
+  {
+    name: '말랑한 친구',
+    description: '포근한 매력으로 주변을 만만하게 만들어줘요.',
+  },
+] as const;
 const SKILL_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-skill-field.png');
 const JOURNEY_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/creature-journey-button.png');
 const SHEET_ASPECT_RATIO = 1440 / 2756;
@@ -37,21 +58,48 @@ const NAME_LABEL_WIDTH = scaleByDeviceWidth(97);
 const FIELD_HEIGHT = scaleByDeviceWidth(40);
 const DETAIL_FIELDS_ROW_TOP_GAP = scaleByDeviceWidth(8);
 const DETAIL_FIELD_WIDTH = scaleByDeviceWidth(148);
+const DETAIL_FIELD_LABEL_WIDTH = scaleByDeviceWidth(67);
 const DETAIL_FIELDS_ROW_GAP = scaleByDeviceWidth(12);
+const TIER_IMAGE_WIDTH = scaleByDeviceWidth(20.55);
+const TIER_IMAGE_HEIGHT = scaleByDeviceWidth(27.54);
 const SECTION_GAP = scaleByDeviceWidth(8);
 const SKILL_FIELD_HEIGHT = scaleByDeviceWidth(60.42);
+const TRAIT_TEXT_GAP = scaleByDeviceWidth(2);
+const TRAIT_NAME_FONT_SIZE = scaleByDeviceWidth(16);
+const TRAIT_NAME_LINE_HEIGHT = TRAIT_NAME_FONT_SIZE * 1.4;
+const TRAIT_DESCRIPTION_FONT_SIZE = scaleByDeviceWidth(10);
+const TRAIT_DESCRIPTION_LINE_HEIGHT =
+  TRAIT_DESCRIPTION_FONT_SIZE * 1.4;
 const JOURNEY_BUTTON_WIDTH = scaleByDeviceWidth(153);
 const JOURNEY_BUTTON_HEIGHT = scaleByDeviceWidth(42);
+const CARD_CONTENT_TOP_GAP = scaleByDeviceWidth(12);
+const CARD_FRAME_WIDTH = scaleByDeviceWidth(298);
+const CARD_FRAME_HEIGHT = scaleByDeviceWidth(468);
+const CARD_IMAGE_WIDTH = scaleByDeviceWidth(226.92);
+const CARD_IMAGE_HEIGHT = scaleByDeviceWidth(324.07);
+const CARD_IMAGE_TOP_OFFSET = scaleByDeviceWidth(68);
+const CARD_ROTATION_DEGREES_PER_POINT = 0.9;
+const CARD_NAME_FIELD_TOP_GAP = scaleByDeviceWidth(15.85);
+const CARD_NAME_FIELD_WIDTH = scaleByDeviceWidth(308);
+const CARD_NAME_FIELD_HEIGHT = scaleByDeviceWidth(40);
+const CARD_JOURNEY_BUTTON_TOP_GAP = scaleByDeviceWidth(8);
 
 type CreatureDetailSheetProps = {
   onClose: () => void;
   width: number;
 };
 
+function normalizeCardRotation(rotation: number) {
+  return ((rotation + 180) % 360 + 360) % 360 - 180;
+}
+
 export function CreatureDetailSheet({
   onClose,
   width,
 }: CreatureDetailSheetProps) {
+  const [selectedView, setSelectedView] = useState<'profile' | 'card'>(
+    'profile',
+  );
   const sheetWidth = width;
   const sheetHeight = sheetWidth / SHEET_ASPECT_RATIO;
   const detailFrameTop = sheetHeight * IMAGE_BOX_TOP_RATIO;
@@ -67,7 +115,74 @@ export function CreatureDetailSheet({
     firstSkillFieldTop + SKILL_FIELD_HEIGHT + SECTION_GAP;
   const journeyButtonTop =
     secondSkillFieldTop + SKILL_FIELD_HEIGHT + SECTION_GAP;
+  const cardFrameTop =
+    detailToggleTop + DETAIL_TOGGLE_HEIGHT + CARD_CONTENT_TOP_GAP;
+  const cardNameFieldTop =
+    cardFrameTop + CARD_FRAME_HEIGHT + CARD_NAME_FIELD_TOP_GAP;
+  const cardJourneyButtonTop =
+    cardNameFieldTop +
+    CARD_NAME_FIELD_HEIGHT +
+    CARD_JOURNEY_BUTTON_TOP_GAP;
   const translateY = useRef(new Animated.Value(sheetHeight)).current;
+  const cardRotation = useRef(new Animated.Value(0)).current;
+  const cardRotationStartRef = useRef(0);
+  const finishCardRotation = (dx: number) => {
+    const nextRotation =
+      cardRotationStartRef.current +
+      dx * CARD_ROTATION_DEGREES_PER_POINT;
+    const normalizedRotation = normalizeCardRotation(nextRotation);
+
+    cardRotation.setValue(normalizedRotation);
+    cardRotationStartRef.current = normalizedRotation;
+  };
+  const cardPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onPanResponderGrant: () => {
+        cardRotation.stopAnimation((currentRotation) => {
+          cardRotationStartRef.current = currentRotation;
+        });
+      },
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderMove: (_, gestureState) => {
+        cardRotation.setValue(
+          normalizeCardRotation(
+            cardRotationStartRef.current +
+              gestureState.dx * CARD_ROTATION_DEGREES_PER_POINT,
+          ),
+        );
+      },
+      onPanResponderRelease: (_, gestureState) =>
+        finishCardRotation(gestureState.dx),
+      onPanResponderTerminate: (_, gestureState) =>
+        finishCardRotation(gestureState.dx),
+      onPanResponderTerminationRequest: () => false,
+    }),
+  ).current;
+  const cardFrontRotateY = cardRotation.interpolate({
+    inputRange: [-180, 180],
+    outputRange: ['-180deg', '180deg'],
+  });
+  const cardBackRotateY = cardRotation.interpolate({
+    inputRange: [-180, 180],
+    outputRange: ['0deg', '360deg'],
+  });
+  const cardFrontOpacity = cardRotation.interpolate({
+    inputRange: [-180, -90, -89, 89, 90, 180],
+    outputRange: [0, 0, 1, 1, 0, 0],
+    extrapolate: 'clamp',
+  });
+  const cardBackOpacity = cardRotation.interpolate({
+    inputRange: [-180, -90, -89, 89, 90, 180],
+    outputRange: [1, 1, 0, 0, 1, 1],
+    extrapolate: 'clamp',
+  });
 
   useEffect(() => {
     translateY.setValue(sheetHeight);
@@ -118,22 +233,23 @@ export function CreatureDetailSheet({
             ]}
           />
 
-          <Pressable
-            accessibilityLabel="동물 정보 보기"
-            accessibilityRole="button"
-            style={({ pressed }) => [
+          <View
+            style={[
               styles.detailToggle,
               {
                 top: detailToggleTop,
                 width: DETAIL_TOGGLE_WIDTH,
                 height: DETAIL_TOGGLE_HEIGHT,
               },
-              pressed && styles.pressed,
             ]}
           >
             <Image
               resizeMode="contain"
-              source={DETAIL_TOGGLE_IMAGE}
+              source={
+                selectedView === 'profile'
+                  ? DETAIL_TOGGLE_IMAGE
+                  : CARD_DETAIL_TOGGLE_IMAGE
+              }
               style={styles.detailToggleImage}
             />
             <View pointerEvents="none" style={styles.detailLabelRow}>
@@ -148,129 +264,305 @@ export function CreatureDetailSheet({
                 style={styles.detailLabel}
               />
             </View>
-          </Pressable>
-
-          <Image
-            accessibilityLabel="동물 상세 프레임"
-            resizeMode="contain"
-            source={DETAIL_FRAME_IMAGE}
-            style={[
-              styles.detailFrame,
-              {
-                top: detailFrameTop,
-                width: DETAIL_FRAME_WIDTH,
-                height: DETAIL_FRAME_HEIGHT,
-              },
-            ]}
-          />
-
-          <Image
-            accessibilityLabel="꼬미"
-            resizeMode="contain"
-            source={CREATURE_IMAGE}
-            style={[
-              styles.creature,
-              {
-                top: detailFrameTop + CREATURE_TOP_OFFSET,
-                width: CREATURE_SIZE,
-                height: CREATURE_SIZE,
-              },
-            ]}
-          />
-
-          <Image
-            resizeMode="contain"
-            source={NAME_FIELD_IMAGE}
-            style={[
-              styles.nameField,
-              {
-                top: nameFieldTop,
-                width: NAME_FIELD_WIDTH,
-                height: FIELD_HEIGHT,
-              },
-            ]}
-          />
-          <View
-            pointerEvents="none"
-            style={[
-              styles.nameValue,
-              {
-                top: nameFieldTop,
-                width: NAME_FIELD_WIDTH,
-                height: FIELD_HEIGHT,
-                paddingLeft: NAME_LABEL_WIDTH,
-              },
-            ]}
-          >
-            <Text style={styles.nameValueText}>꼬미</Text>
+            <View style={styles.toggleButtonRow}>
+              <Pressable
+                accessibilityLabel="프로필 보기"
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: selectedView === 'profile',
+                }}
+                onPress={() => setSelectedView('profile')}
+                style={({ pressed }) => [
+                  styles.toggleButton,
+                  pressed && styles.pressed,
+                ]}
+              />
+              <Pressable
+                accessibilityLabel="카드 보기"
+                accessibilityRole="button"
+                accessibilityState={{
+                  selected: selectedView === 'card',
+                }}
+                onPress={() => setSelectedView('card')}
+                style={({ pressed }) => [
+                  styles.toggleButton,
+                  pressed && styles.pressed,
+                ]}
+              />
+            </View>
           </View>
 
-          <View
-            style={[
-              styles.detailFieldsRow,
-              {
-                top: detailFieldsRowTop,
-                width: NAME_FIELD_WIDTH,
-                height: FIELD_HEIGHT,
-                columnGap: DETAIL_FIELDS_ROW_GAP,
-              },
-            ]}
-          >
-            <Image
-              accessibilityLabel="동물 타입"
-              resizeMode="contain"
-              source={TYPE_FIELD_IMAGE}
-              style={styles.detailField}
-            />
-            <Image
-              accessibilityLabel="동물 티어"
-              resizeMode="contain"
-              source={TIER_FIELD_IMAGE}
-              style={styles.detailField}
-            />
-          </View>
+          {selectedView === 'profile' && (
+            <>
+              <Image
+                accessibilityLabel="동물 상세 프레임"
+                resizeMode="contain"
+                source={DETAIL_FRAME_IMAGE}
+                style={[
+                  styles.detailFrame,
+                  {
+                    top: detailFrameTop,
+                    width: DETAIL_FRAME_WIDTH,
+                    height: DETAIL_FRAME_HEIGHT,
+                  },
+                ]}
+              />
 
-          <Image
-            accessibilityLabel="첫 번째 동물 스킬"
-            resizeMode="contain"
-            source={SKILL_FIELD_IMAGE}
-            style={[
-              styles.skillField,
-              {
-                top: firstSkillFieldTop,
-                width: NAME_FIELD_WIDTH,
-                height: SKILL_FIELD_HEIGHT,
-              },
-            ]}
-          />
+              <Image
+                accessibilityLabel="꼬미"
+                resizeMode="contain"
+                source={CREATURE_IMAGE}
+                style={[
+                  styles.creature,
+                  {
+                    top: detailFrameTop + CREATURE_TOP_OFFSET,
+                    width: CREATURE_SIZE,
+                    height: CREATURE_SIZE,
+                  },
+                ]}
+              />
 
-          <Image
-            accessibilityLabel="두 번째 동물 스킬"
-            resizeMode="contain"
-            source={SKILL_FIELD_IMAGE}
-            style={[
-              styles.skillField,
-              {
-                top: secondSkillFieldTop,
-                width: NAME_FIELD_WIDTH,
-                height: SKILL_FIELD_HEIGHT,
-              },
-            ]}
-          />
+              <Image
+                resizeMode="contain"
+                source={NAME_FIELD_IMAGE}
+                style={[
+                  styles.nameField,
+                  {
+                    top: nameFieldTop,
+                    width: NAME_FIELD_WIDTH,
+                    height: FIELD_HEIGHT,
+                  },
+                ]}
+              />
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.nameValue,
+                  {
+                    top: nameFieldTop,
+                    width: NAME_FIELD_WIDTH,
+                    height: FIELD_HEIGHT,
+                    paddingLeft: NAME_LABEL_WIDTH,
+                  },
+                ]}
+              >
+                <Text style={styles.nameValueText}>꼬미</Text>
+              </View>
 
-          <Image
-            accessibilityLabel="새로운 여정 보내기"
-            resizeMode="contain"
-            source={JOURNEY_BUTTON_IMAGE}
-            style={[
-              styles.journeyButton,
-              {
-                top: journeyButtonTop,
-                width: JOURNEY_BUTTON_WIDTH,
-                height: JOURNEY_BUTTON_HEIGHT,
-              },
-            ]}
-          />
+              <View
+                style={[
+                  styles.detailFieldsRow,
+                  {
+                    top: detailFieldsRowTop,
+                    width: NAME_FIELD_WIDTH,
+                    height: FIELD_HEIGHT,
+                    columnGap: DETAIL_FIELDS_ROW_GAP,
+                  },
+                ]}
+              >
+                <View
+                  accessibilityLabel={`동물 타입 ${CREATURE_TYPE}`}
+                  style={styles.detailField}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={TYPE_FIELD_IMAGE}
+                    style={styles.detailFieldBackground}
+                  />
+                  <View
+                    style={[
+                      styles.detailFieldValue,
+                      { paddingLeft: DETAIL_FIELD_LABEL_WIDTH },
+                    ]}
+                  >
+                    <Text style={styles.detailFieldValueText}>
+                      {CREATURE_TYPE}
+                    </Text>
+                  </View>
+                </View>
+                <View
+                  accessibilityLabel={`동물 티어 ${CREATURE_TIER}`}
+                  style={styles.detailField}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={TIER_FIELD_IMAGE}
+                    style={styles.detailFieldBackground}
+                  />
+                  <View
+                    style={[
+                      styles.detailFieldValue,
+                      { paddingLeft: DETAIL_FIELD_LABEL_WIDTH },
+                    ]}
+                  >
+                    <Image
+                      resizeMode="contain"
+                      source={CREATURE_TIER_IMAGES[CREATURE_TIER]}
+                      style={{
+                        width: TIER_IMAGE_WIDTH,
+                        height: TIER_IMAGE_HEIGHT,
+                      }}
+                    />
+                  </View>
+                </View>
+              </View>
+
+              {CREATURE_TRAITS.map((trait, index) => (
+                <View
+                  accessibilityLabel={`${trait.name}, ${trait.description}`}
+                  key={trait.name}
+                  style={[
+                    styles.skillField,
+                    {
+                      top:
+                        index === 0
+                          ? firstSkillFieldTop
+                          : secondSkillFieldTop,
+                      width: NAME_FIELD_WIDTH,
+                      height: SKILL_FIELD_HEIGHT,
+                    },
+                  ]}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={SKILL_FIELD_IMAGE}
+                    style={styles.skillFieldBackground}
+                  />
+                  <View style={styles.traitTextContainer}>
+                    <Text style={styles.traitName}>{trait.name}</Text>
+                    <Text
+                      numberOfLines={1}
+                      style={styles.traitDescription}
+                    >
+                      {trait.description}
+                    </Text>
+                  </View>
+                </View>
+              ))}
+
+              <Image
+                accessibilityLabel="새로운 여정 보내기"
+                resizeMode="contain"
+                source={JOURNEY_BUTTON_IMAGE}
+                style={[
+                  styles.journeyButton,
+                  {
+                    top: journeyButtonTop,
+                    width: JOURNEY_BUTTON_WIDTH,
+                    height: JOURNEY_BUTTON_HEIGHT,
+                  },
+                ]}
+              />
+            </>
+          )}
+
+          {selectedView === 'card' && (
+            <>
+              <Image
+                accessibilityLabel="동물 카드 프레임"
+                resizeMode="stretch"
+                source={CREATURE_CARD_FRAME_IMAGE}
+                style={[
+                  styles.cardContent,
+                  {
+                    top: cardFrameTop,
+                    width: CARD_FRAME_WIDTH,
+                    height: CARD_FRAME_HEIGHT,
+                  },
+                ]}
+              />
+
+              <View
+                {...cardPanResponder.panHandlers}
+                accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
+                accessibilityLabel="꼬미 카드"
+                accessible
+                style={[
+                  styles.creatureCardContainer,
+                  {
+                    top: cardFrameTop + CARD_IMAGE_TOP_OFFSET,
+                    width: CARD_IMAGE_WIDTH,
+                    height: CARD_IMAGE_HEIGHT,
+                  },
+                ]}
+              >
+                <Animated.Image
+                  resizeMode="stretch"
+                  source={CREATURE_CARD_IMAGE}
+                  style={[
+                    styles.creatureCardFace,
+                    {
+                      width: CARD_IMAGE_WIDTH,
+                      height: CARD_IMAGE_HEIGHT,
+                      opacity: cardFrontOpacity,
+                      transform: [
+                        { perspective: scaleByDeviceWidth(800) },
+                        { rotateY: cardFrontRotateY },
+                      ],
+                    },
+                  ]}
+                />
+                <Animated.Image
+                  resizeMode="stretch"
+                  source={CREATURE_CARD_BACK_IMAGE}
+                  style={[
+                    styles.creatureCardFace,
+                    {
+                      width: CARD_IMAGE_WIDTH,
+                      height: CARD_IMAGE_HEIGHT,
+                      opacity: cardBackOpacity,
+                      transform: [
+                        { perspective: scaleByDeviceWidth(800) },
+                        { rotateY: cardBackRotateY },
+                      ],
+                    },
+                  ]}
+                />
+              </View>
+
+              <Image
+                accessibilityLabel="동물 카드 이름"
+                resizeMode="stretch"
+                source={CREATURE_CARD_NAME_FIELD_IMAGE}
+                style={[
+                  styles.cardContent,
+                  {
+                    top: cardNameFieldTop,
+                    width: CARD_NAME_FIELD_WIDTH,
+                    height: CARD_NAME_FIELD_HEIGHT,
+                  },
+                ]}
+              />
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.nameValue,
+                  {
+                    top: cardNameFieldTop,
+                    width: CARD_NAME_FIELD_WIDTH,
+                    height: CARD_NAME_FIELD_HEIGHT,
+                    paddingLeft: NAME_LABEL_WIDTH,
+                  },
+                ]}
+              >
+                <Text style={styles.nameValueText}>꼬미</Text>
+              </View>
+
+              <Image
+                accessibilityLabel="새로운 여정 보내기"
+                resizeMode="contain"
+                source={JOURNEY_BUTTON_IMAGE}
+                style={[
+                  styles.journeyButton,
+                  {
+                    top: cardJourneyButtonTop,
+                    width: JOURNEY_BUTTON_WIDTH,
+                    height: JOURNEY_BUTTON_HEIGHT,
+                  },
+                ]}
+              />
+            </>
+          )}
         </Animated.View>
       </View>
     </Modal>
@@ -315,10 +607,32 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(88),
     height: scaleByDeviceWidth(17),
   },
+  toggleButtonRow: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+    zIndex: 1,
+  },
+  toggleButton: {
+    flex: 1,
+  },
   detailFrame: {
     position: 'absolute',
     alignSelf: 'center',
     zIndex: 1,
+  },
+  cardContent: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 1,
+  },
+  creatureCardContainer: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 2,
+  },
+  creatureCardFace: {
+    ...StyleSheet.absoluteFillObject,
+    backfaceVisibility: 'hidden',
   },
   creature: {
     position: 'absolute',
@@ -355,10 +669,53 @@ const styles = StyleSheet.create({
     width: DETAIL_FIELD_WIDTH,
     height: FIELD_HEIGHT,
   },
+  detailFieldBackground: {
+    ...StyleSheet.absoluteFillObject,
+    width: DETAIL_FIELD_WIDTH,
+    height: FIELD_HEIGHT,
+  },
+  detailFieldValue: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailFieldValueText: {
+    color: '#745D40',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(16),
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
   skillField: {
     position: 'absolute',
     zIndex: 1,
     alignSelf: 'center',
+  },
+  skillFieldBackground: {
+    ...StyleSheet.absoluteFillObject,
+    width: NAME_FIELD_WIDTH,
+    height: SKILL_FIELD_HEIGHT,
+  },
+  traitTextContainer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    paddingHorizontal: scaleByDeviceWidth(17),
+    rowGap: TRAIT_TEXT_GAP,
+  },
+  traitName: {
+    color: '#684500',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: TRAIT_NAME_FONT_SIZE,
+    lineHeight: TRAIT_NAME_LINE_HEIGHT,
+    includeFontPadding: false,
+  },
+  traitDescription: {
+    color: '#684500',
+    fontFamily: 'EliceDXNeolli-Light',
+    fontSize: TRAIT_DESCRIPTION_FONT_SIZE,
+    lineHeight: TRAIT_DESCRIPTION_LINE_HEIGHT,
+    includeFontPadding: false,
   },
   journeyButton: {
     position: 'absolute',

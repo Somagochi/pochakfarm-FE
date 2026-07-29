@@ -12,6 +12,12 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 const FARM_SLOT_IMAGE = require('@/src/shared/assets/images/farm/farm-slot.png');
 const BASE_SLOT_SIZE = 58.4;
 const BASE_SLOT_GAP = 26.6;
+const BASE_CREATURE_WIDTH = 80;
+const BASE_CREATURE_HEIGHT = 73;
+const BASE_CREATURE_TOP_OFFSET = 4;
+const BASE_NAMEPLATE_WIDTH = 73;
+const BASE_NAMEPLATE_HEIGHT = 24;
+const BASE_NAMEPLATE_TOP_OFFSET = 5;
 const SLOT_COUNT = 4;
 const BASE_UNLOCK_IMAGE_WIDTH = 112;
 
@@ -66,9 +72,10 @@ export function FarmAreaRow({
           const slotNumber = index + 1;
 
           if (slotNumber === creatureSlot?.slotNumber) {
-            const nameplateWidth = slotSize;
-            const nameplateHeight = nameplateWidth * (144 / 529);
-            const animalSize = slotSize;
+            const nameplateWidth = BASE_NAMEPLATE_WIDTH * scale;
+            const nameplateHeight = BASE_NAMEPLATE_HEIGHT * scale;
+            const animalWidth = BASE_CREATURE_WIDTH * scale;
+            const animalHeight = BASE_CREATURE_HEIGHT * scale;
 
             return (
               <Pressable
@@ -88,9 +95,12 @@ export function FarmAreaRow({
                   style={[
                     styles.creatureImage,
                     {
-                      top: slotSize * 0.04,
-                      width: animalSize,
-                      height: animalSize,
+                      top:
+                        slotSize * 0.04 +
+                        BASE_CREATURE_TOP_OFFSET * scale,
+                      left: (slotSize - animalWidth) / 2,
+                      width: animalWidth,
+                      height: animalHeight,
                     },
                   ]}
                 />
@@ -98,7 +108,10 @@ export function FarmAreaRow({
                   style={[
                     styles.nameplate,
                     {
-                      top: -nameplateHeight * 0.62,
+                      top:
+                        -nameplateHeight * 0.62 -
+                        BASE_NAMEPLATE_TOP_OFFSET * scale,
+                      left: (slotSize - nameplateWidth) / 2,
                       width: nameplateWidth,
                       height: nameplateHeight,
                     },
