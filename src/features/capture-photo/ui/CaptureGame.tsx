@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
+  BackHandler,
   Easing,
   Image,
   PanResponder,
@@ -17,20 +16,21 @@ import {
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useRemovePhotoBackground } from '../model/useRemovePhotoBackground';
+import { CardOpeningSequence } from './CardOpeningSequence';
 
 const CAPTURE_SECONDS = 10;
 const FRAME_SIZE = scaleByDeviceWidth(80);
-const TARGET_SIZE = scaleByDeviceWidth(310);
+const TARGET_SIZE = scaleByDeviceWidth(270);
 const SUCCESS_DISTANCE = scaleByDeviceWidth(72);
 const SUCCESS_SCALE = 0.38;
+const TARGET_MIN_SCALE = 0.22;
+const TARGET_CONTRACT_DURATION = 1800;
+const TARGET_RESPAWN_DELAY = 120;
+const TARGET_RING_SIZE = scaleByDeviceWidth(230);
 const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
 const MAX_THROWS = 3;
 const CAMERA_CARD_ASPECT_RATIO = 414 / 635;
-const USE_PHOTO_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/use-photo-prompt.png');
-const RETAKE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/retake-button.png');
-const USE_PHOTO_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/use-photo-button.png');
 const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-frame.png');
 const THROW_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/throw-guide.png');
 const TIMER_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/timer-background.png');
@@ -40,8 +40,19 @@ const OPPORTUNITY_LABEL_IMAGE = require('@/src/shared/assets/images/capture/thro
 const OPPORTUNITY_USED_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-used.png');
 const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-available.png');
 const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
-const TARGET_START_IMAGE = require('@/src/shared/assets/images/capture/throw-target-start.png');
-const TARGET_END_IMAGE = require('@/src/shared/assets/images/capture/throw-target-end.png');
+const TARGET_FRAME_IMAGE = require('@/src/shared/assets/images/capture/pochak-circle.png');
+const CAPTURE_RESULT_CARD_IMAGE = require('@/src/shared/assets/images/capture/capture-result-card.png');
+const CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-success-open-button.png');
+const CAPTURE_FAILURE_CONFIRM_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-confirm-button.png');
+const CAPTURE_TIER_IMAGES = {
+  A: require('@/src/shared/assets/images/capture/capture-tier-a.png'),
+  B: require('@/src/shared/assets/images/capture/capture-tier-b.png'),
+  C: require('@/src/shared/assets/images/capture/capture-tier-c.png'),
+  S: require('@/src/shared/assets/images/capture/capture-tier-s.png'),
+  SS: require('@/src/shared/assets/images/capture/capture-tier-ss.png'),
+  SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
+} as const;
+const CURRENT_CAPTURE_TIER: keyof typeof CAPTURE_TIER_IMAGES = 'B';
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
@@ -75,30 +86,33 @@ export function CaptureGame({
   const insets = useSafeAreaInsets();
   const [secondsLeft, setSecondsLeft] = useState(CAPTURE_SECONDS);
   const [result, setResult] = useState<CaptureResult>(null);
-  const [failureReason, setFailureReason] = useState<FailureReason>(null);
+  const [, setFailureReason] = useState<FailureReason>(null);
   const [throwsUsed, setThrowsUsed] = useState(0);
   const [isThrowing, setIsThrowing] = useState(false);
   const [isFrameVisible, setIsFrameVisible] = useState(true);
-  const [showSuccessEffect, setShowSuccessEffect] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showResultActions, setShowResultActions] = useState(false);
+  const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
   const throwRotation = useRef(new Animated.Value(0)).current;
   const throwScale = useRef(new Animated.Value(1)).current;
   const throwArc = useRef(new Animated.Value(0)).current;
   const throwOpacity = useRef(new Animated.Value(1)).current;
-  const successEffectProgress = useRef(new Animated.Value(0)).current;
-  const bottomSheetTranslateY = useRef(
-    new Animated.Value(scaleByDeviceWidth(340)),
-  ).current;
+  const resultCardShake = useRef(new Animated.Value(0)).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
-  const {
-    errorMessage: segmentationError,
-    removeBackground,
-    resultUri: segmentedPhotoUri,
-    state: segmentationState,
-  } = useRemovePhotoBackground();
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        onRetry();
+        return true;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [onRetry]);
 
   const targetCenter = useMemo(
     () => ({
@@ -164,13 +178,15 @@ export function CaptureGame({
     const animation = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseScale, {
-          toValue: 0.18,
-          duration: 1150,
+          toValue: TARGET_MIN_SCALE,
+          duration: TARGET_CONTRACT_DURATION,
+          easing: Easing.inOut(Easing.sin),
           useNativeDriver: true,
         }),
+        Animated.delay(TARGET_RESPAWN_DELAY),
         Animated.timing(pulseScale, {
           toValue: 1,
-          duration: 1150,
+          duration: 0,
           useNativeDriver: true,
         }),
       ]),
@@ -185,52 +201,44 @@ export function CaptureGame({
   }, [pulseScale, result]);
 
   useEffect(() => {
-    if (result !== 'success') {
+    if (!result) {
       return;
     }
 
-    void removeBackground(photoUri);
-  }, [photoUri, removeBackground, result]);
+    setShowResultActions(false);
+    resultCardShake.setValue(0);
 
-  useEffect(() => {
-    if (result !== 'success') {
-      return;
-    }
-
-    setShowSuccessEffect(true);
-    successEffectProgress.setValue(0);
-
-    Animated.sequence([
-      Animated.timing(successEffectProgress, {
-        toValue: 1,
-        duration: 200,
-        easing: Easing.out(Easing.back(1.8)),
-        useNativeDriver: true,
-      }),
-      Animated.delay(300),
-      Animated.timing(successEffectProgress, {
+    const shakeAnimation = Animated.sequence([
+      ...Array.from({ length: 10 }, () => [
+        Animated.timing(resultCardShake, {
+          toValue: -1,
+          duration: 90,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(resultCardShake, {
+          toValue: 1,
+          duration: 90,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]).flat(),
+      Animated.timing(resultCardShake, {
         toValue: 0,
-        duration: 240,
+        duration: 200,
+        easing: Easing.out(Easing.quad),
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      setShowSuccessEffect(false);
-      setShowSuccessModal(true);
+    ]);
+
+    shakeAnimation.start(({ finished }) => {
+      if (finished) {
+        setShowResultActions(true);
+      }
     });
-  }, [result, successEffectProgress]);
 
-  useEffect(() => {
-    if (!showSuccessModal) {
-      return;
-    }
-
-    Animated.spring(bottomSheetTranslateY, {
-      toValue: 0,
-      speed: 16,
-      bounciness: 3,
-      useNativeDriver: true,
-    }).start();
-  }, [bottomSheetTranslateY, showSuccessModal]);
+    return () => shakeAnimation.stop();
+  }, [result, resultCardShake]);
 
   const resetFrame = useCallback(() => {
     Animated.parallel([
@@ -443,13 +451,22 @@ export function CaptureGame({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
   });
-  const targetStartOpacity = pulseScale.interpolate({
-    inputRange: [0.18, 1],
-    outputRange: [0, 1],
+  const resultCardRotation = resultCardShake.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-9deg', '0deg', '9deg'],
   });
-  const targetEndOpacity = pulseScale.interpolate({
-    inputRange: [0.18, 1],
-    outputRange: [1, 0],
+  const resultCardTranslateX = resultCardShake.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: [
+      scaleByDeviceWidth(-8),
+      0,
+      scaleByDeviceWidth(8),
+    ],
+  });
+  const targetRingOpacity = pulseScale.interpolate({
+    inputRange: [TARGET_MIN_SCALE, TARGET_MIN_SCALE + 0.08, 1],
+    outputRange: [0, 1, 1],
+    extrapolate: 'clamp',
   });
 
   return (
@@ -538,6 +555,12 @@ export function CaptureGame({
               style={StyleSheet.absoluteFill}
             />
             <View pointerEvents="none" style={styles.dimOverlay} />
+            <Image
+              accessibilityLabel={`${CURRENT_CAPTURE_TIER} 티어`}
+              resizeMode="contain"
+              source={CAPTURE_TIER_IMAGES[CURRENT_CAPTURE_TIER]}
+              style={styles.captureTier}
+            />
           </View>
           <Image
             resizeMode="contain"
@@ -557,20 +580,18 @@ export function CaptureGame({
           },
         ]}
       >
-        <Animated.Image
+        <Image
           resizeMode="contain"
-          source={TARGET_START_IMAGE}
-          style={[
-            styles.targetMotionImage,
-            { opacity: targetStartOpacity },
-          ]}
+          source={TARGET_FRAME_IMAGE}
+          style={styles.targetFrameImage}
         />
-        <Animated.Image
-          resizeMode="contain"
-          source={TARGET_END_IMAGE}
+        <Animated.View
           style={[
-            styles.targetMotionImage,
-            { opacity: targetEndOpacity },
+            styles.targetContractingRing,
+            {
+              opacity: targetRingOpacity,
+              transform: [{ scale: pulseScale }],
+            },
           ]}
         />
       </View>
@@ -619,180 +640,59 @@ export function CaptureGame({
         액자 던지기
       </Text>
 
-      {result === 'success' && (
-        <View
-          accessibilityViewIsModal
-          style={styles.successOnlyScreen}
-        >
-          {segmentedPhotoUri ? (
-            <View style={styles.segmentedPreview}>
-              <View style={styles.previewCircle} />
-              <Image
-                accessibilityLabel="배경이 제거된 동물 사진"
-                resizeMode="contain"
-                source={{ uri: segmentedPhotoUri }}
-                style={styles.segmentedPhoto}
-              />
-              <Text style={styles.segmentedTitle}>동물 포착 완료!</Text>
-              <Text style={styles.segmentedDescription}>
-                배경을 깔끔하게 분리했어요
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Image
-                resizeMode="cover"
-                source={{ uri: photoUri }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View pointerEvents="none" style={styles.successPhotoDim} />
-            </>
-          )}
-
-          {showSuccessEffect && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.successEffect,
-                {
-                  opacity: successEffectProgress,
-                  transform: [
-                    {
-                      scale: successEffectProgress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.45, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View style={styles.successEffectRing}>
-                <Ionicons color="#FFF4A8" name="paw" size={58} />
-              </View>
-              <Ionicons
-                color="#FFD34D"
-                name="sparkles"
-                size={48}
-                style={styles.successSparkle}
-              />
-              <Text style={styles.successEffectText}>포착 성공!</Text>
-            </Animated.View>
-          )}
-
-          {segmentationState === 'processing' && !showSuccessEffect && (
-            <View style={styles.processingCard}>
-              <ActivityIndicator color="#31533B" size="large" />
-              <Text style={styles.processingTitle}>동물을 분리하고 있어요</Text>
-              <Text style={styles.processingDescription}>
-                첫 실행에서는 모델 준비에 잠시 시간이 걸릴 수 있어요
-              </Text>
-            </View>
-          )}
-
-          {segmentationState === 'error' && (
-            <View style={styles.processingCard}>
-              <Ionicons color="#7B6650" name="alert-circle-outline" size={44} />
-              <Text style={styles.processingTitle}>동물을 분리하지 못했어요</Text>
-              <Text style={styles.processingDescription}>
-                {segmentationError}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void removeBackground(photoUri)}
-                style={({ pressed }) => [
-                  styles.segmentationRetryButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.segmentationRetryText}>다시 시도</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {showSuccessModal && segmentationState === 'success' && (
-            <Animated.View
-              style={[
-                styles.successBottomSheet,
-                {
-                  paddingBottom:
-                    insets.bottom + scaleByDeviceWidth(24),
-                  transform: [{ translateY: bottomSheetTranslateY }],
-                },
-            ]}
-          >
-              <Image
-                accessibilityLabel="이 이미지를 가지고 만들어볼까요?"
-                resizeMode="contain"
-                source={USE_PHOTO_PROMPT_IMAGE}
-                style={styles.bottomSheetTitleImage}
-              />
-              <View style={styles.bottomSheetActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onRetry}
-                style={({ pressed }) => [
-                    styles.decisionButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Image
-                    resizeMode="contain"
-                    source={RETAKE_BUTTON_IMAGE}
-                    style={styles.decisionButtonImage}
-                  />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onClose}
-                  style={({ pressed }) => [
-                    styles.decisionButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Image
-                    resizeMode="contain"
-                    source={USE_PHOTO_BUTTON_IMAGE}
-                    style={styles.decisionButtonImage}
-                  />
-                </Pressable>
-              </View>
-            </Animated.View>
-          )}
-        </View>
+      {result === 'success' && hasOpenedSuccess && (
+        <CardOpeningSequence photoUri={photoUri} />
       )}
 
-      {result === 'failure' && (
-        <View style={styles.resultOverlay}>
-          <View style={styles.resultCard}>
-            <Ionicons color="#7B6650" name="time-outline" size={46} />
-            <Text style={styles.resultTitle}>포착 실패</Text>
-            <Text style={styles.resultDescription}>
-              {failureReason === 'attempts'
-                ? '액자를 모두 사용했어요. 다시 도전해 보세요.'
-                : '제한 시간이 지났어요. 다시 도전해 보세요.'}
-            </Text>
-            <View style={styles.resultActions}>
+      {result && !(result === 'success' && hasOpenedSuccess) && (
+        <View accessibilityViewIsModal style={styles.resultOverlay}>
+          <Animated.Image
+            accessibilityLabel="포착 결과 카드"
+            resizeMode="contain"
+            source={CAPTURE_RESULT_CARD_IMAGE}
+            style={[
+              styles.resultShakeCard,
+              {
+                transform: [
+                  { translateX: resultCardTranslateX },
+                  { rotate: resultCardRotation },
+                ],
+              },
+            ]}
+          />
+
+          {showResultActions && (
+            <View style={styles.resultContent}>
+              <Text style={styles.resultTitle}>
+                {result === 'success' ? '포착 성공' : '포착 실패'}
+              </Text>
               <Pressable
-                onPress={onClose}
+                accessibilityLabel={
+                  result === 'success' ? '카드 오픈하기' : '확인하기'
+                }
+                accessibilityRole="button"
+                onPress={
+                  result === 'success'
+                    ? () => setHasOpenedSuccess(true)
+                    : onRetry
+                }
                 style={({ pressed }) => [
-                  styles.secondaryButton,
+                  styles.resultImageButton,
                   pressed && styles.pressed,
                 ]}
               >
-                <Text style={styles.secondaryButtonText}>나가기</Text>
-              </Pressable>
-              <Pressable
-                onPress={onRetry}
-                style={({ pressed }) => [
-                  styles.primaryButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>다시 촬영</Text>
+                <Image
+                  resizeMode="contain"
+                  source={
+                    result === 'success'
+                      ? CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE
+                      : CAPTURE_FAILURE_CONFIRM_BUTTON_IMAGE
+                  }
+                  style={styles.resultButtonImage}
+                />
               </Pressable>
             </View>
-          </View>
+          )}
         </View>
       )}
     </View>
@@ -920,6 +820,14 @@ const styles = StyleSheet.create({
     borderRadius: scaleByDeviceWidth(9),
     backgroundColor: '#242224',
   },
+  captureTier: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(4),
+    right: 0,
+    zIndex: 2,
+    width: scaleByDeviceWidth(56),
+    height: scaleByDeviceWidth(56 * (94 / 67)),
+  },
   cameraBrand: {
     position: 'absolute',
     bottom: scaleByDeviceWidth(6),
@@ -935,10 +843,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  targetMotionImage: {
+  targetFrameImage: {
     position: 'absolute',
     width: TARGET_SIZE,
     height: TARGET_SIZE,
+  },
+  targetContractingRing: {
+    position: 'absolute',
+    width: TARGET_RING_SIZE,
+    height: TARGET_RING_SIZE,
+    borderWidth: scaleByDeviceWidth(1.5),
+    borderColor: 'rgba(255, 249, 218, 0.9)',
+    borderRadius: TARGET_RING_SIZE / 2,
+    shadowColor: '#FFF4C2',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: scaleByDeviceWidth(5),
   },
   throwingFrame: {
     position: 'absolute',
@@ -954,156 +874,6 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(80),
     height: scaleByDeviceWidth(80),
   },
-  successBottomSheet: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 10,
-    alignItems: 'center',
-    paddingTop: scaleByDeviceWidth(16),
-    paddingHorizontal: scaleByDeviceWidth(20),
-    borderTopWidth: scaleByDeviceWidth(4),
-    borderRightWidth: scaleByDeviceWidth(3),
-    borderLeftWidth: scaleByDeviceWidth(3),
-    borderColor: '#C8B998',
-    borderTopLeftRadius: scaleByDeviceWidth(22),
-    borderTopRightRadius: scaleByDeviceWidth(22),
-    backgroundColor: '#FFFCF5',
-  },
-  successOnlyScreen: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
-    backgroundColor: '#000000',
-  },
-  successPhotoDim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 28, 14, 0.12)',
-  },
-  segmentedPreview: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: scaleByDeviceWidth(150),
-    backgroundColor: '#E8F2D8',
-  },
-  previewCircle: {
-    position: 'absolute',
-    width: scaleByDeviceWidth(330),
-    height: scaleByDeviceWidth(330),
-    borderRadius: scaleByDeviceWidth(165),
-    backgroundColor: '#FFF9E9',
-  },
-  segmentedPhoto: {
-    width: '88%',
-    height: '58%',
-  },
-  segmentedTitle: {
-    marginTop: scaleByDeviceWidth(18),
-    color: '#31533B',
-    fontSize: scaleByDeviceWidth(26),
-    fontWeight: '900',
-  },
-  segmentedDescription: {
-    marginTop: scaleByDeviceWidth(6),
-    color: '#66805E',
-    fontSize: scaleByDeviceWidth(16),
-    fontWeight: '700',
-  },
-  processingCard: {
-    position: 'absolute',
-    top: '38%',
-    right: scaleByDeviceWidth(28),
-    left: scaleByDeviceWidth(28),
-    alignItems: 'center',
-    paddingHorizontal: scaleByDeviceWidth(24),
-    paddingVertical: scaleByDeviceWidth(28),
-    borderRadius: scaleByDeviceWidth(24),
-    backgroundColor: '#FFF9E9',
-  },
-  processingTitle: {
-    marginTop: scaleByDeviceWidth(14),
-    color: '#31533B',
-    fontSize: scaleByDeviceWidth(20),
-    fontWeight: '900',
-  },
-  processingDescription: {
-    marginTop: scaleByDeviceWidth(8),
-    color: '#66805E',
-    fontSize: scaleByDeviceWidth(14),
-    fontWeight: '600',
-    lineHeight: scaleByDeviceWidth(20),
-    textAlign: 'center',
-  },
-  segmentationRetryButton: {
-    marginTop: scaleByDeviceWidth(18),
-    paddingHorizontal: scaleByDeviceWidth(24),
-    paddingVertical: scaleByDeviceWidth(12),
-    borderRadius: scaleByDeviceWidth(14),
-    backgroundColor: '#31533B',
-  },
-  segmentationRetryText: {
-    color: '#FFFFFF',
-    fontSize: scaleByDeviceWidth(15),
-    fontWeight: '800',
-  },
-  successEffect: {
-    position: 'absolute',
-    top: '37%',
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successEffectRing: {
-    width: scaleByDeviceWidth(138),
-    height: scaleByDeviceWidth(138),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: scaleByDeviceWidth(7),
-    borderColor: '#FFD34D',
-    borderRadius: scaleByDeviceWidth(69),
-    backgroundColor: 'rgba(49, 83, 59, 0.78)',
-    shadowColor: '#FFD34D',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: scaleByDeviceWidth(18),
-    elevation: scaleByDeviceWidth(12),
-  },
-  successSparkle: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(-18),
-    right: scaleByDeviceWidth(-22),
-  },
-  successEffectText: {
-    marginTop: scaleByDeviceWidth(18),
-    color: '#FFF4A8',
-    fontSize: scaleByDeviceWidth(30),
-    fontWeight: '900',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {
-      width: scaleByDeviceWidth(1),
-      height: scaleByDeviceWidth(2),
-    },
-    textShadowRadius: scaleByDeviceWidth(3),
-  },
-  bottomSheetTitleImage: {
-    width: scaleByDeviceWidth(194),
-    height: scaleByDeviceWidth(28),
-  },
-  bottomSheetActions: {
-    width: '100%',
-    flexDirection: 'row',
-    marginTop: scaleByDeviceWidth(1.74),
-    columnGap: scaleByDeviceWidth(4),
-  },
-  decisionButton: {
-    flex: 1,
-    aspectRatio: 80 / 27,
-  },
-  decisionButtonImage: {
-    width: '100%',
-    height: '100%',
-  },
   throwLabel: {
     position: 'absolute',
     alignSelf: 'center',
@@ -1113,63 +883,44 @@ const styles = StyleSheet.create({
   },
   resultOverlay: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
+    zIndex: 20,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: scaleByDeviceWidth(28),
-    backgroundColor: 'rgba(10, 18, 10, 0.7)',
+    backgroundColor: 'rgba(24, 20, 16, 0.66)',
   },
-  resultCard: {
-    width: '100%',
-    maxWidth: scaleByDeviceWidth(340),
+  resultShakeCard: {
+    position: 'absolute',
+    top: '30%',
+    width: scaleByDeviceWidth(190),
+    height: scaleByDeviceWidth(190),
+  },
+  resultContent: {
+    position: 'absolute',
+    top: '55%',
     alignItems: 'center',
-    padding: scaleByDeviceWidth(26),
-    borderWidth: scaleByDeviceWidth(4),
-    borderColor: '#D2BE8E',
-    borderRadius: scaleByDeviceWidth(24),
-    backgroundColor: '#FFF4DA',
+    width: '100%',
+    paddingHorizontal: scaleByDeviceWidth(24),
   },
   resultTitle: {
-    marginTop: scaleByDeviceWidth(10),
-    color: '#31533B',
+    color: '#FFF8E9',
+    fontFamily: 'EliceDXNeolli-Bold',
     fontSize: scaleByDeviceWidth(28),
-    fontWeight: '900',
-  },
-  resultDescription: {
-    marginTop: scaleByDeviceWidth(8),
-    color: '#5E6E62',
-    fontSize: scaleByDeviceWidth(15),
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowOffset: {
+      width: 0,
+      height: scaleByDeviceWidth(2),
+    },
+    textShadowRadius: scaleByDeviceWidth(3),
   },
-  resultActions: {
-    flexDirection: 'row',
-    marginTop: scaleByDeviceWidth(24),
-    columnGap: scaleByDeviceWidth(10),
+  resultImageButton: {
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(60),
+    marginTop: scaleByDeviceWidth(18),
   },
-  secondaryButton: {
-    paddingHorizontal: scaleByDeviceWidth(20),
-    paddingVertical: scaleByDeviceWidth(13),
-    borderWidth: scaleByDeviceWidth(2),
-    borderColor: '#31533B',
-    borderRadius: scaleByDeviceWidth(12),
-  },
-  secondaryButtonText: {
-    color: '#31533B',
-    fontSize: scaleByDeviceWidth(15),
-    fontWeight: '700',
-  },
-  primaryButton: {
-    paddingHorizontal: scaleByDeviceWidth(20),
-    paddingVertical: scaleByDeviceWidth(13),
-    borderWidth: scaleByDeviceWidth(2),
-    borderColor: '#31533B',
-    borderRadius: scaleByDeviceWidth(12),
-    backgroundColor: '#31533B',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: scaleByDeviceWidth(15),
-    fontWeight: '700',
+  resultButtonImage: {
+    width: '100%',
+    height: '100%',
   },
   pressed: {
     opacity: 0.65,

@@ -213,7 +213,7 @@ const styles = StyleSheet.create({
   },
   creatureName: {
     color: '#6B4B27',
-    fontFamily: 'EliceDXNeolli-Bold',
+    fontFamily: 'EliceDXNeolli-Medium',
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
