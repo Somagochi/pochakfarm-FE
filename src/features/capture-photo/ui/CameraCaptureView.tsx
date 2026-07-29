@@ -42,6 +42,8 @@ const CAMERA_CARD_HORIZONTAL_MARGIN = scaleByDeviceWidth(11);
 const CAMERA_CARD_BUTTON_GAP = scaleByDeviceWidth(24);
 const BOTTOM_BUTTON_SIZE = scaleByDeviceWidth(64);
 const MAX_CAPTURE_COUNT = 5;
+const PAID_CAPTURE_SESSION_COST = 200;
+const MOCK_INITIAL_COIN_BALANCE = 12500;
 const HELP_MODAL_REFERENCE_WIDTH = 328;
 const HELP_MODAL_REFERENCE_HEIGHT = 626;
 const MOCK_USER_LEVEL = 1;
@@ -65,6 +67,11 @@ export function CameraCaptureView() {
   const [guideIndex, setGuideIndex] = useState(0);
   const [remainingCaptureCount, setRemainingCaptureCount] =
     useState(MAX_CAPTURE_COUNT);
+  const [coinBalance, setCoinBalance] = useState(
+    MOCK_INITIAL_COIN_BALANCE,
+  );
+  const [isPaidCaptureSessionActive, setIsPaidCaptureSessionActive] =
+    useState(false);
   const [isCoinDialogVisible, setIsCoinDialogVisible] = useState(false);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
   const [isPermissionToastVisible, setIsPermissionToastVisible] =
@@ -91,6 +98,8 @@ export function CameraCaptureView() {
     HELP_MODAL_REFERENCE_WIDTH * helpModalScale;
   const helpModalHeight =
     HELP_MODAL_REFERENCE_HEIGHT * helpModalScale;
+  const hasCaptureOpportunity =
+    remainingCaptureCount > 0 || isPaidCaptureSessionActive;
 
   useEffect(() => {
     const guideTimer = setInterval(() => {
@@ -145,11 +154,27 @@ export function CameraCaptureView() {
     }
   };
 
+  const consumeCaptureOpportunity = () => {
+    if (remainingCaptureCount > 0) {
+      setRemainingCaptureCount((currentCount) =>
+        Math.max(0, currentCount - 1),
+      );
+      return;
+    }
+
+    if (isPaidCaptureSessionActive) {
+      setCoinBalance((currentBalance) =>
+        Math.max(0, currentBalance - PAID_CAPTURE_SESSION_COST),
+      );
+      setIsPaidCaptureSessionActive(false);
+    }
+  };
+
   const handleCapture = async () => {
     if (
       !cameraRef.current ||
       isCapturing ||
-      remainingCaptureCount === 0
+      !hasCaptureOpportunity
     ) {
       return;
     }
@@ -163,9 +188,7 @@ export function CameraCaptureView() {
       });
 
       if (photo?.uri) {
-        setRemainingCaptureCount((currentCount) =>
-          Math.max(0, currentCount - 1),
-        );
+        consumeCaptureOpportunity();
         setCapturedPhotoUri(photo.uri);
       }
     } catch {
@@ -176,7 +199,7 @@ export function CameraCaptureView() {
   };
 
   const handleSelectPhoto = async () => {
-    if (isSelectingPhoto || remainingCaptureCount === 0) {
+    if (isSelectingPhoto || !hasCaptureOpportunity) {
       return;
     }
 
@@ -190,9 +213,7 @@ export function CameraCaptureView() {
       const selectedPhoto = result.assets?.[0];
 
       if (!result.canceled && selectedPhoto?.uri) {
-        setRemainingCaptureCount((currentCount) =>
-          Math.max(0, currentCount - 1),
-        );
+        consumeCaptureOpportunity();
         setCapturedPhotoUri(selectedPhoto.uri);
       }
     } catch {
@@ -214,7 +235,13 @@ export function CameraCaptureView() {
   }
 
   const handleUseCoins = () => {
-    setRemainingCaptureCount(1);
+    if (coinBalance < PAID_CAPTURE_SESSION_COST) {
+      setIsCoinDialogVisible(false);
+      Alert.alert('코인이 부족해요', '포착에는 200코인이 필요해요.');
+      return;
+    }
+
+    setIsPaidCaptureSessionActive(true);
     setIsCoinDialogVisible(false);
   };
 
@@ -331,13 +358,15 @@ export function CameraCaptureView() {
               style={StyleSheet.absoluteFill}
             />
             <View style={styles.dimOverlay} pointerEvents="none" />
-            <View pointerEvents="none" style={styles.focusFrame}>
-              <View style={[styles.corner, styles.topLeftCorner]} />
-              <View style={[styles.corner, styles.topRightCorner]} />
-              <View style={[styles.corner, styles.bottomLeftCorner]} />
-              <View style={[styles.corner, styles.bottomRightCorner]} />
-            </View>
-            {remainingCaptureCount === 0 && (
+            {hasCaptureOpportunity && (
+              <View pointerEvents="none" style={styles.focusFrame}>
+                <View style={[styles.corner, styles.topLeftCorner]} />
+                <View style={[styles.corner, styles.topRightCorner]} />
+                <View style={[styles.corner, styles.bottomLeftCorner]} />
+                <View style={[styles.corner, styles.bottomRightCorner]} />
+              </View>
+            )}
+            {!hasCaptureOpportunity && (
               <View style={styles.captureLimitOverlay}>
                 <View style={styles.captureLimitContent}>
                   <Image
@@ -379,13 +408,13 @@ export function CameraCaptureView() {
           accessibilityLabel="앨범에서 사진 선택"
           accessibilityRole="button"
           disabled={
-            isSelectingPhoto || remainingCaptureCount === 0
+            isSelectingPhoto || !hasCaptureOpportunity
           }
           onPress={handleSelectPhoto}
           style={({ pressed }) => [
             styles.albumButton,
             (pressed || isSelectingPhoto) && styles.buttonPressed,
-            remainingCaptureCount === 0 && styles.disabledButton,
+            !hasCaptureOpportunity && styles.disabledButton,
           ]}
         >
           <Image
@@ -398,12 +427,12 @@ export function CameraCaptureView() {
         <Pressable
           accessibilityLabel="사진 촬영"
           accessibilityRole="button"
-          disabled={isCapturing || remainingCaptureCount === 0}
+          disabled={isCapturing || !hasCaptureOpportunity}
           onPress={handleCapture}
           style={({ pressed }) => [
             styles.shutterButton,
             (pressed || isCapturing) && styles.buttonPressed,
-            remainingCaptureCount === 0 && styles.disabledButton,
+            !hasCaptureOpportunity && styles.disabledButton,
           ]}
         >
           <Image
