@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
 const CARD_FRONT_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card.png');
 const CARD_BACK_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card-back.png');
@@ -75,6 +76,8 @@ export function CardOpeningSequence({
   const [highlightedCardIndex, setHighlightedCardIndex] = useState<
     number | null
   >(null);
+  const [isReleaseAlertVisible, setIsReleaseAlertVisible] =
+    useState(false);
   const shimmer = useRef(new Animated.Value(0)).current;
   const packFloat = useRef(new Animated.Value(0)).current;
   const opening = useRef(new Animated.Value(0)).current;
@@ -277,7 +280,16 @@ export function CardOpeningSequence({
   if (stage === 'result') {
     return (
       <View style={styles.container}>
-        <ResultCard flip={resultFlip} spin={resultSpin} />
+        <ResultCard
+          flip={resultFlip}
+          onRelease={() => setIsReleaseAlertVisible(true)}
+          spin={resultSpin}
+        />
+        {isReleaseAlertVisible && (
+          <ReleaseCreatureAlert
+            onClose={() => setIsReleaseAlertVisible(false)}
+          />
+        )}
       </View>
     );
   }
@@ -895,9 +907,11 @@ function OpeningAnimation({ progress }: { progress: Animated.Value }) {
 
 function ResultCard({
   flip,
+  onRelease,
   spin,
 }: {
   flip: Animated.Value;
+  onRelease: () => void;
   spin: Animated.Value;
 }) {
   const flipRotation = flip.interpolate({
@@ -953,12 +967,17 @@ function ResultCard({
           source={SAVE_TO_FARM_BUTTON_IMAGE}
           style={styles.resultActionButton}
         />
-        <Image
+        <Pressable
           accessibilityLabel="자연으로 돌려보내기"
-          resizeMode="contain"
-          source={RETURN_TO_NATURE_BUTTON_IMAGE}
+          onPress={onRelease}
           style={styles.resultActionButton}
-        />
+        >
+          <Image
+            resizeMode="contain"
+            source={RETURN_TO_NATURE_BUTTON_IMAGE}
+            style={styles.resultActionButtonImage}
+          />
+        </Pressable>
       </View>
     </View>
   );
@@ -1383,5 +1402,9 @@ const styles = StyleSheet.create({
   resultActionButton: {
     width: scaleByDeviceWidth(280),
     height: scaleByDeviceWidth(60),
+  },
+  resultActionButtonImage: {
+    width: '100%',
+    height: '100%',
   },
 });
