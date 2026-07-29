@@ -1,9 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
+  BackHandler,
   Easing,
   Image,
   PanResponder,
@@ -17,7 +16,7 @@ import {
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useRemovePhotoBackground } from '../model/useRemovePhotoBackground';
+import { CardOpeningSequence } from './CardOpeningSequence';
 
 const CAPTURE_SECONDS = 10;
 const FRAME_SIZE = scaleByDeviceWidth(80);
@@ -32,9 +31,6 @@ const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
 const MAX_THROWS = 3;
 const CAMERA_CARD_ASPECT_RATIO = 414 / 635;
-const USE_PHOTO_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/use-photo-prompt.png');
-const RETAKE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/retake-button.png');
-const USE_PHOTO_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/use-photo-button.png');
 const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-frame.png');
 const THROW_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/throw-guide.png');
 const TIMER_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/timer-background.png');
@@ -94,8 +90,6 @@ export function CaptureGame({
   const [throwsUsed, setThrowsUsed] = useState(0);
   const [isThrowing, setIsThrowing] = useState(false);
   const [isFrameVisible, setIsFrameVisible] = useState(true);
-  const [showSuccessEffect, setShowSuccessEffect] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showResultActions, setShowResultActions] = useState(false);
   const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
@@ -103,20 +97,22 @@ export function CaptureGame({
   const throwScale = useRef(new Animated.Value(1)).current;
   const throwArc = useRef(new Animated.Value(0)).current;
   const throwOpacity = useRef(new Animated.Value(1)).current;
-  const successEffectProgress = useRef(new Animated.Value(0)).current;
   const resultCardShake = useRef(new Animated.Value(0)).current;
-  const bottomSheetTranslateY = useRef(
-    new Animated.Value(scaleByDeviceWidth(340)),
-  ).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
-  const {
-    errorMessage: segmentationError,
-    removeBackground,
-    resultUri: segmentedPhotoUri,
-    state: segmentationState,
-  } = useRemovePhotoBackground();
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => {
+        onRetry();
+        return true;
+      },
+    );
+
+    return () => subscription.remove();
+  }, [onRetry]);
 
   const targetCenter = useMemo(
     () => ({
@@ -205,14 +201,6 @@ export function CaptureGame({
   }, [pulseScale, result]);
 
   useEffect(() => {
-    if (result !== 'success') {
-      return;
-    }
-
-    void removeBackground(photoUri);
-  }, [photoUri, removeBackground, result]);
-
-  useEffect(() => {
     if (!result) {
       return;
     }
@@ -251,46 +239,6 @@ export function CaptureGame({
 
     return () => shakeAnimation.stop();
   }, [result, resultCardShake]);
-
-  useEffect(() => {
-    if (result !== 'success') {
-      return;
-    }
-
-    setShowSuccessEffect(true);
-    successEffectProgress.setValue(0);
-
-    Animated.sequence([
-      Animated.timing(successEffectProgress, {
-        toValue: 1,
-        duration: 200,
-        easing: Easing.out(Easing.back(1.8)),
-        useNativeDriver: true,
-      }),
-      Animated.delay(300),
-      Animated.timing(successEffectProgress, {
-        toValue: 0,
-        duration: 240,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setShowSuccessEffect(false);
-      setShowSuccessModal(true);
-    });
-  }, [result, successEffectProgress]);
-
-  useEffect(() => {
-    if (!showSuccessModal) {
-      return;
-    }
-
-    Animated.spring(bottomSheetTranslateY, {
-      toValue: 0,
-      speed: 16,
-      bounciness: 3,
-      useNativeDriver: true,
-    }).start();
-  }, [bottomSheetTranslateY, showSuccessModal]);
 
   const resetFrame = useCallback(() => {
     Animated.parallel([
@@ -693,146 +641,7 @@ export function CaptureGame({
       </Text>
 
       {result === 'success' && hasOpenedSuccess && (
-        <View
-          accessibilityViewIsModal
-          style={styles.successOnlyScreen}
-        >
-          {segmentedPhotoUri ? (
-            <View style={styles.segmentedPreview}>
-              <View style={styles.previewCircle} />
-              <Image
-                accessibilityLabel="배경이 제거된 동물 사진"
-                resizeMode="contain"
-                source={{ uri: segmentedPhotoUri }}
-                style={styles.segmentedPhoto}
-              />
-              <Text style={styles.segmentedTitle}>동물 포착 완료!</Text>
-              <Text style={styles.segmentedDescription}>
-                배경을 깔끔하게 분리했어요
-              </Text>
-            </View>
-          ) : (
-            <>
-              <Image
-                resizeMode="cover"
-                source={{ uri: photoUri }}
-                style={StyleSheet.absoluteFill}
-              />
-              <View pointerEvents="none" style={styles.successPhotoDim} />
-            </>
-          )}
-
-          {showSuccessEffect && (
-            <Animated.View
-              pointerEvents="none"
-              style={[
-                styles.successEffect,
-                {
-                  opacity: successEffectProgress,
-                  transform: [
-                    {
-                      scale: successEffectProgress.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.45, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
-              <View style={styles.successEffectRing}>
-                <Ionicons color="#FFF4A8" name="paw" size={58} />
-              </View>
-              <Ionicons
-                color="#FFD34D"
-                name="sparkles"
-                size={48}
-                style={styles.successSparkle}
-              />
-              <Text style={styles.successEffectText}>포착 성공!</Text>
-            </Animated.View>
-          )}
-
-          {segmentationState === 'processing' && !showSuccessEffect && (
-            <View style={styles.processingCard}>
-              <ActivityIndicator color="#31533B" size="large" />
-              <Text style={styles.processingTitle}>동물을 분리하고 있어요</Text>
-              <Text style={styles.processingDescription}>
-                첫 실행에서는 모델 준비에 잠시 시간이 걸릴 수 있어요
-              </Text>
-            </View>
-          )}
-
-          {segmentationState === 'error' && (
-            <View style={styles.processingCard}>
-              <Ionicons color="#7B6650" name="alert-circle-outline" size={44} />
-              <Text style={styles.processingTitle}>동물을 분리하지 못했어요</Text>
-              <Text style={styles.processingDescription}>
-                {segmentationError}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => void removeBackground(photoUri)}
-                style={({ pressed }) => [
-                  styles.segmentationRetryButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.segmentationRetryText}>다시 시도</Text>
-              </Pressable>
-            </View>
-          )}
-
-          {showSuccessModal && segmentationState === 'success' && (
-            <Animated.View
-              style={[
-                styles.successBottomSheet,
-                {
-                  paddingBottom:
-                    insets.bottom + scaleByDeviceWidth(24),
-                  transform: [{ translateY: bottomSheetTranslateY }],
-                },
-            ]}
-          >
-              <Image
-                accessibilityLabel="이 이미지를 가지고 만들어볼까요?"
-                resizeMode="contain"
-                source={USE_PHOTO_PROMPT_IMAGE}
-                style={styles.bottomSheetTitleImage}
-              />
-              <View style={styles.bottomSheetActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onRetry}
-                style={({ pressed }) => [
-                    styles.decisionButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Image
-                    resizeMode="contain"
-                    source={RETAKE_BUTTON_IMAGE}
-                    style={styles.decisionButtonImage}
-                  />
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onClose}
-                  style={({ pressed }) => [
-                    styles.decisionButton,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Image
-                    resizeMode="contain"
-                    source={USE_PHOTO_BUTTON_IMAGE}
-                    style={styles.decisionButtonImage}
-                  />
-                </Pressable>
-              </View>
-            </Animated.View>
-          )}
-        </View>
+        <CardOpeningSequence photoUri={photoUri} />
       )}
 
       {result && !(result === 'success' && hasOpenedSuccess) && (
@@ -1064,156 +873,6 @@ const styles = StyleSheet.create({
   throwFrameImage: {
     width: scaleByDeviceWidth(80),
     height: scaleByDeviceWidth(80),
-  },
-  successBottomSheet: {
-    position: 'absolute',
-    right: 0,
-    bottom: 0,
-    left: 0,
-    zIndex: 10,
-    alignItems: 'center',
-    paddingTop: scaleByDeviceWidth(16),
-    paddingHorizontal: scaleByDeviceWidth(20),
-    borderTopWidth: scaleByDeviceWidth(4),
-    borderRightWidth: scaleByDeviceWidth(3),
-    borderLeftWidth: scaleByDeviceWidth(3),
-    borderColor: '#C8B998',
-    borderTopLeftRadius: scaleByDeviceWidth(22),
-    borderTopRightRadius: scaleByDeviceWidth(22),
-    backgroundColor: '#FFFCF5',
-  },
-  successOnlyScreen: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 10,
-    backgroundColor: '#000000',
-  },
-  successPhotoDim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(15, 28, 14, 0.12)',
-  },
-  segmentedPreview: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: scaleByDeviceWidth(150),
-    backgroundColor: '#E8F2D8',
-  },
-  previewCircle: {
-    position: 'absolute',
-    width: scaleByDeviceWidth(330),
-    height: scaleByDeviceWidth(330),
-    borderRadius: scaleByDeviceWidth(165),
-    backgroundColor: '#FFF9E9',
-  },
-  segmentedPhoto: {
-    width: '88%',
-    height: '58%',
-  },
-  segmentedTitle: {
-    marginTop: scaleByDeviceWidth(18),
-    color: '#31533B',
-    fontSize: scaleByDeviceWidth(26),
-    fontWeight: '900',
-  },
-  segmentedDescription: {
-    marginTop: scaleByDeviceWidth(6),
-    color: '#66805E',
-    fontSize: scaleByDeviceWidth(16),
-    fontWeight: '700',
-  },
-  processingCard: {
-    position: 'absolute',
-    top: '38%',
-    right: scaleByDeviceWidth(28),
-    left: scaleByDeviceWidth(28),
-    alignItems: 'center',
-    paddingHorizontal: scaleByDeviceWidth(24),
-    paddingVertical: scaleByDeviceWidth(28),
-    borderRadius: scaleByDeviceWidth(24),
-    backgroundColor: '#FFF9E9',
-  },
-  processingTitle: {
-    marginTop: scaleByDeviceWidth(14),
-    color: '#31533B',
-    fontSize: scaleByDeviceWidth(20),
-    fontWeight: '900',
-  },
-  processingDescription: {
-    marginTop: scaleByDeviceWidth(8),
-    color: '#66805E',
-    fontSize: scaleByDeviceWidth(14),
-    fontWeight: '600',
-    lineHeight: scaleByDeviceWidth(20),
-    textAlign: 'center',
-  },
-  segmentationRetryButton: {
-    marginTop: scaleByDeviceWidth(18),
-    paddingHorizontal: scaleByDeviceWidth(24),
-    paddingVertical: scaleByDeviceWidth(12),
-    borderRadius: scaleByDeviceWidth(14),
-    backgroundColor: '#31533B',
-  },
-  segmentationRetryText: {
-    color: '#FFFFFF',
-    fontSize: scaleByDeviceWidth(15),
-    fontWeight: '800',
-  },
-  successEffect: {
-    position: 'absolute',
-    top: '37%',
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  successEffectRing: {
-    width: scaleByDeviceWidth(138),
-    height: scaleByDeviceWidth(138),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: scaleByDeviceWidth(7),
-    borderColor: '#FFD34D',
-    borderRadius: scaleByDeviceWidth(69),
-    backgroundColor: 'rgba(49, 83, 59, 0.78)',
-    shadowColor: '#FFD34D',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: scaleByDeviceWidth(18),
-    elevation: scaleByDeviceWidth(12),
-  },
-  successSparkle: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(-18),
-    right: scaleByDeviceWidth(-22),
-  },
-  successEffectText: {
-    marginTop: scaleByDeviceWidth(18),
-    color: '#FFF4A8',
-    fontSize: scaleByDeviceWidth(30),
-    fontWeight: '900',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: {
-      width: scaleByDeviceWidth(1),
-      height: scaleByDeviceWidth(2),
-    },
-    textShadowRadius: scaleByDeviceWidth(3),
-  },
-  bottomSheetTitleImage: {
-    width: scaleByDeviceWidth(194),
-    height: scaleByDeviceWidth(28),
-  },
-  bottomSheetActions: {
-    width: '100%',
-    flexDirection: 'row',
-    marginTop: scaleByDeviceWidth(1.74),
-    columnGap: scaleByDeviceWidth(4),
-  },
-  decisionButton: {
-    flex: 1,
-    aspectRatio: 80 / 27,
-  },
-  decisionButtonImage: {
-    width: '100%',
-    height: '100%',
   },
   throwLabel: {
     position: 'absolute',
