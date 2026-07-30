@@ -11,7 +11,7 @@ export function AppSplashScreen() {
         accessibilityLabel="포착팜 시작 화면"
         resizeMode="cover"
         source={SPLASH_IMAGE}
-        style={StyleSheet.absoluteFill}
+        style={styles.image}
       />
     </View>
   );
@@ -21,5 +21,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#4AB4E4',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
 });
