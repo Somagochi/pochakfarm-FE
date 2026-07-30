@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
 const BOTTOM_SHEET_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-bottom-sheet.png');
 const DETAIL_TOGGLE_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-toggle.png');
@@ -100,6 +101,8 @@ export function CreatureDetailSheet({
   const [selectedView, setSelectedView] = useState<'profile' | 'card'>(
     'profile',
   );
+  const [isReleaseAlertVisible, setIsReleaseAlertVisible] =
+    useState(false);
   const sheetWidth = width;
   const sheetHeight = sheetWidth / SHEET_ASPECT_RATIO;
   const detailFrameTop = sheetHeight * IMAGE_BOX_TOP_RATIO;
@@ -440,10 +443,9 @@ export function CreatureDetailSheet({
                 </View>
               ))}
 
-              <Image
+              <Pressable
                 accessibilityLabel="새로운 여정 보내기"
-                resizeMode="contain"
-                source={JOURNEY_BUTTON_IMAGE}
+                onPress={() => setIsReleaseAlertVisible(true)}
                 style={[
                   styles.journeyButton,
                   {
@@ -452,7 +454,13 @@ export function CreatureDetailSheet({
                     height: JOURNEY_BUTTON_HEIGHT,
                   },
                 ]}
-              />
+              >
+                <Image
+                  resizeMode="contain"
+                  source={JOURNEY_BUTTON_IMAGE}
+                  style={styles.journeyButtonImage}
+                />
+              </Pressable>
             </>
           )}
 
@@ -548,10 +556,9 @@ export function CreatureDetailSheet({
                 <Text style={styles.nameValueText}>꼬미</Text>
               </View>
 
-              <Image
+              <Pressable
                 accessibilityLabel="새로운 여정 보내기"
-                resizeMode="contain"
-                source={JOURNEY_BUTTON_IMAGE}
+                onPress={() => setIsReleaseAlertVisible(true)}
                 style={[
                   styles.journeyButton,
                   {
@@ -560,10 +567,21 @@ export function CreatureDetailSheet({
                     height: JOURNEY_BUTTON_HEIGHT,
                   },
                 ]}
-              />
+              >
+                <Image
+                  resizeMode="contain"
+                  source={JOURNEY_BUTTON_IMAGE}
+                  style={styles.journeyButtonImage}
+                />
+              </Pressable>
             </>
           )}
         </Animated.View>
+        {isReleaseAlertVisible && (
+          <ReleaseCreatureAlert
+            onClose={() => setIsReleaseAlertVisible(false)}
+          />
+        )}
       </View>
     </Modal>
   );
@@ -653,7 +671,7 @@ const styles = StyleSheet.create({
   },
   nameValueText: {
     color: '#745D40',
-    fontFamily: 'EliceDXNeolli-Bold',
+    fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
     textAlign: 'center',
@@ -681,7 +699,7 @@ const styles = StyleSheet.create({
   },
   detailFieldValueText: {
     color: '#745D40',
-    fontFamily: 'EliceDXNeolli-Bold',
+    fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
     textAlign: 'center',
@@ -705,7 +723,7 @@ const styles = StyleSheet.create({
   },
   traitName: {
     color: '#684500',
-    fontFamily: 'EliceDXNeolli-Bold',
+    fontFamily: 'EliceDXNeolli-Medium',
     fontSize: TRAIT_NAME_FONT_SIZE,
     lineHeight: TRAIT_NAME_LINE_HEIGHT,
     includeFontPadding: false,
@@ -721,6 +739,10 @@ const styles = StyleSheet.create({
     position: 'absolute',
     zIndex: 1,
     alignSelf: 'center',
+  },
+  journeyButtonImage: {
+    width: '100%',
+    height: '100%',
   },
   pressed: {
     opacity: 0.75,

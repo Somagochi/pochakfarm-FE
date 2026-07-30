@@ -10,6 +10,7 @@ export default function RootLayout() {
     'EliceDXNeolli-Bold': require('@/src/shared/assets/fonts/EliceDXNeolli-Bold.ttf'),
     'EliceDXNeolli-Light': require('@/src/shared/assets/fonts/EliceDXNeolli-Light.ttf'),
     'EliceDXNeolli-Medium': require('@/src/shared/assets/fonts/EliceDXNeolli-Medium.ttf'),
+    'Galmuri11-Bold': require('@/src/shared/assets/fonts/Galmuri11-Bold.ttf'),
   });
 
   if (!fontsLoaded && !fontError) {
