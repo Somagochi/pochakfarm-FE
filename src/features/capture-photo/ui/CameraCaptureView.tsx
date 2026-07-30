@@ -15,6 +15,11 @@ import {
   View,
 } from 'react-native';
 
+import {
+  getLevelProgress,
+  getRemainingExpForNextLevel,
+  MAX_USER_LEVEL,
+} from '@/src/entities/user';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -47,8 +52,7 @@ const MOCK_INITIAL_COIN_BALANCE = 12500;
 const HELP_MODAL_REFERENCE_WIDTH = 328;
 const HELP_MODAL_REFERENCE_HEIGHT = 626;
 const MOCK_USER_LEVEL = 1;
-const MOCK_REMAINING_CAPTURES = 12;
-const MOCK_LEVEL_PROGRESS = 0.77;
+const MOCK_USER_EXP = 31;
 const MOCK_CAPTURE_COUNTS = [
   { color: '#E9B400', count: 23, label: '하늘' },
   { color: '#2F7D35', count: 8, label: '땅' },
@@ -98,6 +102,15 @@ export function CameraCaptureView() {
     HELP_MODAL_REFERENCE_WIDTH * helpModalScale;
   const helpModalHeight =
     HELP_MODAL_REFERENCE_HEIGHT * helpModalScale;
+  const remainingExp = getRemainingExpForNextLevel(
+    MOCK_USER_LEVEL,
+    MOCK_USER_EXP,
+  );
+  const levelProgress = getLevelProgress(
+    MOCK_USER_LEVEL,
+    MOCK_USER_EXP,
+  );
+  const isMaxLevel = MOCK_USER_LEVEL >= MAX_USER_LEVEL;
   const hasCaptureOpportunity =
     remainingCaptureCount > 0 || isPaidCaptureSessionActive;
 
@@ -551,7 +564,11 @@ export function CameraCaptureView() {
               {MOCK_USER_LEVEL}
             </Text>
             <Text
-              accessibilityLabel={`다음 레벨까지 포착 ${MOCK_REMAINING_CAPTURES}회 남았어요`}
+              accessibilityLabel={
+                isMaxLevel
+                  ? '최고 레벨에 도달했어요'
+                  : `다음 레벨까지 ${remainingExp} EXP 남았어요`
+              }
               style={[
                 styles.helpModalProgressMessage,
                 {
@@ -563,14 +580,20 @@ export function CameraCaptureView() {
                 },
               ]}
             >
-              다음 레벨까지{' '}
-              <Text style={styles.helpModalProgressHighlight}>
-                포착 {MOCK_REMAINING_CAPTURES}회
-              </Text>{' '}
-              남았어요
+              {isMaxLevel ? (
+                '최고 레벨에 도달했어요'
+              ) : (
+                <>
+                  다음 레벨까지{' '}
+                  <Text style={styles.helpModalProgressHighlight}>
+                    {remainingExp} EXP
+                  </Text>{' '}
+                  남았어요
+                </>
+              )}
             </Text>
             <View
-              accessibilityLabel={`현재 경험치 ${Math.round(MOCK_LEVEL_PROGRESS * 100)}퍼센트`}
+              accessibilityLabel={`현재 경험치 ${Math.round(levelProgress * 100)}퍼센트`}
               style={[
                 styles.helpModalProgressTrack,
                 {
@@ -586,7 +609,7 @@ export function CameraCaptureView() {
                 style={[
                   styles.helpModalProgressFill,
                   {
-                    width: `${MOCK_LEVEL_PROGRESS * 100}%`,
+                    width: `${levelProgress * 100}%`,
                     borderRadius: 4 * helpModalScale,
                   },
                 ]}
