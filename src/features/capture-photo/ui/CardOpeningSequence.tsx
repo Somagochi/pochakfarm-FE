@@ -45,6 +45,7 @@ const CARD_SELECT_BACK_DELAYS = [
   5300, 5797.596, 6300, 7050, 7800, 8550, 9300,
 ];
 const CARD_SELECT_FINAL_DELAY = 8993.739;
+const RESULT_CARD_ROTATION_DEGREES_PER_POINT = 0.9;
 const SKY_CARD_POSITIONS = [
   { delay: 0, x: -111.06, y: -70 },
   { delay: 1367, x: 0, y: -70 },
@@ -66,6 +67,10 @@ type CardOpeningSequenceProps = {
   photoUri: string;
 };
 
+function normalizeResultCardRotation(rotation: number) {
+  return ((rotation + 180) % 360 + 360) % 360 - 180;
+}
+
 export function CardOpeningSequence({
   photoUri,
 }: CardOpeningSequenceProps) {
@@ -83,8 +88,6 @@ export function CardOpeningSequence({
   const skyArrivals = useRef(
     SKY_CARD_POSITIONS.map(() => new Animated.Value(0)),
   ).current;
-  const resultFlip = useRef(new Animated.Value(0)).current;
-  const resultSpin = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     shimmer.setValue(0);
@@ -183,28 +186,6 @@ export function CardOpeningSequence({
     };
   }, [skyArrivals, stage]);
 
-  useEffect(() => {
-    if (stage !== 'result') return;
-
-    resultFlip.setValue(0);
-    resultSpin.setValue(0);
-    Animated.sequence([
-      Animated.timing(resultFlip, {
-        toValue: 1,
-        duration: 800,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      }),
-      Animated.delay(1000),
-      Animated.timing(resultSpin, {
-        toValue: 1,
-        duration: 1300,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [resultFlip, resultSpin, stage]);
-
   const cutPanResponder = useMemo(
     () =>
       PanResponder.create({
@@ -280,9 +261,7 @@ export function CardOpeningSequence({
     return (
       <View style={styles.container}>
         <ResultCard
-          flip={resultFlip}
           onRelease={() => setIsReleaseAlertVisible(true)}
-          spin={resultSpin}
         />
         {isReleaseAlertVisible && (
           <ReleaseCreatureAlert
@@ -919,60 +898,138 @@ function OpeningAnimation({ progress }: { progress: Animated.Value }) {
 }
 
 function ResultCard({
-  flip,
   onRelease,
-  spin,
 }: {
-  flip: Animated.Value;
   onRelease: () => void;
-  spin: Animated.Value;
 }) {
-  const flipRotation = flip.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
+  const cardRotation = useRef(new Animated.Value(180)).current;
+  const cardRotationStartRef = useRef(0);
+  const isRevealCompleteRef = useRef(false);
+  const finishCardRotation = (dx: number) => {
+    const nextRotation =
+      cardRotationStartRef.current +
+      dx * RESULT_CARD_ROTATION_DEGREES_PER_POINT;
+    const normalizedRotation =
+      normalizeResultCardRotation(nextRotation);
+
+    cardRotation.setValue(normalizedRotation);
+    cardRotationStartRef.current = normalizedRotation;
+  };
+  const cardPanResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () =>
+        isRevealCompleteRef.current,
+      onStartShouldSetPanResponderCapture: () =>
+        isRevealCompleteRef.current,
+      onMoveShouldSetPanResponder: (_, gestureState) =>
+        isRevealCompleteRef.current &&
+        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
+        isRevealCompleteRef.current &&
+        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
+        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+      onPanResponderGrant: () => {
+        cardRotation.stopAnimation((currentRotation) => {
+          cardRotationStartRef.current = currentRotation;
+        });
+      },
+      onPanResponderMove: (_, gestureState) => {
+        cardRotation.setValue(
+          normalizeResultCardRotation(
+            cardRotationStartRef.current +
+              gestureState.dx *
+                RESULT_CARD_ROTATION_DEGREES_PER_POINT,
+          ),
+        );
+      },
+      onPanResponderRelease: (_, gestureState) =>
+        finishCardRotation(gestureState.dx),
+      onPanResponderTerminate: (_, gestureState) =>
+        finishCardRotation(gestureState.dx),
+      onPanResponderTerminationRequest: () => false,
+    }),
+  ).current;
+
+  useEffect(() => {
+    isRevealCompleteRef.current = false;
+    cardRotation.setValue(180);
+    cardRotationStartRef.current = 180;
+
+    const revealAnimation = Animated.timing(cardRotation, {
+      toValue: 0,
+      duration: 800,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    revealAnimation.start(({ finished }) => {
+      if (finished) {
+        cardRotationStartRef.current = 0;
+        isRevealCompleteRef.current = true;
+      }
+    });
+
+    return () => revealAnimation.stop();
+  }, [cardRotation]);
+
+  const cardFrontRotateY = cardRotation.interpolate({
+    inputRange: [-180, 180],
+    outputRange: ['-180deg', '180deg'],
   });
-  const spinRotation = spin.interpolate({
-    inputRange: [0, 1],
+  const cardBackRotateY = cardRotation.interpolate({
+    inputRange: [-180, 180],
     outputRange: ['0deg', '360deg'],
   });
-  const frontOpacity = flip.interpolate({
-    inputRange: [0, 0.49, 0.5, 1],
-    outputRange: [0, 0, 1, 1],
+  const cardFrontOpacity = cardRotation.interpolate({
+    inputRange: [-180, -90, -89, 89, 90, 180],
+    outputRange: [0, 0, 1, 1, 0, 0],
+    extrapolate: 'clamp',
   });
-  const backOpacity = flip.interpolate({
-    inputRange: [0, 0.49, 0.5, 1],
-    outputRange: [1, 1, 0, 0],
+  const cardBackOpacity = cardRotation.interpolate({
+    inputRange: [-180, -90, -89, 89, 90, 180],
+    outputRange: [1, 1, 0, 0, 1, 1],
+    extrapolate: 'clamp',
   });
 
   return (
     <View accessibilityLabel="포착한 캐릭터 카드" style={styles.resultArea}>
-      <Animated.View
-        style={[
-          styles.resultCard,
-          {
-            transform: [
-              { perspective: scaleByDeviceWidth(900) },
-              { rotateY: flipRotation },
-              { rotateZ: spinRotation },
-            ],
-          },
-        ]}
+      <View
+        {...cardPanResponder.panHandlers}
+        accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
+        accessibilityLabel="포착한 캐릭터 카드"
+        accessible
+        style={styles.resultCard}
       >
-        <Animated.Image
-          resizeMode="contain"
-          source={CARD_BACK_IMAGE}
-          style={[styles.resultCardFace, { opacity: backOpacity }]}
-        />
         <Animated.Image
           resizeMode="contain"
           source={CARD_FRONT_IMAGE}
           style={[
             styles.resultCardFace,
-            styles.resultCardFront,
-            { opacity: frontOpacity },
+            {
+              opacity: cardFrontOpacity,
+              transform: [
+                { perspective: scaleByDeviceWidth(900) },
+                { rotateY: cardFrontRotateY },
+              ],
+            },
           ]}
         />
-      </Animated.View>
+        <Animated.Image
+          resizeMode="contain"
+          source={CARD_BACK_IMAGE}
+          style={[
+            styles.resultCardFace,
+            {
+              opacity: cardBackOpacity,
+              transform: [
+                { perspective: scaleByDeviceWidth(900) },
+                { rotateY: cardBackRotateY },
+              ],
+            },
+          ]}
+        />
+      </View>
       <View style={styles.resultActions}>
         <Image
           accessibilityLabel="농장에 저장하기"
@@ -1391,9 +1448,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backfaceVisibility: 'hidden',
-  },
-  resultCardFront: {
-    transform: [{ rotateY: '180deg' }],
   },
   resultActions: {
     gap: scaleByDeviceWidth(12.34),
