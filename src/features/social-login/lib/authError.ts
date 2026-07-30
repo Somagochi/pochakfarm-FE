@@ -6,6 +6,20 @@ export class AuthCancelledError extends Error {
 }
 
 export function isAuthCancelledError(error: unknown) {
-  return error instanceof AuthCancelledError;
-}
+  if (error instanceof AuthCancelledError) {
+    return true;
+  }
 
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+        ? error
+        : '';
+  const normalizedMessage = message.toLowerCase();
+
+  return (
+    normalizedMessage.includes('user cancelled') ||
+    normalizedMessage.includes('user canceled')
+  );
+}
