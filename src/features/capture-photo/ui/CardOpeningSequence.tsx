@@ -1,3 +1,4 @@
+import { Image as ExpoImage } from 'expo-image';
 import LottieView from 'lottie-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -27,11 +28,9 @@ const CHOOSE_ONE_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-o
 const CUT_SCISSORS_IMAGE = require('@/src/shared/assets/images/capture/card-opening/cut-scissors.png');
 const SAVE_TO_FARM_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/save-to-farm-button.png');
 const RETURN_TO_NATURE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/return-to-nature-button.png');
-// Metro가 바이너리 dotLottie 파일을 앱 에셋으로 번들링합니다.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const SCANNER_LOTTIE = require('@/src/shared/assets/images/capture/card-opening/scanner.lottie');
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const PACK_OPEN_GLOW_LOTTIE = require('@/src/shared/assets/images/capture/card-opening/glow-rotate.lottie');
+const SCANNER_LOTTIE = require('@/src/shared/assets/images/capture/card-opening/scanner.json');
+const PACK_OPEN_GLOW_IMAGE = require('@/src/shared/assets/images/capture/card-opening/glow.svg');
+const AnimatedExpoImage = Animated.createAnimatedComponent(ExpoImage);
 
 const ANALYZING_DURATION_MS = 8000;
 const SELECTING_DURATION_MS = 10500;
@@ -685,10 +684,10 @@ function SelectingSweepCard({
           opacity: progress.interpolate({
             inputRange: [0, 0.01, 0.99, 1],
             outputRange: final
-              ? [0, 0.8, 1, 1]
+              ? [0, 1, 1, 1]
               : back
                 ? [0, 0.3, 0.3, 0]
-                : [0, 0.8, 0.8, 0],
+                : [0, 1, 1, 0],
           }),
           transform: [
             { translateX },
@@ -708,6 +707,7 @@ function SelectingSweepCard({
 }
 
 function OpeningAnimation({ progress }: { progress: Animated.Value }) {
+  const glowProgress = useRef(new Animated.Value(0)).current;
   const cardLaunches = [
     { bumpX: 2, delay: 2902, endX: 2, rotation: '0deg', startX: 0 },
     { bumpX: -7, delay: 3830, endX: -16, rotation: '-3.4deg', startX: -11 },
@@ -716,37 +716,50 @@ function OpeningAnimation({ progress }: { progress: Animated.Value }) {
     { bumpX: 0, delay: 6814, endX: -8, rotation: '0deg', startX: 0 },
   ];
 
+  useEffect(() => {
+    glowProgress.setValue(0);
+    const glowAnimation = Animated.timing(glowProgress, {
+      toValue: 1,
+      duration: 2000,
+      easing: Easing.inOut(Easing.cubic),
+      useNativeDriver: true,
+    });
+
+    glowAnimation.start();
+    return () => glowAnimation.stop();
+  }, [glowProgress]);
+
   return (
     <View style={styles.openingArea}>
       <View pointerEvents="none" style={styles.openingGlow}>
-        <LottieView
-          autoPlay
-          loop={false}
-          source={PACK_OPEN_GLOW_LOTTIE}
-          style={styles.openingGlowLottie}
+        <AnimatedExpoImage
+          contentFit="contain"
+          source={PACK_OPEN_GLOW_IMAGE}
+          style={[
+            styles.openingGlowImage,
+            {
+              opacity: glowProgress.interpolate({
+                inputRange: [0, 0.15, 0.8, 1],
+                outputRange: [0, 1, 1, 0],
+              }),
+              transform: [
+                {
+                  rotate: glowProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['5deg', '0deg'],
+                  }),
+                },
+                {
+                  scale: glowProgress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.2, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
         />
       </View>
-
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.openingSeam,
-          {
-            opacity: progress.interpolate({
-              inputRange: [0, 0.037, 0.062, 0.1, 1],
-              outputRange: [0, 1, 1, 0, 0],
-            }),
-            transform: [
-              {
-                scaleX: progress.interpolate({
-                  inputRange: [0, 0.037, 0.062, 0.1, 1],
-                  outputRange: [0, 0.6, 1, 0, 0],
-                }),
-              },
-            ],
-          },
-        ]}
-      />
 
       <View pointerEvents="none" style={styles.launchClip}>
         {cardLaunches.map(
@@ -1157,6 +1170,7 @@ const styles = StyleSheet.create({
   },
   scannerLottie: {
     position: 'absolute',
+    zIndex: 1,
     top: 0,
     left: 0,
     width: scaleByDeviceWidth(248),
@@ -1306,23 +1320,9 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(392),
     marginLeft: scaleByDeviceWidth(-167),
   },
-  openingGlowLottie: {
+  openingGlowImage: {
     width: '100%',
     height: '100%',
-  },
-  openingSeam: {
-    position: 'absolute',
-    bottom: scaleByDeviceWidth(375.63),
-    left: '50%',
-    zIndex: 31,
-    width: scaleByDeviceWidth(286),
-    height: scaleByDeviceWidth(3),
-    marginLeft: scaleByDeviceWidth(-143),
-    borderRadius: scaleByDeviceWidth(2),
-    backgroundColor: '#DFF7FF',
-    shadowColor: '#9FE1FF',
-    shadowOpacity: 1,
-    shadowRadius: scaleByDeviceWidth(6),
   },
   launchClip: {
     ...StyleSheet.absoluteFillObject,
