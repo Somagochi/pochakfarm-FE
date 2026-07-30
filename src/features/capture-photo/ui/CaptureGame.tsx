@@ -35,6 +35,7 @@ const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-fram
 const THROW_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/throw-guide.png');
 const TIMER_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/timer-background.png');
 const TIMER_CLOCK_IMAGE = require('@/src/shared/assets/images/capture/timer-clock.png');
+const TIMER_PROGRESS_IMAGE = require('@/src/shared/assets/images/capture/timer-progress-segmented.png');
 const OPPORTUNITY_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-background.png');
 const OPPORTUNITY_LABEL_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-label.png');
 const OPPORTUNITY_USED_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-used.png');
@@ -475,12 +476,21 @@ export function CaptureGame({
             <Text style={styles.timerText}>{secondsLeft}초</Text>
           </View>
           <View style={styles.timerTrack}>
-            <View
-              style={[
-                styles.timerProgress,
-                { width: `${(secondsLeft / CAPTURE_SECONDS) * 100}%` },
-              ]}
+            <Image
+              resizeMode="contain"
+              source={TIMER_PROGRESS_IMAGE}
+              style={styles.timerProgressImage}
             />
+            <View style={styles.timerElapsedArea}>
+              <View
+                style={[
+                  styles.timerElapsedOverlay,
+                  {
+                    width: `${((CAPTURE_SECONDS - secondsLeft) / CAPTURE_SECONDS) * 100}%`,
+                  },
+                ]}
+              />
+            </View>
           </View>
         </View>
         <View
@@ -833,6 +843,7 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(40),
   },
   timerRow: {
+    width: scaleByDeviceWidth(57),
     flexDirection: 'row',
     alignItems: 'center',
     columnGap: scaleByDeviceWidth(4),
@@ -848,26 +859,40 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   timerTrack: {
-    flex: 1,
-    height: scaleByDeviceWidth(12),
+    width: scaleByDeviceWidth(103),
+    height: scaleByDeviceWidth(16.5),
+    position: 'relative',
     overflow: 'hidden',
-    borderWidth: scaleByDeviceWidth(2),
-    borderColor: '#6C604D',
-    borderRadius: scaleByDeviceWidth(7),
-    backgroundColor: '#FFF7DB',
+    borderRadius: scaleByDeviceWidth(8.25),
   },
-  timerProgress: {
-    height: '100%',
-    borderRadius: scaleByDeviceWidth(4),
-    backgroundColor: '#F5BE20',
+  timerProgressImage: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(103),
+    height: scaleByDeviceWidth(16.5),
+  },
+  timerElapsedArea: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(4),
+    right: scaleByDeviceWidth(3.5),
+    bottom: scaleByDeviceWidth(3.75),
+    left: scaleByDeviceWidth(3.5),
+    overflow: 'hidden',
+    borderRadius: scaleByDeviceWidth(4.5),
+  },
+  timerElapsedOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#FFF4D2',
   },
   opportunityCard: {
     width: scaleByDeviceWidth(140.71),
     height: scaleByDeviceWidth(40),
-    paddingHorizontal: scaleByDeviceWidth(7),
+    paddingLeft: scaleByDeviceWidth(12.1),
     flexDirection: 'row',
     alignItems: 'center',
-    columnGap: scaleByDeviceWidth(5.27),
+    columnGap: scaleByDeviceWidth(3.95),
   },
   opportunityBackground: {
     position: 'absolute',
@@ -880,7 +905,7 @@ const styles = StyleSheet.create({
   },
   opportunityFrames: {
     flexDirection: 'row',
-    columnGap: scaleByDeviceWidth(3),
+    columnGap: scaleByDeviceWidth(1.48),
   },
   opportunityFrame: {
     width: scaleByDeviceWidth(21.35),
