@@ -5,6 +5,8 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FarmCreatureSearchModal } from '@/src/features/find-farm-creature';
+import { useUserProfile } from '@/src/entities/user';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { CreatureDetailSheet } from '@/src/widgets/creature-detail-sheet';
 import { FarmField } from '@/src/widgets/farm-field';
 import {
@@ -17,6 +19,7 @@ import {
 
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
+  const { clearError, errorMessage, profile } = useUserProfile();
   const [selectedEnvironment, setSelectedEnvironment] =
     useState<SelectableFarmEnvironment>('land');
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
@@ -67,7 +70,10 @@ export function FarmScreen() {
           { top: insets.top + scaleByDeviceWidth(2.2) },
         ]}
       >
-        <FarmStatusBar />
+        <FarmStatusBar
+          level={profile?.level ?? 0}
+          name={profile?.nickname ?? ''}
+        />
         <View style={styles.actionButton}>
           <FarmEnvironmentSelector
             onSelectEnvironment={setSelectedEnvironment}
@@ -81,7 +87,7 @@ export function FarmScreen() {
           { top: insets.top + scaleByDeviceWidth(2.2) },
         ]}
       >
-        <CoinBalanceBar />
+        <CoinBalanceBar balance={profile?.coins ?? 0} />
         <View style={styles.utilityButtons}>
           <FarmUtilityButtons
             onPressSearch={() => setIsCreatureSearchVisible(true)}
@@ -98,6 +104,7 @@ export function FarmScreen() {
           width={contentSize.width}
         />
       )}
+      <ErrorModal message={errorMessage} onClose={clearError} />
     </View>
   );
 }
