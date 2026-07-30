@@ -44,9 +44,14 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash.png",
-          "resizeMode": "cover",
-          "backgroundColor": "#4AB4E4"
+          "image": "./assets/images/app-icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF",
+          "dark": {
+            "image": "./assets/images/app-icon.png",
+            "backgroundColor": "#FFFFFF"
+          }
         }
       ],
       "expo-build-properties"
