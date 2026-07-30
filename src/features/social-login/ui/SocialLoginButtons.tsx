@@ -1,48 +1,61 @@
-import { Alert, Platform, StyleSheet, Text, Pressable, View } from 'react-native';
-
-import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import {
+  Alert,
+  Image,
+  ImageSourcePropType,
+  Platform,
+  Pressable,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { env } from '@/src/shared/config/env';
+import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 import { isAuthCancelledError } from '../lib/authError';
 import { useSocialLogin } from '../model/useSocialLogin';
 import type { SocialLoginProvider } from '../model/types';
 
+const APPLE_LOGIN_BUTTON_IMAGE = require('@/src/shared/assets/images/login/apple-login-button.png');
+const KAKAO_LOGIN_BUTTON_IMAGE = require('@/src/shared/assets/images/login/kakao-login-button.png');
+const NAVER_LOGIN_BUTTON_IMAGE = require('@/src/shared/assets/images/login/naver-login-button.png');
+
 type SocialButton = {
   provider: SocialLoginProvider;
   title: string;
-  backgroundColor: string;
-  color: string;
+  image: ImageSourcePropType;
 };
 
 const socialButtons: SocialButton[] = [
   {
+    provider: 'apple',
+    title: 'Apple 로그인',
+    image: APPLE_LOGIN_BUTTON_IMAGE,
+  },
+  {
     provider: 'kakao',
-    title: '카카오로 로그인',
-    backgroundColor: '#FEE500',
-    color: '#191600',
+    title: '카카오 로그인',
+    image: KAKAO_LOGIN_BUTTON_IMAGE,
   },
   {
     provider: 'naver',
-    title: '네이버로 로그인',
-    backgroundColor: '#03C75A',
-    color: '#FFFFFF',
-  },
-  {
-    provider: 'apple',
-    title: 'Apple로 로그인',
-    backgroundColor: '#111111',
-    color: '#FFFFFF',
+    title: '네이버 로그인',
+    image: NAVER_LOGIN_BUTTON_IMAGE,
   },
 ];
 
-export function SocialLoginButtons() {
+type SocialLoginButtonsProps = {
+  onLoginSuccess?: () => void;
+};
+
+export function SocialLoginButtons({
+  onLoginSuccess,
+}: SocialLoginButtonsProps) {
   const { login, loadingProvider } = useSocialLogin();
 
   async function handlePress(provider: SocialLoginProvider) {
     try {
       await login(provider);
-      Alert.alert('로그인 완료', '포착팜에 오신 것을 환영합니다.');
+      onLoginSuccess?.();
     } catch (error) {
       if (isAuthCancelledError(error)) {
         return;
@@ -56,24 +69,32 @@ export function SocialLoginButtons() {
   return (
     <View style={styles.container}>
       {socialButtons.map((button) => {
+        if (button.provider === 'apple' && Platform.OS !== 'ios') {
+          return null;
+        }
+
         const isLoading = loadingProvider === button.provider;
-        const isDisabled =
-          loadingProvider !== null || (button.provider === 'apple' && Platform.OS !== 'ios');
+        const isDisabled = loadingProvider !== null;
 
         return (
           <Pressable
-            key={button.provider}
-            style={[
-              styles.button,
-              { backgroundColor: button.backgroundColor },
-              isDisabled && styles.disabled,
-            ]}
-            onPress={() => handlePress(button.provider)}
+            accessibilityLabel={button.title}
+            accessibilityRole="button"
             disabled={isDisabled}
+            key={button.provider}
+            onPress={() => handlePress(button.provider)}
+            style={({ pressed }) => [
+              styles.button,
+              (pressed || isDisabled) && styles.disabled,
+            ]}
           >
-            <Text style={[styles.buttonText, { color: button.color }]}>
-              {isLoading ? '로그인 중...' : button.title}
-            </Text>
+            <Image
+              accessibilityIgnoresInvertColors
+              resizeMode="contain"
+              source={button.image}
+              style={styles.buttonImage}
+            />
+            {isLoading && <View style={styles.loadingOverlay} />}
           </Pressable>
         );
       })}
@@ -91,7 +112,10 @@ function getProviderName(provider: SocialLoginProvider) {
   return providerName[provider];
 }
 
-function getLoginErrorMessage(provider: SocialLoginProvider, error: unknown) {
+function getLoginErrorMessage(
+  provider: SocialLoginProvider,
+  error: unknown,
+) {
   const apiBaseUrl = env.apiBaseUrl || '(empty)';
 
   if (error instanceof Error && error.message) {
@@ -103,21 +127,22 @@ function getLoginErrorMessage(provider: SocialLoginProvider, error: unknown) {
 
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
-    gap: scaleByDeviceWidth(10),
+    width: scaleByDeviceWidth(280),
+    gap: scaleByDeviceWidth(4),
   },
   button: {
-    minHeight: scaleByDeviceWidth(48),
-    borderRadius: scaleByDeviceWidth(8),
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: scaleByDeviceWidth(16),
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(60),
   },
   disabled: {
-    opacity: 0.45,
+    opacity: 0.65,
   },
-  buttonText: {
-    fontSize: scaleByDeviceWidth(15),
-    fontWeight: '700',
+  buttonImage: {
+    width: '100%',
+    height: '100%',
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
   },
 });
