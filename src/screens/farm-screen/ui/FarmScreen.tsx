@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FarmCreatureSearchModal } from '@/src/features/find-farm-creature';
 import { CreatureDetailSheet } from '@/src/widgets/creature-detail-sheet';
 import { FarmField } from '@/src/widgets/farm-field';
 import {
@@ -19,6 +20,8 @@ export function FarmScreen() {
   const [selectedEnvironment, setSelectedEnvironment] =
     useState<SelectableFarmEnvironment>('land');
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
+    useState(false);
+  const [isCreatureSearchVisible, setIsCreatureSearchVisible] =
     useState(false);
   const [contentSize, setContentSize] = useState({
     height: 0,
@@ -80,9 +83,15 @@ export function FarmScreen() {
       >
         <CoinBalanceBar />
         <View style={styles.utilityButtons}>
-          <FarmUtilityButtons />
+          <FarmUtilityButtons
+            onPressSearch={() => setIsCreatureSearchVisible(true)}
+          />
         </View>
       </View>
+      <FarmCreatureSearchModal
+        onClose={() => setIsCreatureSearchVisible(false)}
+        visible={isCreatureSearchVisible}
+      />
       {isCreatureDetailVisible && (
         <CreatureDetailSheet
           onClose={() => setIsCreatureDetailVisible(false)}
