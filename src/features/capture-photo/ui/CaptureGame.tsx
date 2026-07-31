@@ -29,6 +29,10 @@ const TARGET_CONTRACT_DURATION = 1800;
 const TARGET_RESPAWN_DELAY = 120;
 const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
+const IDEAL_THROW_DISTANCE = scaleByDeviceWidth(100);
+const IDEAL_THROW_VELOCITY = 1;
+const MIN_THROW_POWER = 0.35;
+const MAX_THROW_POWER = 1.65;
 const MAX_THROWS = 3;
 const CAMERA_CARD_ASPECT_RATIO = 414 / 635;
 const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-frame.png');
@@ -364,18 +368,32 @@ export function CaptureGame({
           const nextThrowsUsed = throwsUsed + 1;
 
           const upwardSpeed = Math.abs(gestureState.vy);
+          const upwardDistance = Math.abs(gestureState.dy);
           const horizontalOffset = Math.max(
             -width * 0.42,
             Math.min(
               width * 0.42,
-              gestureState.dx * 1.35 + gestureState.vx * 80,
+              gestureState.dx * 1.35 +
+                gestureState.vx * scaleByDeviceWidth(80),
             ),
           );
-          const destinationY =
-            targetCenter.y - (frameOrigin.y + FRAME_SIZE / 2);
+          const idealVerticalTravel =
+            frameOrigin.y + FRAME_SIZE / 2 - targetCenter.y;
+          const distancePower = upwardDistance / IDEAL_THROW_DISTANCE;
+          const velocityPower = upwardSpeed / IDEAL_THROW_VELOCITY;
+          const throwPower = Math.max(
+            MIN_THROW_POWER,
+            Math.min(
+              MAX_THROW_POWER,
+              distancePower * 0.65 + velocityPower * 0.35,
+            ),
+          );
+          const destinationY = -idealVerticalTravel * throwPower;
+          const landingCenterY =
+            frameOrigin.y + FRAME_SIZE / 2 + destinationY;
           const flightDuration = Math.max(
             320,
-            Math.min(650, 680 - upwardSpeed * 180),
+            Math.min(720, 760 - throwPower * 240),
           );
 
           Animated.parallel([
@@ -422,8 +440,12 @@ export function CaptureGame({
             pulseScale.stopAnimation();
             setIsTargetPaused(true);
 
+            const landingDistanceFromTarget = Math.hypot(
+              horizontalOffset,
+              landingCenterY - targetCenter.y,
+            );
             const isPositionMatched =
-              Math.abs(horizontalOffset) <= SUCCESS_DISTANCE;
+              landingDistanceFromTarget <= SUCCESS_DISTANCE;
             const isTimingMatched =
               pulseScaleValue.current <= SUCCESS_SCALE;
 
