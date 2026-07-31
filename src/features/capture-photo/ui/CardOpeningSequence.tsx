@@ -428,7 +428,9 @@ export function CardOpeningSequence({
               style={[
                 styles.scissors,
                 {
-                  left: `${cutProgress * 100}%`,
+                  left:
+                    cutProgress * scaleByDeviceWidth(268.5) -
+                    scaleByDeviceWidth(26),
                 },
               ]}
             >
@@ -1311,7 +1313,7 @@ const styles = StyleSheet.create({
   },
   scissors: {
     position: 'absolute',
-    top: scaleByDeviceWidth(10),
+    top: scaleByDeviceWidth(-2),
   },
   scissorsImage: {
     width: scaleByDeviceWidth(41),
