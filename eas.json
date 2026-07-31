@@ -15,6 +15,7 @@
       }
     },
     "ios-simulator": {
+      "environment": "preview",
       "ios": {
         "simulator": true
       }
