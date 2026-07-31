@@ -21,12 +21,12 @@ import { CardOpeningSequence } from './CardOpeningSequence';
 const CAPTURE_SECONDS = 10;
 const FRAME_SIZE = scaleByDeviceWidth(80);
 const TARGET_SIZE = scaleByDeviceWidth(270);
-const SUCCESS_DISTANCE = scaleByDeviceWidth(72);
+const TARGET_RING_SIZE = scaleByDeviceWidth(230);
+const SUCCESS_DISTANCE = TARGET_RING_SIZE / 2;
 const SUCCESS_SCALE = 0.38;
-const TARGET_MIN_SCALE = 0.22;
+const TARGET_MIN_SCALE = 0;
 const TARGET_CONTRACT_DURATION = 1800;
 const TARGET_RESPAWN_DELAY = 120;
-const TARGET_RING_SIZE = scaleByDeviceWidth(230);
 const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
 const MAX_THROWS = 3;
@@ -90,6 +90,8 @@ export function CaptureGame({
   const [, setFailureReason] = useState<FailureReason>(null);
   const [throwsUsed, setThrowsUsed] = useState(0);
   const [isThrowing, setIsThrowing] = useState(false);
+  const [isTargetPaused, setIsTargetPaused] = useState(false);
+  const [isTimingMiss, setIsTimingMiss] = useState(false);
   const [showResultActions, setShowResultActions] = useState(false);
   const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
@@ -101,6 +103,7 @@ export function CaptureGame({
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
+  const skipNextResultShakeRef = useRef(false);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -149,15 +152,24 @@ export function CaptureGame({
   };
 
   useEffect(() => {
-    if (result) {
+    if (result || isThrowing) {
       return;
     }
 
     const timer = setInterval(() => {
       setSecondsLeft((current) => {
         if (current <= 1) {
-          finishGame('failure', 'timeout');
-          return 0;
+          const nextThrowsUsed = throwsUsed + 1;
+
+          setThrowsUsed(nextThrowsUsed);
+          void triggerFailedThrowHaptics();
+
+          if (nextThrowsUsed >= MAX_THROWS) {
+            finishGame('failure', 'timeout');
+            return 0;
+          }
+
+          return CAPTURE_SECONDS;
         }
 
         return current - 1;
@@ -165,10 +177,10 @@ export function CaptureGame({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [result]);
+  }, [isThrowing, result, throwsUsed]);
 
   useEffect(() => {
-    if (result) {
+    if (result || isTargetPaused) {
       return;
     }
 
@@ -181,13 +193,13 @@ export function CaptureGame({
           toValue: TARGET_MIN_SCALE,
           duration: TARGET_CONTRACT_DURATION,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.delay(TARGET_RESPAWN_DELAY),
         Animated.timing(pulseScale, {
           toValue: 1,
           duration: 0,
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ]),
     );
@@ -198,7 +210,7 @@ export function CaptureGame({
       animation.stop();
       pulseScale.removeListener(listenerId);
     };
-  }, [pulseScale, result]);
+  }, [isTargetPaused, pulseScale, result]);
 
   useEffect(() => {
     if (!result) {
@@ -207,6 +219,12 @@ export function CaptureGame({
 
     setShowResultActions(false);
     resultCardShake.setValue(0);
+
+    if (skipNextResultShakeRef.current) {
+      skipNextResultShakeRef.current = false;
+      setShowResultActions(true);
+      return;
+    }
 
     const shakeAnimation = Animated.sequence([
       ...Array.from({ length: 10 }, () => [
@@ -292,10 +310,24 @@ export function CaptureGame({
       throwRotation.setValue(0);
       throwArc.setValue(0);
       throwScale.setValue(1);
-      throwOpacity.setValue(1);
-      setIsThrowing(false);
+      pulseScale.setValue(1);
+      pulseScaleValue.current = 1;
+
+      Animated.timing(throwOpacity, {
+        toValue: 1,
+        duration: 140,
+        useNativeDriver: true,
+      }).start(({ finished: didAppear }) => {
+        if (!didAppear) {
+          return;
+        }
+
+        setIsTargetPaused(false);
+        setIsThrowing(false);
+      });
     });
   }, [
+    pulseScale,
     throwArc,
     throwOpacity,
     throwPosition,
@@ -330,7 +362,6 @@ export function CaptureGame({
 
           setIsThrowing(true);
           const nextThrowsUsed = throwsUsed + 1;
-          setThrowsUsed(nextThrowsUsed);
 
           const upwardSpeed = Math.abs(gestureState.vy);
           const horizontalOffset = Math.max(
@@ -388,6 +419,9 @@ export function CaptureGame({
               return;
             }
 
+            pulseScale.stopAnimation();
+            setIsTargetPaused(true);
+
             const isPositionMatched =
               Math.abs(horizontalOffset) <= SUCCESS_DISTANCE;
             const isTimingMatched =
@@ -398,14 +432,87 @@ export function CaptureGame({
               return;
             }
 
-            void triggerFailedThrowHaptics();
+            if (!isPositionMatched) {
+              void triggerFailedThrowHaptics();
+              setThrowsUsed(nextThrowsUsed);
 
-            if (nextThrowsUsed >= MAX_THROWS) {
-              finishGame('failure', 'attempts');
+              if (nextThrowsUsed >= MAX_THROWS) {
+                finishGame('failure', 'attempts');
+                return;
+              }
+
+              setSecondsLeft(CAPTURE_SECONDS);
+              respawnFrame();
               return;
             }
 
-            respawnFrame();
+            throwOpacity.setValue(0);
+            resultCardShake.setValue(0);
+            setIsTimingMiss(true);
+
+            requestAnimationFrame(() => {
+              const timingMissShakeAnimation = Animated.sequence([
+                ...Array.from({ length: 10 }, () => [
+                  Animated.timing(resultCardShake, {
+                    toValue: -1,
+                    duration: 90,
+                    easing: Easing.inOut(Easing.quad),
+                    useNativeDriver: true,
+                  }),
+                  Animated.timing(resultCardShake, {
+                    toValue: 1,
+                    duration: 90,
+                    easing: Easing.inOut(Easing.quad),
+                    useNativeDriver: true,
+                  }),
+                ]).flat(),
+                Animated.timing(resultCardShake, {
+                  toValue: 0,
+                  duration: 200,
+                  easing: Easing.out(Easing.quad),
+                  useNativeDriver: true,
+                }),
+              ]);
+
+              timingMissShakeAnimation.start(
+                ({ finished: shakeFinished }) => {
+                  if (!shakeFinished) {
+                    return;
+                  }
+
+                  setThrowsUsed(nextThrowsUsed);
+
+                  if (nextThrowsUsed >= MAX_THROWS) {
+                    skipNextResultShakeRef.current = true;
+                    finishGame('failure', 'attempts');
+                    setIsTimingMiss(false);
+                    return;
+                  }
+
+                  throwPosition.setValue({ x: 0, y: 0 });
+                  throwRotation.setValue(0);
+                  throwArc.setValue(0);
+                  throwScale.setValue(1);
+                  pulseScale.setValue(1);
+                  pulseScaleValue.current = 1;
+                  setSecondsLeft(CAPTURE_SECONDS);
+
+                  Animated.timing(throwOpacity, {
+                    toValue: 1,
+                    duration: 140,
+                    useNativeDriver: true,
+                  }).start(({ finished: didAppear }) => {
+                    if (!didAppear) {
+                      return;
+                    }
+
+                    setIsTimingMiss(false);
+                    setIsTargetPaused(false);
+                    setIsThrowing(false);
+                  });
+                },
+              );
+            });
           });
         },
         onPanResponderTerminate: resetFrame,
@@ -415,9 +522,12 @@ export function CaptureGame({
       isThrowing,
       resetFrame,
       respawnFrame,
+      pulseScale,
+      resultCardShake,
       targetCenter.y,
       throwPosition,
       throwArc,
+      throwOpacity,
       throwRotation,
       throwScale,
       throwsUsed,
@@ -441,10 +551,9 @@ export function CaptureGame({
       scaleByDeviceWidth(8),
     ],
   });
-  const targetRingOpacity = pulseScale.interpolate({
-    inputRange: [TARGET_MIN_SCALE, TARGET_MIN_SCALE + 0.08, 1],
-    outputRange: [0, 1, 1],
-    extrapolate: 'clamp',
+  const targetRingSize = pulseScale.interpolate({
+    inputRange: [TARGET_MIN_SCALE, 1],
+    outputRange: [0, TARGET_RING_SIZE],
   });
 
   return (
@@ -576,8 +685,8 @@ export function CaptureGame({
           style={[
             styles.targetContractingRing,
             {
-              opacity: targetRingOpacity,
-              transform: [{ scale: pulseScale }],
+              width: targetRingSize,
+              height: targetRingSize,
             },
           ]}
         />
@@ -627,6 +736,25 @@ export function CaptureGame({
 
       {result === 'success' && hasOpenedSuccess && (
         <CardOpeningSequence photoUri={photoUri} />
+      )}
+
+      {isTimingMiss && !result && (
+        <View pointerEvents="none" style={styles.resultOverlay}>
+          <Animated.Image
+            accessibilityLabel="타이밍을 놓친 포착 결과 카드"
+            resizeMode="contain"
+            source={CAPTURE_RESULT_CARD_IMAGE}
+            style={[
+              styles.resultShakeCard,
+              {
+                transform: [
+                  { translateX: resultCardTranslateX },
+                  { rotate: resultCardRotation },
+                ],
+              },
+            ]}
+          />
+        </View>
       )}
 
       {result && !(result === 'success' && hasOpenedSuccess) && (
@@ -850,8 +978,6 @@ const styles = StyleSheet.create({
   },
   targetContractingRing: {
     position: 'absolute',
-    width: TARGET_RING_SIZE,
-    height: TARGET_RING_SIZE,
     borderWidth: scaleByDeviceWidth(1.5),
     borderColor: 'rgba(255, 249, 218, 0.9)',
     borderRadius: TARGET_RING_SIZE / 2,
