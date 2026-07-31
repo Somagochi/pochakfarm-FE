@@ -90,7 +90,6 @@ export function CaptureGame({
   const [, setFailureReason] = useState<FailureReason>(null);
   const [throwsUsed, setThrowsUsed] = useState(0);
   const [isThrowing, setIsThrowing] = useState(false);
-  const [isFrameVisible, setIsFrameVisible] = useState(true);
   const [showResultActions, setShowResultActions] = useState(false);
   const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
@@ -284,39 +283,17 @@ export function CaptureGame({
       toValue: 0,
       duration: 140,
       useNativeDriver: true,
-    }).start(() => {
-      setIsFrameVisible(false);
+    }).start(({ finished }) => {
+      if (!finished) {
+        return;
+      }
 
-      Animated.parallel([
-        Animated.timing(throwPosition, {
-          toValue: { x: 0, y: 0 },
-          duration: 0,
-          useNativeDriver: true,
-        }),
-        Animated.timing(throwRotation, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-        Animated.timing(throwArc, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-        Animated.timing(throwScale, {
-          toValue: 1,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-        Animated.timing(throwOpacity, {
-          toValue: 1,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ]).start(() => {
-        setIsFrameVisible(true);
-        setIsThrowing(false);
-      });
+      throwPosition.setValue({ x: 0, y: 0 });
+      throwRotation.setValue(0);
+      throwArc.setValue(0);
+      throwScale.setValue(1);
+      throwOpacity.setValue(1);
+      setIsThrowing(false);
     });
   }, [
     throwArc,
@@ -606,37 +583,35 @@ export function CaptureGame({
         />
       </View>
 
-      {isFrameVisible && (
-        <Animated.View
-          style={[
-            styles.throwingFrame,
-            {
-              left: frameOrigin.x,
-              opacity: throwOpacity,
-              top: frameOrigin.y,
-              transform: [
-                ...throwPosition.getTranslateTransform(),
-                { translateY: throwArc },
-                { rotate: frameRotation },
-                { scale: throwScale },
-              ],
-            },
-          ]}
-          {...panResponder.panHandlers}
+      <Animated.View
+        style={[
+          styles.throwingFrame,
+          {
+            left: frameOrigin.x,
+            opacity: throwOpacity,
+            top: frameOrigin.y,
+            transform: [
+              ...throwPosition.getTranslateTransform(),
+              { translateY: throwArc },
+              { rotate: frameRotation },
+              { scale: throwScale },
+            ],
+          },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <View
+          accessibilityLabel="위로 튕겨 던지는 포착 액자"
+          accessibilityRole="button"
+          style={styles.frameButton}
         >
-          <View
-            accessibilityLabel="위로 튕겨 던지는 포착 액자"
-            accessibilityRole="button"
-            style={styles.frameButton}
-          >
-            <Image
-              resizeMode="contain"
-              source={THROW_FRAME_IMAGE}
-              style={styles.throwFrameImage}
-            />
-          </View>
-        </Animated.View>
-      )}
+          <Image
+            resizeMode="contain"
+            source={THROW_FRAME_IMAGE}
+            style={styles.throwFrameImage}
+          />
+        </View>
+      </Animated.View>
 
       <Text
         pointerEvents="none"
