@@ -428,7 +428,9 @@ export function CardOpeningSequence({
               style={[
                 styles.scissors,
                 {
-                  left: `${cutProgress * 100}%`,
+                  left:
+                    cutProgress * scaleByDeviceWidth(268.5) -
+                    scaleByDeviceWidth(50),
                 },
               ]}
             >
