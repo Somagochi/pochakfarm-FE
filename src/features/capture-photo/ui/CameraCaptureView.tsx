@@ -7,10 +7,12 @@ import {
   Alert,
   Animated,
   Image,
+  Keyboard,
   Modal,
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -26,8 +28,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CaptureGame } from './CaptureGame';
 
 const CLOSE_IMAGE = require('@/src/shared/assets/images/capture/capture-close.png');
-const CAPTURE_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-title.png');
 const REMAINING_COUNT_IMAGE = require('@/src/shared/assets/images/capture/remaining-count.png');
+const REMAINING_COUNT_BACKGROUND_IMAGE = require(
+  '@/src/shared/assets/images/capture/remaining-count-background.png',
+);
+const COIN_IMAGE = require('@/src/shared/assets/images/farm-status/coin.png');
+const ADD_COIN_IMAGE = require('@/src/shared/assets/images/farm-status/add-coin.png');
 const CAPTURE_GUIDE_IMAGES = [
   require('@/src/shared/assets/images/capture/capture-guide-angle.png'),
   require('@/src/shared/assets/images/capture/capture-guide-subject.png'),
@@ -42,10 +48,18 @@ const CAMERA_PERMISSION_DIALOG_IMAGE = require('@/src/shared/assets/images/captu
 const CAPTURE_PROBABILITY_MODAL_IMAGE = require('@/src/shared/assets/images/capture/capture-probability-modal.png');
 const CAMERA_PERMISSION_TOAST_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-toast.png');
 const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
+const NAME_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/name-prompt.png');
+const CREATURE_NAME_INPUT_IMAGE = require('@/src/shared/assets/images/capture/creature-name-input.png');
+const SAVE_NAME_BUTTON_DISABLED_IMAGE = require('@/src/shared/assets/images/capture/save-name-button-disabled.png');
+const SAVE_NAME_BUTTON_ACTIVE_IMAGE = require('@/src/shared/assets/images/capture/save-name-button-active.png');
 const CAMERA_CARD_ASPECT_RATIO = 426 / 656;
 const CAMERA_CARD_HORIZONTAL_MARGIN = scaleByDeviceWidth(11);
 const CAMERA_CARD_BUTTON_GAP = scaleByDeviceWidth(24);
+const CAPTURE_GUIDE_HEIGHT = scaleByDeviceWidth(28);
+const CAMERA_GUIDE_GAP = scaleByDeviceWidth(12);
 const BOTTOM_BUTTON_SIZE = scaleByDeviceWidth(64);
+const CAMERA_BRAND_ASPECT_RATIO = 568 / 63;
+const CAMERA_BRAND_AREA_HEIGHT = scaleByDeviceWidth(34);
 const MAX_CAPTURE_COUNT = 5;
 const PAID_CAPTURE_SESSION_COST = 200;
 const MOCK_INITIAL_COIN_BALANCE = 12500;
@@ -68,6 +82,10 @@ export function CameraCaptureView() {
   const [isCapturing, setIsCapturing] = useState(false);
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
+  const [creatureName, setCreatureName] = useState('');
+  const [isNameInputFocused, setIsNameInputFocused] = useState(false);
+  const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
+  const [hasConfirmedName, setHasConfirmedName] = useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
   const [remainingCaptureCount, setRemainingCaptureCount] =
     useState(MAX_CAPTURE_COUNT);
@@ -81,19 +99,60 @@ export function CameraCaptureView() {
   const [isPermissionToastVisible, setIsPermissionToastVisible] =
     useState(false);
   const permissionToastOpacity = useRef(new Animated.Value(0)).current;
+  const normalCameraCardWidthRef = useRef<number | null>(null);
   const insets = useSafeAreaInsets();
-  const cameraCardTop = insets.top + scaleByDeviceWidth(117);
+  const cameraCardTop = insets.top + scaleByDeviceWidth(67);
   const bottomControlsTop =
     screenHeight -
     insets.bottom -
     scaleByDeviceWidth(28) -
     BOTTOM_BUTTON_SIZE;
+  const normalAvailableCameraCardHeight =
+    bottomControlsTop -
+    cameraCardTop -
+    CAPTURE_GUIDE_HEIGHT -
+    CAMERA_CARD_BUTTON_GAP;
+  const normalCameraCardWidth = Math.min(
+    screenWidth - CAMERA_CARD_HORIZONTAL_MARGIN * 2,
+    normalAvailableCameraCardHeight * CAMERA_CARD_ASPECT_RATIO,
+  );
+  if (
+    !isNameInputFocused ||
+    normalCameraCardWidthRef.current === null
+  ) {
+    normalCameraCardWidthRef.current = normalCameraCardWidth;
+  }
+  const stableNormalCameraCardWidth =
+    normalCameraCardWidthRef.current;
+  const nameControlsTop =
+    keyboardTop === null
+      ? null
+      : keyboardTop -
+        scaleByDeviceWidth(56) -
+        scaleByDeviceWidth(12);
+  const cameraLayoutBottom =
+    nameControlsTop ?? bottomControlsTop;
   const availableCameraCardHeight =
-    bottomControlsTop - cameraCardTop - CAMERA_CARD_BUTTON_GAP;
+    cameraLayoutBottom -
+    cameraCardTop -
+    CAPTURE_GUIDE_HEIGHT -
+    CAMERA_CARD_BUTTON_GAP;
   const cameraCardWidth = Math.min(
     screenWidth - CAMERA_CARD_HORIZONTAL_MARGIN * 2,
     availableCameraCardHeight * CAMERA_CARD_ASPECT_RATIO,
   );
+  const cameraCardHeight =
+    cameraCardWidth / CAMERA_CARD_ASPECT_RATIO;
+  const cameraBrandWidth = Math.min(
+    scaleByDeviceWidth(142),
+    cameraCardWidth * (isNameInputFocused ? 0.45 : 0.36),
+  );
+  const cameraBrandHeight =
+    cameraBrandWidth / CAMERA_BRAND_ASPECT_RATIO;
+  const cameraBrandBottom =
+    (CAMERA_BRAND_AREA_HEIGHT - cameraBrandHeight) / 2;
+  const captureGuideTop =
+    cameraCardTop + cameraCardHeight + CAMERA_GUIDE_GAP;
   const helpModalScale = Math.min(
     screenWidth / 411,
     (screenHeight * 0.92) / HELP_MODAL_REFERENCE_HEIGHT,
@@ -113,6 +172,42 @@ export function CameraCaptureView() {
   const isMaxLevel = MOCK_USER_LEVEL >= MAX_USER_LEVEL;
   const hasCaptureOpportunity =
     remainingCaptureCount > 0 || isPaidCaptureSessionActive;
+  const isNamingCreature =
+    capturedPhotoUri !== null && !hasConfirmedName;
+
+  useEffect(() => {
+    const handleKeyboardShow = ({
+      endCoordinates,
+    }: {
+      endCoordinates: { screenY: number };
+    }) => {
+      setKeyboardTop(endCoordinates.screenY);
+    };
+    const handleKeyboardHide = () => setKeyboardTop(null);
+    const willShowSubscription = Keyboard.addListener(
+      'keyboardWillShow',
+      handleKeyboardShow,
+    );
+    const didShowSubscription = Keyboard.addListener(
+      'keyboardDidShow',
+      handleKeyboardShow,
+    );
+    const willHideSubscription = Keyboard.addListener(
+      'keyboardWillHide',
+      handleKeyboardHide,
+    );
+    const didHideSubscription = Keyboard.addListener(
+      'keyboardDidHide',
+      handleKeyboardHide,
+    );
+
+    return () => {
+      willShowSubscription.remove();
+      didShowSubscription.remove();
+      willHideSubscription.remove();
+      didHideSubscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const guideTimer = setInterval(() => {
@@ -287,11 +382,16 @@ export function CameraCaptureView() {
     );
   }
 
-  if (capturedPhotoUri) {
+  if (capturedPhotoUri && hasConfirmedName) {
     return (
       <CaptureGame
         onClose={() => router.replace('/(tabs)/farm')}
-        onRetry={() => setCapturedPhotoUri(null)}
+        onRetry={() => {
+          setCapturedPhotoUri(null);
+          setCreatureName('');
+          setIsNameInputFocused(false);
+          setHasConfirmedName(false);
+        }}
         photoUri={capturedPhotoUri}
       />
     );
@@ -302,9 +402,60 @@ export function CameraCaptureView() {
       <View
         style={[
           styles.captureHeader,
-          { top: insets.top + scaleByDeviceWidth(8) },
+          {
+            top: insets.top + scaleByDeviceWidth(8),
+            left:
+              (screenWidth - stableNormalCameraCardWidth) / 2,
+            right:
+              (screenWidth - stableNormalCameraCardWidth) / 2,
+          },
         ]}
       >
+        <View style={styles.captureStatusGroup}>
+          <View
+            accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${MAX_CAPTURE_COUNT}`}
+            style={styles.remainingCountGroup}
+          >
+            <Image
+              resizeMode="contain"
+              source={REMAINING_COUNT_BACKGROUND_IMAGE}
+              style={styles.remainingCountBackground}
+            />
+            <Image
+              resizeMode="contain"
+              source={REMAINING_COUNT_IMAGE}
+              style={styles.remainingCountImage}
+            />
+            <Text style={styles.remainingCountText}>
+              {remainingCaptureCount} / {MAX_CAPTURE_COUNT}
+            </Text>
+          </View>
+
+          <View
+            accessibilityLabel={`보유 코인 ${coinBalance.toLocaleString('ko-KR')}`}
+            style={styles.coinBalanceGroup}
+          >
+            <Image
+              resizeMode="stretch"
+              source={REMAINING_COUNT_BACKGROUND_IMAGE}
+              style={styles.coinBalanceBackground}
+            />
+            <Image
+              resizeMode="contain"
+              source={COIN_IMAGE}
+              style={styles.coinImage}
+            />
+            <Text numberOfLines={1} style={styles.coinBalanceText}>
+              {coinBalance.toLocaleString('ko-KR')}
+            </Text>
+            <Image
+              resizeMode="contain"
+              source={ADD_COIN_IMAGE}
+              style={styles.addCoinImage}
+            />
+          </View>
+        </View>
+
         <Pressable
           accessibilityLabel="카메라 닫기"
           accessibilityRole="button"
@@ -317,38 +468,19 @@ export function CameraCaptureView() {
             style={styles.closeImage}
           />
         </Pressable>
-
-        <View pointerEvents="none" style={styles.captureTitleSlot}>
-          <Image
-            accessibilityLabel="포착하기"
-            resizeMode="contain"
-            source={CAPTURE_TITLE_IMAGE}
-            style={styles.captureTitleImage}
-          />
-        </View>
-
-        <View
-          accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${MAX_CAPTURE_COUNT}`}
-          style={styles.remainingCountGroup}
-        >
-          <Image
-            resizeMode="contain"
-            source={REMAINING_COUNT_IMAGE}
-            style={styles.remainingCountImage}
-          />
-          <Text style={styles.remainingCountText}>
-            {remainingCaptureCount} / {MAX_CAPTURE_COUNT}
-          </Text>
-        </View>
       </View>
 
       <Image
         accessibilityLabel="촬영 가이드"
         resizeMode="contain"
-        source={CAPTURE_GUIDE_IMAGES[guideIndex]}
+        source={
+          isNamingCreature
+            ? NAME_PROMPT_IMAGE
+            : CAPTURE_GUIDE_IMAGES[guideIndex]
+        }
         style={[
           styles.guideImage,
-          { top: insets.top + scaleByDeviceWidth(67) },
+          { top: captureGuideTop },
         ]}
       />
 
@@ -363,15 +495,24 @@ export function CameraCaptureView() {
       >
         <View style={styles.cameraBezel}>
           <View style={styles.cameraViewport}>
-            <CameraView
-              animateShutter={false}
-              facing="back"
-              flash="off"
-              ref={cameraRef}
-              style={StyleSheet.absoluteFill}
-            />
+            {isNamingCreature ? (
+              <Image
+                accessibilityLabel="이름을 정할 동물 사진"
+                resizeMode="cover"
+                source={{ uri: capturedPhotoUri ?? '' }}
+                style={StyleSheet.absoluteFill}
+              />
+            ) : (
+              <CameraView
+                animateShutter={false}
+                facing="back"
+                flash="off"
+                ref={cameraRef}
+                style={StyleSheet.absoluteFill}
+              />
+            )}
             <View style={styles.dimOverlay} pointerEvents="none" />
-            {hasCaptureOpportunity && (
+            {!isNamingCreature && hasCaptureOpportunity && (
               <View pointerEvents="none" style={styles.focusFrame}>
                 <View style={[styles.corner, styles.topLeftCorner]} />
                 <View style={[styles.corner, styles.topRightCorner]} />
@@ -379,7 +520,7 @@ export function CameraCaptureView() {
                 <View style={[styles.corner, styles.bottomRightCorner]} />
               </View>
             )}
-            {!hasCaptureOpportunity && (
+            {!isNamingCreature && !hasCaptureOpportunity && (
               <View style={styles.captureLimitOverlay}>
                 <View style={styles.captureLimitContent}>
                   <Image
@@ -401,76 +542,149 @@ export function CameraCaptureView() {
               </View>
             )}
           </View>
-          <Image
-            resizeMode="contain"
-            source={CAMERA_BRAND_IMAGE}
-            style={styles.cameraBrand}
-          />
+          <View
+            pointerEvents="none"
+            style={[
+              styles.cameraBrandSlot,
+              {
+                bottom: cameraBrandBottom,
+                height: cameraBrandHeight,
+              },
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={CAMERA_BRAND_IMAGE}
+              style={{
+                width: cameraBrandWidth,
+                height: cameraBrandHeight,
+              }}
+            />
+          </View>
         </View>
       </View>
 
-      <View
-        style={[
-          styles.bottomControls,
-          {
-            bottom: insets.bottom + scaleByDeviceWidth(28),
-          },
-        ]}
-      >
-        <Pressable
-          accessibilityLabel="앨범에서 사진 선택"
-          accessibilityRole="button"
-          disabled={
-            isSelectingPhoto || !hasCaptureOpportunity
-          }
-          onPress={handleSelectPhoto}
-          style={({ pressed }) => [
-            styles.albumButton,
-            (pressed || isSelectingPhoto) && styles.buttonPressed,
-            !hasCaptureOpportunity && styles.disabledButton,
+      {isNamingCreature ? (
+        <View
+          style={[
+            styles.nameControls,
+            nameControlsTop === null
+              ? {
+                  bottom:
+                    insets.bottom + scaleByDeviceWidth(28),
+                }
+              : { top: nameControlsTop },
           ]}
         >
-          <Image
-            resizeMode="contain"
-            source={ALBUM_BUTTON_IMAGE}
-            style={styles.albumButtonImage}
-          />
-        </Pressable>
+          <View style={styles.nameInputContainer}>
+            {!isNameInputFocused && !creatureName && (
+              <Image
+                resizeMode="contain"
+                source={CREATURE_NAME_INPUT_IMAGE}
+                style={styles.nameInputBackground}
+              />
+            )}
+            <TextInput
+              accessibilityLabel="동물 이름 입력"
+              autoCapitalize="none"
+              autoCorrect={false}
+              maxLength={6}
+              onBlur={() => setIsNameInputFocused(false)}
+              onChangeText={setCreatureName}
+              onFocus={() => setIsNameInputFocused(true)}
+              placeholder={
+                isNameInputFocused
+                  ? '이름을 입력해주세요 (최대 6자)'
+                  : undefined
+              }
+              placeholderTextColor="#AAA9A2"
+              returnKeyType="done"
+              style={styles.nameInput}
+              value={creatureName}
+            />
+          </View>
+          <Pressable
+            accessibilityLabel="동물 이름 저장"
+            accessibilityRole="button"
+            disabled={!creatureName.trim()}
+            onPress={() => setHasConfirmedName(true)}
+            style={styles.saveNameButton}
+          >
+            <Image
+              resizeMode="contain"
+              source={
+                creatureName.trim()
+                  ? SAVE_NAME_BUTTON_ACTIVE_IMAGE
+                  : SAVE_NAME_BUTTON_DISABLED_IMAGE
+              }
+              style={styles.saveNameButtonImage}
+            />
+          </Pressable>
+        </View>
+      ) : (
+        <View
+          style={[
+            styles.bottomControls,
+            {
+              bottom: insets.bottom + scaleByDeviceWidth(28),
+            },
+          ]}
+        >
+          <Pressable
+            accessibilityLabel="앨범에서 사진 선택"
+            accessibilityRole="button"
+            disabled={
+              isSelectingPhoto || !hasCaptureOpportunity
+            }
+            onPress={handleSelectPhoto}
+            style={({ pressed }) => [
+              styles.albumButton,
+              (pressed || isSelectingPhoto) && styles.buttonPressed,
+              !hasCaptureOpportunity && styles.disabledButton,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={ALBUM_BUTTON_IMAGE}
+              style={styles.albumButtonImage}
+            />
+          </Pressable>
 
-        <Pressable
-          accessibilityLabel="사진 촬영"
-          accessibilityRole="button"
-          disabled={isCapturing || !hasCaptureOpportunity}
-          onPress={handleCapture}
-          style={({ pressed }) => [
-            styles.shutterButton,
-            (pressed || isCapturing) && styles.buttonPressed,
-            !hasCaptureOpportunity && styles.disabledButton,
-          ]}
-        >
-          <Image
-            resizeMode="contain"
-            source={SHUTTER_BUTTON_IMAGE}
-            style={styles.shutterButtonImage}
-          />
-        </Pressable>
+          <Pressable
+            accessibilityLabel="사진 촬영"
+            accessibilityRole="button"
+            disabled={isCapturing || !hasCaptureOpportunity}
+            onPress={handleCapture}
+            style={({ pressed }) => [
+              styles.shutterButton,
+              (pressed || isCapturing) && styles.buttonPressed,
+              !hasCaptureOpportunity && styles.disabledButton,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={SHUTTER_BUTTON_IMAGE}
+              style={styles.shutterButtonImage}
+            />
+          </Pressable>
 
-        <Pressable
-          accessibilityLabel="촬영 도움말"
-          accessibilityRole="button"
-          onPress={() => setIsHelpModalVisible(true)}
-          style={({ pressed }) => [
-            styles.helpButton,
-            pressed && styles.buttonPressed,
-          ]}
-        >
-          <Image
-            resizeMode="contain"
-            source={HELP_BUTTON_IMAGE}
-            style={styles.helpButtonImage}
-          />
-        </Pressable>
-      </View>
+          <Pressable
+            accessibilityLabel="촬영 도움말"
+            accessibilityRole="button"
+            onPress={() => setIsHelpModalVisible(true)}
+            style={({ pressed }) => [
+              styles.helpButton,
+              pressed && styles.buttonPressed,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={HELP_BUTTON_IMAGE}
+              style={styles.helpButtonImage}
+            />
+          </Pressable>
+        </View>
+      )}
 
       {isPermissionToastVisible && (
         <Animated.View
@@ -696,16 +910,10 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(48),
     height: scaleByDeviceWidth(50.4),
   },
-  captureTitleImage: {
-    width: scaleByDeviceWidth(79),
-    height: scaleByDeviceWidth(28),
-    tintColor: '#32322D',
-  },
-  captureTitleSlot: {
-    position: 'absolute',
-    right: 0,
-    left: 0,
+  captureStatusGroup: {
+    flexDirection: 'row',
     alignItems: 'center',
+    columnGap: scaleByDeviceWidth(8),
   },
   remainingCountImage: {
     width: scaleByDeviceWidth(43),
@@ -713,14 +921,50 @@ const styles = StyleSheet.create({
     tintColor: '#32322D',
   },
   remainingCountGroup: {
+    width: scaleByDeviceWidth(105),
+    height: scaleByDeviceWidth(32),
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     columnGap: scaleByDeviceWidth(5),
+  },
+  remainingCountBackground: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(105),
+    height: scaleByDeviceWidth(32),
   },
   remainingCountText: {
     color: '#32322D',
     fontSize: scaleByDeviceWidth(14),
     fontWeight: '800',
+  },
+  coinBalanceGroup: {
+    width: scaleByDeviceWidth(126),
+    height: scaleByDeviceWidth(32.4),
+    paddingHorizontal: scaleByDeviceWidth(9),
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  coinBalanceBackground: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(126),
+    height: scaleByDeviceWidth(32.4),
+  },
+  coinImage: {
+    width: scaleByDeviceWidth(24),
+    height: scaleByDeviceWidth(24),
+    marginRight: scaleByDeviceWidth(6),
+  },
+  coinBalanceText: {
+    flex: 1,
+    color: '#685A48',
+    fontSize: scaleByDeviceWidth(14),
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  addCoinImage: {
+    width: scaleByDeviceWidth(10.8),
+    height: scaleByDeviceWidth(10.8),
   },
   guideImage: {
     position: 'absolute',
@@ -756,13 +1000,11 @@ const styles = StyleSheet.create({
     borderRadius: scaleByDeviceWidth(9),
     backgroundColor: '#242224',
   },
-  cameraBrand: {
+  cameraBrandSlot: {
     position: 'absolute',
-    bottom: scaleByDeviceWidth(5),
-    left: '50%',
-    width: scaleByDeviceWidth(142),
-    height: scaleByDeviceWidth(15.55),
-    marginLeft: scaleByDeviceWidth(-71),
+    right: 0,
+    left: 0,
+    alignItems: 'center',
   },
   captureLimitOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -834,6 +1076,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     columnGap: scaleByDeviceWidth(40),
+  },
+  nameControls: {
+    position: 'absolute',
+    right: 0,
+    left: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: scaleByDeviceWidth(2),
+  },
+  nameInputContainer: {
+    width: scaleByDeviceWidth(246),
+    height: scaleByDeviceWidth(56),
+    overflow: 'hidden',
+    borderWidth: scaleByDeviceWidth(1),
+    borderColor: '#E8E1CE',
+    borderRadius: scaleByDeviceWidth(14),
+    backgroundColor: '#FFFFFF',
+  },
+  nameInputBackground: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(246),
+    height: scaleByDeviceWidth(56),
+  },
+  nameInput: {
+    flex: 1,
+    paddingHorizontal: scaleByDeviceWidth(16),
+    color: '#5F5140',
+    fontFamily: 'EliceDXNeolli-Light',
+    fontSize: scaleByDeviceWidth(14),
+  },
+  saveNameButton: {
+    width: scaleByDeviceWidth(80),
+    height: scaleByDeviceWidth(56),
+  },
+  saveNameButtonImage: {
+    width: scaleByDeviceWidth(80),
+    height: scaleByDeviceWidth(56),
   },
   albumButton: {
     width: scaleByDeviceWidth(60.95),
