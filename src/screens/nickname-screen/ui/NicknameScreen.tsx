@@ -1,41 +1,41 @@
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useLogout } from '@/src/features/logout';
-import {
-  hasValidNicknameLength,
-  isUsableNickname,
-} from '@/src/features/set-nickname';
+import { isUsableNickname } from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BACK_ICON = require('@/src/shared/assets/images/nickname/back-icon.png');
 const NICKNAME_DESCRIPTION_IMAGE = require('@/src/shared/assets/images/nickname/nickname-description.png');
 const NICKNAME_PROGRESS_IMAGE = require('@/src/shared/assets/images/nickname/nickname-progress.png');
 const NICKNAME_TITLE_IMAGE = require('@/src/shared/assets/images/nickname/nickname-title.png');
-const NEXT_BUTTON_IMAGE = require('@/src/shared/assets/images/nickname/next-button.png');
+const NICKNAME_HELPER_TEXT_IMAGE = require('@/src/shared/assets/images/nickname/helper-text.png');
+const DUPLICATE_NICKNAME_HELPER_TEXT_IMAGE = require('@/src/shared/assets/images/nickname/duplicate-nickname-helper-text.png');
+const NEXT_BUTTON_ACTIVE_IMAGE = require('@/src/shared/assets/images/nickname/next-button-active.png');
+const NEXT_BUTTON_DISABLED_IMAGE = require('@/src/shared/assets/images/nickname/next-button.png');
 
 export function NicknameScreen() {
   const insets = useSafeAreaInsets();
-  const { isLoading: isLoggingOut, logout } = useLogout();
-  const [nickname, setNicknameValue] = useState('');
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const isNextEnabled =
-    hasValidNicknameLength(nickname) && !errorMessage;
+  const {
+    nickname: initialNickname = '',
+    nicknameError,
+  } = useLocalSearchParams<{
+    nickname?: string;
+    nicknameError?: string;
+  }>();
+  const [nickname, setNicknameValue] = useState(initialNickname);
+  const [errorMessage, setErrorMessage] = useState<string | null>(
+    nicknameError === 'duplicate' ? '이미 있는 닉네임입니다.' : null,
+  );
+  const hasDuplicateNicknameError =
+    errorMessage === '이미 있는 닉네임입니다.';
+  const isNextEnabled = isUsableNickname(nickname) && !errorMessage;
+  const isNicknameInvalid =
+    nickname.length > 0 && (!isUsableNickname(nickname) || !!errorMessage);
 
-  async function handleBackPress() {
-    try {
-      await logout();
-      router.replace('/login');
-    } catch (error) {
-      Alert.alert(
-        '로그아웃 실패',
-        error instanceof Error
-          ? error.message
-          : '로그아웃 중 문제가 발생했습니다.',
-      );
-    }
+  function handleBackPress() {
+    router.replace('/login');
   }
 
   function handleNicknameChange(value: string) {
@@ -61,12 +61,11 @@ export function NicknameScreen() {
         <Pressable
           accessibilityLabel="뒤로 가기"
           accessibilityRole="button"
-          disabled={isLoggingOut}
           hitSlop={scaleByDeviceWidth(12)}
           onPress={handleBackPress}
           style={({ pressed }) => [
             styles.backButton,
-            (pressed || isLoggingOut) && styles.pressed,
+            pressed && styles.pressed,
           ]}
         >
           <Image source={BACK_ICON} style={styles.backIcon} />
@@ -98,10 +97,31 @@ export function NicknameScreen() {
           onChangeText={handleNicknameChange}
           placeholder="이름을 입력해주세요"
           placeholderTextColor="#B7B6AE"
-          style={styles.input}
+          style={[styles.input, isNicknameInvalid && styles.invalidInput]}
           value={nickname}
         />
-        {errorMessage && <Text style={styles.errorMessage}>{errorMessage}</Text>}
+        {isNicknameInvalid && (
+          <View style={styles.helperTextContainer}>
+            <Image
+              accessibilityLabel={
+                hasDuplicateNicknameError
+                  ? '이미 있는 닉네임입니다.'
+                  : '사용할 수 없는 이름입니다.'
+              }
+              resizeMode="contain"
+              source={
+                hasDuplicateNicknameError
+                  ? DUPLICATE_NICKNAME_HELPER_TEXT_IMAGE
+                  : NICKNAME_HELPER_TEXT_IMAGE
+              }
+              style={[
+                styles.helperTextImage,
+                hasDuplicateNicknameError &&
+                  styles.duplicateNicknameHelperTextImage,
+              ]}
+            />
+          </View>
+        )}
       </View>
       <Pressable
         accessibilityRole="button"
@@ -114,7 +134,11 @@ export function NicknameScreen() {
       >
         <Image
           resizeMode="contain"
-          source={NEXT_BUTTON_IMAGE}
+          source={
+            isNextEnabled
+              ? NEXT_BUTTON_ACTIVE_IMAGE
+              : NEXT_BUTTON_DISABLED_IMAGE
+          }
           style={[styles.nextButton, !isNextEnabled && styles.disabledButton]}
         />
       </Pressable>
@@ -178,12 +202,20 @@ const styles = StyleSheet.create({
     fontFamily: 'EliceDXNeolli-Light',
     fontSize: scaleByDeviceWidth(14),
   },
-  errorMessage: {
+  invalidInput: {
+    borderColor: '#EB3D17',
+  },
+  helperTextContainer: {
     width: scaleByDeviceWidth(280),
     marginTop: scaleByDeviceWidth(8),
-    color: '#D95C4F',
-    fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(12),
+    alignItems: 'flex-start',
+  },
+  helperTextImage: {
+    width: scaleByDeviceWidth(120),
+    height: scaleByDeviceWidth(9.94),
+  },
+  duplicateNicknameHelperTextImage: {
+    width: scaleByDeviceWidth(110.4),
   },
   nextButton: {
     width: scaleByDeviceWidth(280),
