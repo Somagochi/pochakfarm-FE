@@ -10,6 +10,7 @@ import {
 
 import { env } from '@/src/shared/config/env';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import type { UserProfile } from '@/src/entities/user';
 
 import { isAuthCancelledError } from '../lib/authError';
 import { useSocialLogin } from '../model/useSocialLogin';
@@ -44,7 +45,7 @@ const socialButtons: SocialButton[] = [
 ];
 
 type SocialLoginButtonsProps = {
-  onLoginSuccess?: () => void;
+  onLoginSuccess?: (profile: UserProfile) => void;
 };
 
 export function SocialLoginButtons({
@@ -54,8 +55,8 @@ export function SocialLoginButtons({
 
   async function handlePress(provider: SocialLoginProvider) {
     try {
-      await login(provider);
-      onLoginSuccess?.();
+      const profile = await login(provider);
+      onLoginSuccess?.(profile);
     } catch (error) {
       if (isAuthCancelledError(error)) {
         return;

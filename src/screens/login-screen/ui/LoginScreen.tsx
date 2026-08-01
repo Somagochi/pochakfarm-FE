@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SocialLoginButtons } from '@/src/features/social-login';
+import type { UserProfile } from '@/src/entities/user';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const PAW_IMAGE = require('@/src/shared/assets/images/farm-status/paw.png');
@@ -44,6 +45,9 @@ const PAW_POSITIONS = [
 
 export function LoginScreen() {
   const moveToFarm = () => router.replace('/(tabs)');
+  const handleLoginSuccess = (profile: UserProfile) => {
+    router.replace(profile.nickname === null ? '/nickname' : '/(tabs)');
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,7 +70,7 @@ export function LoginScreen() {
       </View>
 
       <View style={styles.loginArea}>
-        <SocialLoginButtons onLoginSuccess={moveToFarm} />
+        <SocialLoginButtons onLoginSuccess={handleLoginSuccess} />
         <Image
           resizeMode="contain"
           source={LOGIN_DIVIDER_IMAGE}

@@ -4,6 +4,8 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import { login as kakaoSdkLogin } from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
+import { getUserProfileApi } from '@/src/entities/user';
+
 import { socialLoginApi } from '../api/socialLoginApi';
 import { AuthCancelledError } from '../lib/authError';
 import { saveServiceToken } from '../lib/tokenStorage';
@@ -106,7 +108,7 @@ export function useSocialLogin() {
 
       await saveServiceToken(serviceToken);
 
-      return serviceToken;
+      return getUserProfileApi();
     } finally {
       setLoadingProvider(null);
     }
@@ -117,4 +119,3 @@ export function useSocialLogin() {
     loadingProvider,
   };
 }
-
