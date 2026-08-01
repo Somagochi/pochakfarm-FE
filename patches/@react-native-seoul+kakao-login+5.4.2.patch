@@ -1,0 +1,143 @@
+diff --git a/node_modules/@react-native-seoul/kakao-login/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt b/node_modules/@react-native-seoul/kakao-login/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
+index ad0ffcd..bb8c841 100644
+--- a/node_modules/@react-native-seoul/kakao-login/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
++++ b/node_modules/@react-native-seoul/kakao-login/android/src/main/java/com/dooboolab/kakaologins/RNKakaoLoginsModule.kt
+@@ -121,6 +121,44 @@ class RNKakaoLoginsModule(private val reactContext: ReactApplicationContext) : R
+         }
+     }
+ 
++    @ReactMethod
++    private fun loginWithNewScopes(scopes: ReadableArray, promise: Promise) {
++        val activity = reactContext.currentActivity
++        if (activity == null) {
++            promise.reject("RNKakaoLogins", "Activity is null")
++            return
++        }
++
++        val requestedScopes = scopes.toArrayList().map { it.toString() }
++        UserApiClient.instance.loginWithNewScopes(activity, requestedScopes) { token, error: Throwable? ->
++            if (error != null) {
++                promise.reject("RNKakaoLogins", error.message, error)
++                return@loginWithNewScopes
++            }
++
++            if (token != null) {
++                val (accessToken, accessTokenExpiresAt, refreshToken, refreshTokenExpiresAt, idToken, allowedScopes) = token
++                val map = Arguments.createMap()
++                map.putString("accessToken", accessToken)
++                map.putString("refreshToken", refreshToken)
++                map.putString("idToken", idToken)
++                map.putString("accessTokenExpiresAt", dateFormat(accessTokenExpiresAt))
++                map.putString("refreshTokenExpiresAt", dateFormat(refreshTokenExpiresAt))
++                val scopeArray = Arguments.createArray()
++                if (allowedScopes != null) {
++                    for (scope in allowedScopes) {
++                        scopeArray.pushString(scope)
++                    }
++                }
++                map.putArray("scopes", scopeArray)
++                promise.resolve(map)
++                return@loginWithNewScopes
++            }
++
++            promise.reject("RNKakaoLogins", "Token is null")
++        }
++    }
++
+     @ReactMethod
+     private fun logout(promise: Promise) {
+         UserApiClient.instance.logout { error: Throwable? ->
+diff --git a/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.m b/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.m
+index 9c7a796..504cb50 100644
+--- a/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.m
++++ b/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.m
+@@ -6,6 +6,7 @@ @interface RCT_EXTERN_MODULE(RNKakaoLogins, NSObject)
+ 
+ RCT_EXTERN_METHOD(login:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(loginWithKakaoAccount:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
++RCT_EXTERN_METHOD(loginWithNewScopes:(NSArray *)scopes resolver:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(logout:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(unlink:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+ RCT_EXTERN_METHOD(getProfile:(RCTPromiseResolveBlock *)resolve rejecter:(RCTPromiseRejectBlock *)reject);
+diff --git a/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.swift b/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.swift
+index 202e945..094651b 100644
+--- a/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.swift
++++ b/node_modules/@react-native-seoul/kakao-login/ios/RNKakaoLogins/RNKakaoLogins.swift
+@@ -113,6 +113,31 @@ class RNKakaoLogins: NSObject {
+         }
+     }
+ 
++    @objc(loginWithNewScopes:resolver:rejecter:)
++    func loginWithNewScopes(_ scopes: [String],
++                resolver resolve: @escaping RCTPromiseResolveBlock,
++                rejecter reject: @escaping RCTPromiseRejectBlock) -> Void {
++        DispatchQueue.main.async {
++            let dateFormatter = DateFormatter()
++            dateFormatter.dateFormat = "yyyy-MM-dd HH:mm:ss";
++            UserApi.shared.loginWithKakaoAccount(scopes: scopes) {(oauthToken, error) in
++                if let error = error {
++                    reject("RNKakaoLogins", error.localizedDescription, nil)
++                }
++                else {
++                    resolve([
++                        "accessToken": oauthToken?.accessToken ?? "",
++                        "refreshToken": oauthToken?.refreshToken ?? "" as Any,
++                        "idToken": oauthToken?.idToken ?? "",
++                        "accessTokenExpiresAt": dateFormatter.string(from: oauthToken!.expiredAt),
++                        "refreshTokenExpiresAt": dateFormatter.string(from: oauthToken!.refreshTokenExpiredAt),
++                        "scopes": oauthToken?.scopes ?? "",
++                    ]);
++                }
++            }
++        }
++    }
++
+     @objc(logout:rejecter:)
+     func logout(_ resolve: @escaping RCTPromiseResolveBlock,
+                rejecter reject: @escaping RCTPromiseRejectBlock) -> Void {
+diff --git a/node_modules/@react-native-seoul/kakao-login/src/index.d.ts b/node_modules/@react-native-seoul/kakao-login/src/index.d.ts
+index d4775a8..0cc848f 100644
+--- a/node_modules/@react-native-seoul/kakao-login/src/index.d.ts
++++ b/node_modules/@react-native-seoul/kakao-login/src/index.d.ts
+@@ -3,6 +3,7 @@ export declare const login: {
+     (props: import("./types").KaKaoLoginWebType): Promise<import("./types").KakaoOAuthWebToken>;
+ };
+ export declare const loginWithKakaoAccount: () => Promise<import("./types").KakaoOAuthToken>;
++export declare const loginWithNewScopes: (scopes: string[]) => Promise<import("./types").KakaoOAuthToken>;
+ export declare const logout: {
+     (): Promise<string>;
+     (tokenWeb: string): Promise<string>;
+diff --git a/node_modules/@react-native-seoul/kakao-login/src/index.js b/node_modules/@react-native-seoul/kakao-login/src/index.js
+index bdf9f0b..0b84ea0 100644
+--- a/node_modules/@react-native-seoul/kakao-login/src/index.js
++++ b/node_modules/@react-native-seoul/kakao-login/src/index.js
+@@ -7,6 +7,9 @@ var NativeKakaoLogins = {
+     loginWithKakaoAccount: function () {
+         return RNKakaoLogins.loginWithKakaoAccount();
+     },
++    loginWithNewScopes: function (scopes) {
++        return RNKakaoLogins.loginWithNewScopes(scopes);
++    },
+     logout: function () {
+         return RNKakaoLogins.logout();
+     },
+@@ -28,6 +31,7 @@ var NativeKakaoLogins = {
+ };
+ export var login = NativeKakaoLogins.login;
+ export var loginWithKakaoAccount = NativeKakaoLogins.loginWithKakaoAccount;
++export var loginWithNewScopes = NativeKakaoLogins.loginWithNewScopes;
+ export var logout = NativeKakaoLogins.logout;
+ export var unlink = NativeKakaoLogins.unlink;
+ export var getProfile = NativeKakaoLogins.getProfile;
+diff --git a/node_modules/@react-native-seoul/kakao-login/src/types/index.d.ts b/node_modules/@react-native-seoul/kakao-login/src/types/index.d.ts
+index ed8fc40..4774871 100644
+--- a/node_modules/@react-native-seoul/kakao-login/src/types/index.d.ts
++++ b/node_modules/@react-native-seoul/kakao-login/src/types/index.d.ts
+@@ -9,6 +9,7 @@ export interface KakaoLoginModuleInterface {
+     getProfile(tokenWeb: string): Promise<KakaoProfileWebType>;
+     getAccessToken(): Promise<KakaoAccessTokenInfo>;
+     loginWithKakaoAccount(): Promise<KakaoOAuthToken>;
++    loginWithNewScopes(scopes: string[]): Promise<KakaoOAuthToken>;
+     shippingAddresses(): Promise<KakaoShippingAddresses>;
+     serviceTerms(): Promise<KakaoUserServiceTerms>;
+ }
