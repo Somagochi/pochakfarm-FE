@@ -709,7 +709,7 @@ import { useCreateCreatureFromPhoto } from '@/features/create-creature-from-phot
 사용자가 UI 요소의 크기나 위치를 숫자로 전달하더라도, 해당 값을
 디바이스에 고정된 픽셀값으로 그대로 적용하지 않습니다.
 
-프로젝트의 UI 디자인 기준 화면 너비는 `411`입니다. 숫자로 전달된
+프로젝트의 UI 디자인 기준 화면 너비는 `360`입니다. 숫자로 전달된
 디자인 값은 `src/shared/lib/layout.ts`의 `scaleByDeviceWidth`를 사용해
 현재 디바이스 가로 너비 비율로 변환합니다.
 

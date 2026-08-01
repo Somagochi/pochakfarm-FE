@@ -29,7 +29,7 @@ const ENVIRONMENT_ASSETS = {
     unlock: require('@/src/shared/assets/images/farm/unlock-space-area.png'),
   },
 } as const;
-const REFERENCE_SCREEN_WIDTH = 411;
+const REFERENCE_SCREEN_WIDTH = 360;
 const BASE_SLOT_SIZE = 58.4;
 const KKOMI_IMAGE = require('@/src/shared/assets/images/farm/kkomi.png');
 const CREATURE_NAMEPLATE_IMAGE = require('@/src/shared/assets/images/farm/creature-nameplate.png');
