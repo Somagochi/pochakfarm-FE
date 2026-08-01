@@ -1,4 +1,5 @@
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   StyleSheet,
@@ -29,11 +30,13 @@ const BUTTON_GAP = scaleByDeviceWidth(8);
 const CLOSE_SIZE = scaleByDeviceWidth(40);
 
 type ReleaseCreatureAlertProps = {
+  isConfirming?: boolean;
   onClose: () => void;
   onConfirm?: () => void;
 };
 
 export function ReleaseCreatureAlert({
+  isConfirming = false,
   onClose,
   onConfirm,
 }: ReleaseCreatureAlertProps) {
@@ -62,6 +65,7 @@ export function ReleaseCreatureAlert({
         <View style={styles.buttonRow}>
           <Pressable
             accessibilityLabel="취소하기"
+            disabled={isConfirming}
             onPress={onClose}
             style={({ pressed }) => [
               styles.actionButton,
@@ -77,6 +81,7 @@ export function ReleaseCreatureAlert({
           </Pressable>
           <Pressable
             accessibilityLabel="여정 보내기"
+            disabled={isConfirming}
             onPress={onConfirm}
             style={({ pressed }) => [
               styles.actionButton,
@@ -88,10 +93,14 @@ export function ReleaseCreatureAlert({
               source={CONFIRM_BUTTON_IMAGE}
               style={styles.actionButtonImage}
             />
+            {isConfirming && (
+              <ActivityIndicator color="#684500" size="small" />
+            )}
           </Pressable>
         </View>
         <Pressable
           accessibilityLabel="확인창 닫기"
+          disabled={isConfirming}
           hitSlop={scaleByDeviceWidth(8)}
           onPress={onClose}
           style={({ pressed }) => [

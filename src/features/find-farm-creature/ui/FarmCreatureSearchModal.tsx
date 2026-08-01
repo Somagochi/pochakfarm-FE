@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   Image,
   ImageBackground,
@@ -13,6 +14,9 @@ import {
 
 import {
   FarmCreatureCard,
+  useAnimals,
+  type AnimalCardType,
+  type CreatureEnvironment,
   type FarmCreatureListItem,
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
@@ -30,33 +34,56 @@ const ANIMAL_TYPES = [
   { label: '바다', value: 'sea' },
   { label: '우주', value: 'space' },
 ] as const;
-const FARM_CREATURES: FarmCreatureListItem[] = [
-  {
-    creatureImageSource: require('@/src/shared/assets/images/farm/kkomi.png'),
-    environment: 'land',
-    id: 'kkomi',
-    name: '꼬미',
-    tier: 'S',
-  },
-];
+const ENVIRONMENT_BY_CARD_TYPE: Record<
+  AnimalCardType,
+  CreatureEnvironment
+> = {
+  GROUND: 'land',
+  SEA: 'sea',
+  SKY: 'sky',
+  SPACE: 'space',
+};
 
 type FarmCreatureSearchModalProps = {
   onClose: () => void;
+  onSelectAnimal: (animalId: number) => void;
   visible: boolean;
 };
 
 export function FarmCreatureSearchModal({
   onClose,
+  onSelectAnimal,
   visible,
 }: FarmCreatureSearchModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAnimalType, setSelectedAnimalType] = useState<
     (typeof ANIMAL_TYPES)[number]['value']
   >('all');
+  const {
+    animals,
+    errorMessage,
+    hasNext,
+    isLoading,
+    loadNextPage,
+    reload,
+  } = useAnimals({ enabled: visible });
+  const creatures = useMemo<FarmCreatureListItem[]>(
+    () =>
+      animals.map((animal) => ({
+        creatureImageSource: animal.animalImageUrl
+          ? { uri: animal.animalImageUrl }
+          : undefined,
+        environment: ENVIRONMENT_BY_CARD_TYPE[animal.cardType],
+        id: String(animal.animalId),
+        name: animal.animalName,
+        tier: animal.tier,
+      })),
+    [animals],
+  );
   const filteredCreatures = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase('ko-KR');
 
-    return FARM_CREATURES.filter((creature) => {
+    return creatures.filter((creature) => {
       const matchesType =
         selectedAnimalType === 'all' ||
         creature.environment === selectedAnimalType;
@@ -68,7 +95,7 @@ export function FarmCreatureSearchModal({
 
       return matchesType && matchesQuery;
     });
-  }, [searchQuery, selectedAnimalType]);
+  }, [creatures, searchQuery, selectedAnimalType]);
 
   return (
     <Modal
@@ -177,9 +204,32 @@ export function FarmCreatureSearchModal({
             data={filteredCreatures}
             keyExtractor={(creature) => creature.id}
             keyboardShouldPersistTaps="handled"
+            ListFooterComponent={
+              isLoading ? (
+                <ActivityIndicator
+                  color="#BCA47E"
+                  style={styles.loadingIndicator}
+                />
+              ) : errorMessage ? (
+                <Pressable
+                  accessibilityLabel="동물 목록 다시 불러오기"
+                  accessibilityRole="button"
+                  onPress={reload}
+                  style={styles.retryButton}
+                >
+                  <Text style={styles.retryText}>{errorMessage}</Text>
+                  <Text style={styles.retryText}>다시 시도</Text>
+                </Pressable>
+              ) : null
+            }
             numColumns={3}
+            onEndReached={hasNext ? loadNextPage : undefined}
+            onEndReachedThreshold={0.4}
             renderItem={({ item }) => (
-              <FarmCreatureCard creature={item} />
+              <FarmCreatureCard
+                creature={item}
+                onPress={() => onSelectAnimal(Number(item.id))}
+              />
             )}
             showsVerticalScrollIndicator={false}
             style={styles.creatureList}
@@ -290,6 +340,19 @@ const styles = StyleSheet.create({
   },
   creatureListRow: {
     columnGap: scaleByDeviceWidth(4),
+  },
+  loadingIndicator: {
+    marginVertical: scaleByDeviceWidth(12),
+  },
+  retryButton: {
+    alignItems: 'center',
+    paddingVertical: scaleByDeviceWidth(12),
+  },
+  retryText: {
+    color: '#6D6252',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(17),
   },
   pressed: {
     opacity: 0.8,

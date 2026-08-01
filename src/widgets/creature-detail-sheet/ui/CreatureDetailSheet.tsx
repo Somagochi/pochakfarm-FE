@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
+  Alert,
   Animated,
   Image,
   Modal,
@@ -10,6 +12,12 @@ import {
   View,
 } from 'react-native';
 
+import {
+  useAnimalDetail,
+  type AnimalCardType,
+  type CreatureTier,
+} from '@/src/entities/creature';
+import { useReleaseAnimal } from '@/src/features/release-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
@@ -27,11 +35,22 @@ const CREATURE_IMAGE = require('@/src/shared/assets/images/farm/kkomi.png');
 const NAME_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-name-field.png');
 const TYPE_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-type-field.png');
 const TIER_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-tier-field.png');
-const CREATURE_TIER_IMAGES = {
-  S: require('@/src/shared/assets/images/farm/creature-tier-s.png'),
-} as const;
+const CREATURE_TIER_IMAGES: Record<CreatureTier, number> = {
+  A: require('@/src/shared/assets/images/capture/capture-tier-a.png'),
+  B: require('@/src/shared/assets/images/capture/capture-tier-b.png'),
+  C: require('@/src/shared/assets/images/capture/capture-tier-c.png'),
+  S: require('@/src/shared/assets/images/capture/capture-tier-s.png'),
+  SS: require('@/src/shared/assets/images/capture/capture-tier-ss.png'),
+  SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
+};
+const CREATURE_TYPE_NAMES: Record<AnimalCardType, string> = {
+  GROUND: '땅',
+  SEA: '바다',
+  SKY: '하늘',
+  SPACE: '우주',
+};
 const CREATURE_TYPE = '땅';
-const CREATURE_TIER: keyof typeof CREATURE_TIER_IMAGES = 'S';
+const CREATURE_TIER: CreatureTier = 'S';
 const CREATURE_TRAITS = [
   {
     name: '오물오물',
@@ -86,6 +105,7 @@ const CARD_NAME_FIELD_HEIGHT = scaleByDeviceWidth(40);
 const CARD_JOURNEY_BUTTON_TOP_GAP = scaleByDeviceWidth(8);
 
 type CreatureDetailSheetProps = {
+  animalId?: number;
   onClose: () => void;
   width: number;
 };
@@ -95,14 +115,42 @@ function normalizeCardRotation(rotation: number) {
 }
 
 export function CreatureDetailSheet({
+  animalId,
   onClose,
   width,
 }: CreatureDetailSheetProps) {
+  const { animal, errorMessage, isLoading, reload } =
+    useAnimalDetail(animalId);
+  const { isReleasing, releaseAnimal } = useReleaseAnimal();
   const [selectedView, setSelectedView] = useState<'profile' | 'card'>(
     'profile',
   );
   const [isReleaseAlertVisible, setIsReleaseAlertVisible] =
     useState(false);
+  const hasDetailContent = animalId === undefined || animal !== null;
+  const creatureName =
+    animal?.animalName ?? (animalId === undefined ? '꼬미' : '');
+  const creatureType = animal
+    ? CREATURE_TYPE_NAMES[animal.cardType]
+    : CREATURE_TYPE;
+  const creatureTier = animal?.tier ?? CREATURE_TIER;
+  const creatureTraits = animal
+    ? [animal.skill1, animal.skill2]
+    : CREATURE_TRAITS;
+  const creatureImageSource = animal
+    ? animal.animalImageUrl
+      ? { uri: animal.animalImageUrl }
+      : null
+    : animalId === undefined
+      ? CREATURE_IMAGE
+      : null;
+  const creatureCardSource = animal
+    ? animal.cardImageUrl
+      ? { uri: animal.cardImageUrl }
+      : null
+    : animalId === undefined
+      ? CREATURE_CARD_IMAGE
+      : null;
   const sheetWidth = width;
   const sheetHeight = sheetWidth / SHEET_ASPECT_RATIO;
   const detailFrameTop = sheetHeight * IMAGE_BOX_TOP_RATIO;
@@ -126,6 +174,27 @@ export function CreatureDetailSheet({
     cardNameFieldTop +
     CARD_NAME_FIELD_HEIGHT +
     CARD_JOURNEY_BUTTON_TOP_GAP;
+  const handleReleaseAnimal = async () => {
+    if (animalId === undefined) {
+      return;
+    }
+
+    try {
+      const isReleased = await releaseAnimal(animalId);
+
+      if (isReleased) {
+        setIsReleaseAlertVisible(false);
+        onClose();
+      }
+    } catch (error) {
+      Alert.alert(
+        '여정 보내기 실패',
+        error instanceof Error
+          ? error.message
+          : '동물을 여정 보내지 못했습니다.',
+      );
+    }
+  };
   const translateY = useRef(new Animated.Value(sheetHeight)).current;
   const cardRotation = useRef(new Animated.Value(0)).current;
   const cardRotationStartRef = useRef(0);
@@ -295,7 +364,7 @@ export function CreatureDetailSheet({
             </View>
           </View>
 
-          {selectedView === 'profile' && (
+          {hasDetailContent && selectedView === 'profile' && (
             <>
               <Image
                 accessibilityLabel="동물 상세 프레임"
@@ -311,19 +380,21 @@ export function CreatureDetailSheet({
                 ]}
               />
 
-              <Image
-                accessibilityLabel="꼬미"
-                resizeMode="contain"
-                source={CREATURE_IMAGE}
-                style={[
-                  styles.creature,
-                  {
-                    top: detailFrameTop + CREATURE_TOP_OFFSET,
-                    width: CREATURE_SIZE,
-                    height: CREATURE_SIZE,
-                  },
-                ]}
-              />
+              {creatureImageSource && (
+                <Image
+                  accessibilityLabel={creatureName}
+                  resizeMode="contain"
+                  source={creatureImageSource}
+                  style={[
+                    styles.creature,
+                    {
+                      top: detailFrameTop + CREATURE_TOP_OFFSET,
+                      width: CREATURE_SIZE,
+                      height: CREATURE_SIZE,
+                    },
+                  ]}
+                />
+              )}
 
               <Image
                 resizeMode="contain"
@@ -349,7 +420,7 @@ export function CreatureDetailSheet({
                   },
                 ]}
               >
-                <Text style={styles.nameValueText}>꼬미</Text>
+                <Text style={styles.nameValueText}>{creatureName}</Text>
               </View>
 
               <View
@@ -364,7 +435,7 @@ export function CreatureDetailSheet({
                 ]}
               >
                 <View
-                  accessibilityLabel={`동물 타입 ${CREATURE_TYPE}`}
+                  accessibilityLabel={`동물 타입 ${creatureType}`}
                   style={styles.detailField}
                 >
                   <Image
@@ -379,12 +450,12 @@ export function CreatureDetailSheet({
                     ]}
                   >
                     <Text style={styles.detailFieldValueText}>
-                      {CREATURE_TYPE}
+                      {creatureType}
                     </Text>
                   </View>
                 </View>
                 <View
-                  accessibilityLabel={`동물 티어 ${CREATURE_TIER}`}
+                  accessibilityLabel={`동물 티어 ${creatureTier}`}
                   style={styles.detailField}
                 >
                   <Image
@@ -400,7 +471,7 @@ export function CreatureDetailSheet({
                   >
                     <Image
                       resizeMode="contain"
-                      source={CREATURE_TIER_IMAGES[CREATURE_TIER]}
+                      source={CREATURE_TIER_IMAGES[creatureTier]}
                       style={{
                         width: TIER_IMAGE_WIDTH,
                         height: TIER_IMAGE_HEIGHT,
@@ -410,10 +481,10 @@ export function CreatureDetailSheet({
                 </View>
               </View>
 
-              {CREATURE_TRAITS.map((trait, index) => (
+              {creatureTraits.map((trait, index) => (
                 <View
                   accessibilityLabel={`${trait.name}, ${trait.description}`}
-                  key={trait.name}
+                  key={`${index}-${trait.name}`}
                   style={[
                     styles.skillField,
                     {
@@ -464,7 +535,7 @@ export function CreatureDetailSheet({
             </>
           )}
 
-          {selectedView === 'card' && (
+          {hasDetailContent && selectedView === 'card' && (
             <>
               <Image
                 accessibilityLabel="동물 카드 프레임"
@@ -483,7 +554,7 @@ export function CreatureDetailSheet({
               <View
                 {...cardPanResponder.panHandlers}
                 accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
-                accessibilityLabel="꼬미 카드"
+                accessibilityLabel={`${creatureName} 카드`}
                 accessible
                 style={[
                   styles.creatureCardContainer,
@@ -494,22 +565,24 @@ export function CreatureDetailSheet({
                   },
                 ]}
               >
-                <Animated.Image
-                  resizeMode="stretch"
-                  source={CREATURE_CARD_IMAGE}
-                  style={[
-                    styles.creatureCardFace,
-                    {
-                      width: CARD_IMAGE_WIDTH,
-                      height: CARD_IMAGE_HEIGHT,
-                      opacity: cardFrontOpacity,
-                      transform: [
-                        { perspective: scaleByDeviceWidth(800) },
-                        { rotateY: cardFrontRotateY },
-                      ],
-                    },
-                  ]}
-                />
+                {creatureCardSource && (
+                  <Animated.Image
+                    resizeMode="stretch"
+                    source={creatureCardSource}
+                    style={[
+                      styles.creatureCardFace,
+                      {
+                        width: CARD_IMAGE_WIDTH,
+                        height: CARD_IMAGE_HEIGHT,
+                        opacity: cardFrontOpacity,
+                        transform: [
+                          { perspective: scaleByDeviceWidth(800) },
+                          { rotateY: cardFrontRotateY },
+                        ],
+                      },
+                    ]}
+                  />
+                )}
                 <Animated.Image
                   resizeMode="stretch"
                   source={CREATURE_CARD_BACK_IMAGE}
@@ -553,7 +626,7 @@ export function CreatureDetailSheet({
                   },
                 ]}
               >
-                <Text style={styles.nameValueText}>꼬미</Text>
+                <Text style={styles.nameValueText}>{creatureName}</Text>
               </View>
 
               <Pressable
@@ -576,10 +649,42 @@ export function CreatureDetailSheet({
               </Pressable>
             </>
           )}
+
+          {animalId !== undefined && isLoading && (
+            <View style={styles.requestState}>
+              <ActivityIndicator color="#8B6B3F" size="large" />
+              <Text style={styles.requestStateText}>
+                동물 정보를 불러오는 중...
+              </Text>
+            </View>
+          )}
+
+          {animalId !== undefined && errorMessage && !isLoading && (
+            <View style={styles.requestState}>
+              <Text style={styles.requestStateText}>{errorMessage}</Text>
+              <Pressable
+                accessibilityLabel="동물 상세 다시 불러오기"
+                accessibilityRole="button"
+                onPress={() => void reload()}
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Text style={styles.retryButtonText}>다시 시도</Text>
+              </Pressable>
+            </View>
+          )}
         </Animated.View>
         {isReleaseAlertVisible && (
           <ReleaseCreatureAlert
+            isConfirming={isReleasing}
             onClose={() => setIsReleaseAlertVisible(false)}
+            onConfirm={
+              animalId === undefined
+                ? undefined
+                : () => void handleReleaseAnimal()
+            }
           />
         )}
       </View>
@@ -605,6 +710,35 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  requestState: {
+    position: 'absolute',
+    top: '32%',
+    alignSelf: 'center',
+    alignItems: 'center',
+    width: scaleByDeviceWidth(300),
+    gap: scaleByDeviceWidth(12),
+  },
+  requestStateText: {
+    color: '#685A48',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(20),
+    textAlign: 'center',
+  },
+  retryButton: {
+    minWidth: scaleByDeviceWidth(96),
+    height: scaleByDeviceWidth(40),
+    paddingHorizontal: scaleByDeviceWidth(16),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: scaleByDeviceWidth(10),
+    backgroundColor: '#365D20',
+  },
+  retryButtonText: {
+    color: '#FFF9F0',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(14),
   },
   detailToggle: {
     position: 'absolute',
