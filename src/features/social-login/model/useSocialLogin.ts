@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { Platform } from 'react-native';
 import * as AppleAuthentication from 'expo-apple-authentication';
-import { login as kakaoSdkLogin } from '@react-native-seoul/kakao-login';
+import {
+  login as kakaoSdkLogin,
+  loginWithNewScopes as kakaoLoginWithNewScopes,
+} from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
 import { socialLoginApi } from '../api/socialLoginApi';
@@ -14,11 +17,22 @@ type AppleAuthError = {
   code?: string;
 };
 
-async function getKakaoAccessToken() {
-  const kakaoToken = await kakaoSdkLogin();
+const KAKAO_EMAIL_SCOPE = 'account_email';
 
-  if (!kakaoToken.accessToken) {
-    throw new Error('카카오 AccessToken이 없습니다.');
+async function getKakaoAccessToken() {
+  let kakaoToken = await kakaoSdkLogin();
+
+  if (!kakaoToken.scopes.includes(KAKAO_EMAIL_SCOPE)) {
+    kakaoToken = await kakaoLoginWithNewScopes([
+      KAKAO_EMAIL_SCOPE,
+    ]);
+  }
+
+  if (
+    !kakaoToken.accessToken ||
+    !kakaoToken.scopes.includes(KAKAO_EMAIL_SCOPE)
+  ) {
+    throw new Error('카카오 이메일 제공 동의가 필요합니다.');
   }
 
   return kakaoToken.accessToken;
@@ -117,4 +131,3 @@ export function useSocialLogin() {
     loadingProvider,
   };
 }
-
