@@ -198,6 +198,12 @@ async function request<TResponse>(
 }
 
 export const apiClient = {
+  delete<TResponse>(path: string, options: RequestOptions = {}) {
+    return request<TResponse>(path, {
+      method: 'DELETE',
+      headers: options.headers,
+    });
+  },
   get<TResponse>(path: string, options: RequestOptions = {}) {
     return request<TResponse>(path, {
       method: 'GET',

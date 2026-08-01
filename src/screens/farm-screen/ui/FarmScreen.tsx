@@ -24,6 +24,9 @@ export function FarmScreen() {
     useState<SelectableFarmEnvironment>('land');
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
     useState(false);
+  const [selectedAnimalId, setSelectedAnimalId] = useState<
+    number | undefined
+  >(undefined);
   const [isCreatureSearchVisible, setIsCreatureSearchVisible] =
     useState(false);
   const [contentSize, setContentSize] = useState({
@@ -57,9 +60,10 @@ export function FarmScreen() {
         >
           <FarmField
             environment={selectedEnvironment}
-            onPressCreature={() =>
-              setIsCreatureDetailVisible(true)
-            }
+            onPressCreature={() => {
+              setSelectedAnimalId(undefined);
+              setIsCreatureDetailVisible(true);
+            }}
             width={contentSize.width}
           />
         </ScrollView>
@@ -96,11 +100,20 @@ export function FarmScreen() {
       </View>
       <FarmCreatureSearchModal
         onClose={() => setIsCreatureSearchVisible(false)}
+        onSelectAnimal={(animalId) => {
+          setSelectedAnimalId(animalId);
+          setIsCreatureSearchVisible(false);
+          setIsCreatureDetailVisible(true);
+        }}
         visible={isCreatureSearchVisible}
       />
       {isCreatureDetailVisible && (
         <CreatureDetailSheet
-          onClose={() => setIsCreatureDetailVisible(false)}
+          animalId={selectedAnimalId}
+          onClose={() => {
+            setIsCreatureDetailVisible(false);
+            setSelectedAnimalId(undefined);
+          }}
           width={contentSize.width}
         />
       )}

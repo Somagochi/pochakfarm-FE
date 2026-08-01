@@ -54,11 +54,13 @@ export function FarmCreatureCard({
         source={CARD_BACKGROUND}
         style={styles.cardImage}
       />
-      <Image
-        resizeMode="contain"
-        source={creature.creatureImageSource}
-        style={styles.creatureImage}
-      />
+      {creature.creatureImageSource && (
+        <Image
+          resizeMode="contain"
+          source={creature.creatureImageSource}
+          style={styles.creatureImage}
+        />
+      )}
       <Image
         resizeMode="contain"
         source={TIER_BADGES[creature.tier]}
