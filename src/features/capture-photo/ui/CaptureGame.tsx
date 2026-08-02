@@ -359,7 +359,7 @@ export function CaptureGame({
             ),
           );
           const idealVerticalTravel =
-            frameOrigin.y + FRAME_SIZE / 2 - targetCenter.y;
+            frameOrigin.y + FRAME_HEIGHT / 2 - targetCenter.y;
           const distancePower = upwardDistance / IDEAL_THROW_DISTANCE;
           const velocityPower = upwardSpeed / IDEAL_THROW_VELOCITY;
           const throwPower = Math.max(
@@ -371,7 +371,7 @@ export function CaptureGame({
           );
           const destinationY = -idealVerticalTravel * throwPower;
           const landingCenterY =
-            frameOrigin.y + FRAME_SIZE / 2 + destinationY;
+            frameOrigin.y + FRAME_HEIGHT / 2 + destinationY;
           const flightDuration = Math.max(
             320,
             Math.min(720, 760 - throwPower * 240),
