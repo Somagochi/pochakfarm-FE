@@ -29,6 +29,7 @@ type FarmAreaRowProps = {
     nameplateImageSource: ImageSourcePropType;
     slotNumber: number;
   };
+  isUnlockAvailable: boolean;
   isUnlocked: boolean;
   onPressCreature?: () => void;
   onPressSlot: (slotNumber: number) => void;
@@ -40,6 +41,7 @@ type FarmAreaRowProps = {
 export function FarmAreaRow({
   areaNumber,
   creatureSlot,
+  isUnlockAvailable,
   isUnlocked,
   onPressCreature,
   onPressSlot,
@@ -163,7 +165,7 @@ export function FarmAreaRow({
           );
         })}
 
-      {!isUnlocked && (
+      {isUnlockAvailable && (
         <Pressable
           accessibilityLabel={`${areaNumber}번째 농장 잠금 해제`}
           accessibilityRole="button"

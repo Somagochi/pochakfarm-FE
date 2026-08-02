@@ -934,9 +934,9 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(32),
   },
   remainingCountText: {
-    color: '#32322D',
+    color: '#41413A',
+    fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(14),
-    fontWeight: '800',
   },
   coinBalanceGroup: {
     width: scaleByDeviceWidth(126),
