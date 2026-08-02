@@ -7,8 +7,6 @@ import {
   View,
 } from 'react-native';
 
-import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-
 const FARM_SLOT_IMAGE = require('@/src/shared/assets/images/farm/farm-slot.png');
 const BASE_SLOT_SIZE = 58.4;
 const BASE_SLOT_GAP = 26.6;
@@ -135,7 +133,10 @@ export function FarmAreaRow({
                     numberOfLines={1}
                     style={[
                       styles.creatureName,
-                      { fontSize: 10 * scale },
+                      {
+                        fontSize: 12 * scale,
+                        lineHeight: 12 * scale,
+                      },
                     ]}
                   >
                     {creatureSlot.name}
@@ -208,14 +209,13 @@ const styles = StyleSheet.create({
     zIndex: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: scaleByDeviceWidth(1),
   },
   nameplateImage: {
     position: 'absolute',
   },
   creatureName: {
     color: '#6B4B27',
-    fontFamily: 'EliceDXNeolli-Medium',
+    fontFamily: 'MemomentKkukkukk',
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',

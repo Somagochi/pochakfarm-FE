@@ -83,6 +83,7 @@ module.exports = ({ config }) => {
 
   plugins.push('./plugins/with-android-cleartext-network');
   plugins.push('./plugins/with-subject-segmentation');
+  plugins.push('./plugins/with-ios-home-indicator-auto-hidden');
 
   return {
     ...config,

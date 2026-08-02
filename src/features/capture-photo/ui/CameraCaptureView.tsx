@@ -1,11 +1,12 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Easing,
   Image,
   Keyboard,
   Modal,
@@ -16,6 +17,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import {
   getLevelProgress,
@@ -47,22 +49,31 @@ const CAPTURE_COIN_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/ca
 const CAMERA_PERMISSION_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-dialog.png');
 const CAPTURE_PROBABILITY_MODAL_IMAGE = require('@/src/shared/assets/images/capture/capture-probability-modal.png');
 const CAMERA_PERMISSION_TOAST_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-toast.png');
-const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
+const CAMERA_FRAME_IMAGE = require('@/src/shared/assets/images/capture/camera-frame.png');
+const CAPTURED_CAMERA_FRAME_IMAGE = require('@/src/shared/assets/images/capture/captured-camera-frame.png');
+const CAMERA_VIEWPORT_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/camera-viewport-guide.png');
+const POLAROID_EXIT_IMAGE = require('@/src/shared/assets/images/capture/polaroid-exit.png');
 const NAME_PROMPT_IMAGE = require('@/src/shared/assets/images/capture/name-prompt.png');
 const CREATURE_NAME_INPUT_IMAGE = require('@/src/shared/assets/images/capture/creature-name-input.png');
 const SAVE_NAME_BUTTON_DISABLED_IMAGE = require('@/src/shared/assets/images/capture/save-name-button-disabled.png');
 const SAVE_NAME_BUTTON_ACTIVE_IMAGE = require('@/src/shared/assets/images/capture/save-name-button-active.png');
-const CAMERA_CARD_ASPECT_RATIO = 426 / 656;
+const CAMERA_CARD_ASPECT_RATIO = 1352 / 2080;
+const CAPTURED_CAMERA_CARD_ASPECT_RATIO = 1312 / 2080;
 const CAMERA_CARD_HORIZONTAL_MARGIN = scaleByDeviceWidth(11);
 const CAMERA_CARD_BUTTON_GAP = scaleByDeviceWidth(24);
 const CAPTURE_GUIDE_HEIGHT = scaleByDeviceWidth(28);
 const CAMERA_GUIDE_GAP = scaleByDeviceWidth(12);
 const BOTTOM_BUTTON_SIZE = scaleByDeviceWidth(64);
-const CAMERA_BRAND_ASPECT_RATIO = 568 / 63;
-const CAMERA_BRAND_AREA_HEIGHT = scaleByDeviceWidth(34);
+const POLAROID_EXIT_WIDTH = scaleByDeviceWidth(360);
+const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
+const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
+const POLAROID_EXIT_FRONT_LIP_TOP = POLAROID_EXIT_HEIGHT * 0.67;
+const PHOTO_DEVELOP_DURATION_MS = 600;
 const MAX_CAPTURE_COUNT = 5;
 const PAID_CAPTURE_SESSION_COST = 200;
 const MOCK_INITIAL_COIN_BALANCE = 12500;
+const MAX_CAMERA_ZOOM = 1;
+const PINCH_ZOOM_SENSITIVITY = 0.5;
 const HELP_MODAL_REFERENCE_WIDTH = 328;
 const HELP_MODAL_REFERENCE_HEIGHT = 626;
 const MOCK_USER_LEVEL = 1;
@@ -80,6 +91,7 @@ export function CameraCaptureView() {
   const cameraRef = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [isCapturing, setIsCapturing] = useState(false);
+  const [cameraZoom, setCameraZoom] = useState(0);
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [creatureName, setCreatureName] = useState('');
@@ -98,7 +110,16 @@ export function CameraCaptureView() {
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
   const [isPermissionToastVisible, setIsPermissionToastVisible] =
     useState(false);
+  const [developingPhotoUri, setDevelopingPhotoUri] = useState<string | null>(
+    null,
+  );
   const permissionToastOpacity = useRef(new Animated.Value(0)).current;
+  const shutterFlashOpacity = useRef(new Animated.Value(0)).current;
+  const developingPhotoTranslateY = useRef(
+    new Animated.Value(0),
+  ).current;
+  const cameraZoomRef = useRef(0);
+  const pinchStartZoomRef = useRef(0);
   const normalCameraCardWidthRef = useRef<number | null>(null);
   const insets = useSafeAreaInsets();
   const cameraCardTop = insets.top + scaleByDeviceWidth(67);
@@ -123,7 +144,7 @@ export function CameraCaptureView() {
     normalCameraCardWidthRef.current = normalCameraCardWidth;
   }
   const stableNormalCameraCardWidth =
-    normalCameraCardWidthRef.current;
+    normalCameraCardWidthRef.current ?? normalCameraCardWidth;
   const nameControlsTop =
     keyboardTop === null
       ? null
@@ -132,6 +153,11 @@ export function CameraCaptureView() {
         scaleByDeviceWidth(12);
   const cameraLayoutBottom =
     nameControlsTop ?? bottomControlsTop;
+  const isCapturedCameraFrameVisible =
+    developingPhotoUri !== null || capturedPhotoUri !== null;
+  const cameraCardAspectRatio = isCapturedCameraFrameVisible
+    ? CAPTURED_CAMERA_CARD_ASPECT_RATIO
+    : CAMERA_CARD_ASPECT_RATIO;
   const availableCameraCardHeight =
     cameraLayoutBottom -
     cameraCardTop -
@@ -139,20 +165,25 @@ export function CameraCaptureView() {
     CAMERA_CARD_BUTTON_GAP;
   const cameraCardWidth = Math.min(
     screenWidth - CAMERA_CARD_HORIZONTAL_MARGIN * 2,
-    availableCameraCardHeight * CAMERA_CARD_ASPECT_RATIO,
+    availableCameraCardHeight * cameraCardAspectRatio,
   );
   const cameraCardHeight =
-    cameraCardWidth / CAMERA_CARD_ASPECT_RATIO;
-  const cameraBrandWidth = Math.min(
-    scaleByDeviceWidth(142),
-    cameraCardWidth * (isNameInputFocused ? 0.45 : 0.36),
-  );
-  const cameraBrandHeight =
-    cameraBrandWidth / CAMERA_BRAND_ASPECT_RATIO;
-  const cameraBrandBottom =
-    (CAMERA_BRAND_AREA_HEIGHT - cameraBrandHeight) / 2;
+    cameraCardWidth / cameraCardAspectRatio;
+  const polaroidExitScale = isNameInputFocused
+    ? Math.min(1, cameraCardWidth / stableNormalCameraCardWidth)
+    : 1;
+  const polaroidExitWidth =
+    POLAROID_EXIT_WIDTH * polaroidExitScale;
+  const polaroidExitHeight =
+    POLAROID_EXIT_HEIGHT * polaroidExitScale;
+  const polaroidExitFrontLipTop =
+    polaroidExitHeight * 0.67;
   const captureGuideTop =
     cameraCardTop + cameraCardHeight + CAMERA_GUIDE_GAP;
+  const polaroidExitTop =
+    cameraCardTop -
+    polaroidExitHeight / 2 +
+    POLAROID_EXIT_TOP_OFFSET;
   const helpModalScale = Math.min(
     screenWidth / 360,
     (screenHeight * 0.92) / HELP_MODAL_REFERENCE_HEIGHT,
@@ -174,6 +205,29 @@ export function CameraCaptureView() {
     remainingCaptureCount > 0 || isPaidCaptureSessionActive;
   const isNamingCreature =
     capturedPhotoUri !== null && !hasConfirmedName;
+  const pinchGesture = useMemo(
+    () =>
+      Gesture.Pinch()
+        .enabled(!isNamingCreature && hasCaptureOpportunity)
+        .runOnJS(true)
+        .onBegin(() => {
+          pinchStartZoomRef.current = cameraZoomRef.current;
+        })
+        .onUpdate(({ scale }) => {
+          const nextZoom = Math.min(
+            MAX_CAMERA_ZOOM,
+            Math.max(
+              0,
+              pinchStartZoomRef.current +
+                (scale - 1) * PINCH_ZOOM_SENSITIVITY,
+            ),
+          );
+
+          cameraZoomRef.current = nextZoom;
+          setCameraZoom(nextZoom);
+        }),
+    [hasCaptureOpportunity, isNamingCreature],
+  );
 
   useEffect(() => {
     const handleKeyboardShow = ({
@@ -288,6 +342,18 @@ export function CameraCaptureView() {
     }
 
     setIsCapturing(true);
+    Animated.sequence([
+      Animated.timing(shutterFlashOpacity, {
+        duration: 80,
+        toValue: 1,
+        useNativeDriver: true,
+      }),
+      Animated.timing(shutterFlashOpacity, {
+        duration: 140,
+        toValue: 0,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
     try {
       const photo = await cameraRef.current.takePictureAsync({
@@ -297,7 +363,20 @@ export function CameraCaptureView() {
 
       if (photo?.uri) {
         consumeCaptureOpportunity();
+        developingPhotoTranslateY.setValue(-cameraCardHeight);
+        setDevelopingPhotoUri(photo.uri);
+
+        await new Promise<void>((resolve) => {
+          Animated.timing(developingPhotoTranslateY, {
+            duration: PHOTO_DEVELOP_DURATION_MS,
+            easing: Easing.out(Easing.cubic),
+            toValue: 0,
+            useNativeDriver: true,
+          }).start(() => resolve());
+        });
+
         setCapturedPhotoUri(photo.uri);
+        setDevelopingPhotoUri(null);
       }
     } catch {
       Alert.alert('촬영 실패', '사진을 촬영하지 못했습니다. 다시 시도해 주세요.');
@@ -456,19 +535,104 @@ export function CameraCaptureView() {
           </View>
         </View>
 
-        <Pressable
-          accessibilityLabel="카메라 닫기"
-          accessibilityRole="button"
-          onPress={() => router.replace('/(tabs)/farm')}
-          style={({ pressed }) => pressed && styles.buttonPressed}
+        {!developingPhotoUri && (
+          <Pressable
+            accessibilityLabel="카메라 닫기"
+            accessibilityRole="button"
+            onPress={() => router.replace('/(tabs)/farm')}
+            style={({ pressed }) => pressed && styles.buttonPressed}
+          >
+            <Image
+              resizeMode="contain"
+              source={CLOSE_IMAGE}
+              style={styles.closeImage}
+            />
+          </Pressable>
+        )}
+      </View>
+
+      {developingPhotoUri && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.developingPhotoStage,
+            {
+              top: cameraCardTop,
+              width: cameraCardWidth,
+              height: cameraCardHeight,
+            },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.developingPhoto,
+              {
+                width: cameraCardWidth,
+                height: cameraCardHeight,
+                transform: [{ translateY: developingPhotoTranslateY }],
+              },
+            ]}
+          >
+            <View style={styles.cameraViewport}>
+              <Image
+                accessibilityLabel="출력 중인 촬영 사진"
+                resizeMode="cover"
+                source={{ uri: developingPhotoUri }}
+                style={StyleSheet.absoluteFill}
+              />
+              <View style={styles.dimOverlay} pointerEvents="none" />
+            </View>
+            <Image
+              resizeMode="stretch"
+              source={CAPTURED_CAMERA_FRAME_IMAGE}
+              style={styles.cameraFrame}
+            />
+          </Animated.View>
+        </View>
+      )}
+
+      {isCapturedCameraFrameVisible && (
+        <Image
+          accessibilityLabel="폴라로이드 사진 출구 안쪽"
+          resizeMode="stretch"
+          source={POLAROID_EXIT_IMAGE}
+          style={[
+            styles.polaroidExitBack,
+            {
+              top: polaroidExitTop,
+              width: polaroidExitWidth,
+              height: polaroidExitHeight,
+            },
+          ]}
+        />
+      )}
+
+      {developingPhotoUri && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.polaroidExitFrontLip,
+            {
+              top: polaroidExitTop + polaroidExitFrontLipTop,
+              width: polaroidExitWidth,
+              height: polaroidExitHeight - polaroidExitFrontLipTop,
+            },
+          ]}
         >
           <Image
-            resizeMode="contain"
-            source={CLOSE_IMAGE}
-            style={styles.closeImage}
+            resizeMode="stretch"
+            source={POLAROID_EXIT_IMAGE}
+            style={[
+              styles.polaroidExitFrontLipImage,
+              {
+                top: -polaroidExitFrontLipTop,
+                width: polaroidExitWidth,
+                height: polaroidExitHeight,
+              },
+            ]}
           />
-        </Pressable>
-      </View>
+        </View>
+      )}
 
       <Image
         accessibilityLabel="촬영 가이드"
@@ -484,41 +648,50 @@ export function CameraCaptureView() {
         ]}
       />
 
-      <View
-        style={[
-          styles.cameraCard,
-          {
-            top: cameraCardTop,
-            width: cameraCardWidth,
-          },
-        ]}
-      >
-        <View style={styles.cameraBezel}>
-          <View style={styles.cameraViewport}>
+      {!developingPhotoUri && (
+        <View
+          style={[
+            styles.cameraCard,
+            {
+              top: cameraCardTop,
+              width: cameraCardWidth,
+              height: cameraCardHeight,
+            },
+          ]}
+        >
+        <View style={styles.cameraViewport}>
             {isNamingCreature ? (
-              <Image
-                accessibilityLabel="이름을 정할 동물 사진"
-                resizeMode="cover"
-                source={{ uri: capturedPhotoUri ?? '' }}
-                style={StyleSheet.absoluteFill}
-              />
+              <>
+                <Image
+                  accessibilityLabel="이름을 정할 동물 사진"
+                  resizeMode="cover"
+                  source={{ uri: capturedPhotoUri ?? '' }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.dimOverlay} pointerEvents="none" />
+              </>
             ) : (
-              <CameraView
-                animateShutter={false}
-                facing="back"
-                flash="off"
-                ref={cameraRef}
-                style={StyleSheet.absoluteFill}
-              />
-            )}
-            <View style={styles.dimOverlay} pointerEvents="none" />
-            {!isNamingCreature && hasCaptureOpportunity && (
-              <View pointerEvents="none" style={styles.focusFrame}>
-                <View style={[styles.corner, styles.topLeftCorner]} />
-                <View style={[styles.corner, styles.topRightCorner]} />
-                <View style={[styles.corner, styles.bottomLeftCorner]} />
-                <View style={[styles.corner, styles.bottomRightCorner]} />
-              </View>
+              <GestureDetector gesture={pinchGesture}>
+                <View style={StyleSheet.absoluteFill}>
+                  <CameraView
+                    animateShutter={false}
+                    facing="back"
+                    flash="off"
+                    ref={cameraRef}
+                    style={StyleSheet.absoluteFill}
+                    zoom={cameraZoom}
+                  />
+                  <View style={styles.dimOverlay} pointerEvents="none" />
+                  {hasCaptureOpportunity && (
+                    <Image
+                      accessibilityLabel="촬영 영역 가이드"
+                      resizeMode="contain"
+                      source={CAMERA_VIEWPORT_GUIDE_IMAGE}
+                      style={styles.cameraViewportGuide}
+                    />
+                  )}
+                </View>
+              </GestureDetector>
             )}
             {!isNamingCreature && !hasCaptureOpportunity && (
               <View style={styles.captureLimitOverlay}>
@@ -541,28 +714,20 @@ export function CameraCaptureView() {
                 </View>
               </View>
             )}
-          </View>
-          <View
-            pointerEvents="none"
-            style={[
-              styles.cameraBrandSlot,
-              {
-                bottom: cameraBrandBottom,
-                height: cameraBrandHeight,
-              },
-            ]}
-          >
-            <Image
-              resizeMode="contain"
-              source={CAMERA_BRAND_IMAGE}
-              style={{
-                width: cameraBrandWidth,
-                height: cameraBrandHeight,
-              }}
-            />
-          </View>
         </View>
-      </View>
+        <View pointerEvents="none" style={styles.cameraFrame}>
+          <Image
+            resizeMode="stretch"
+            source={
+              isCapturedCameraFrameVisible
+                ? CAPTURED_CAMERA_FRAME_IMAGE
+                : CAMERA_FRAME_IMAGE
+            }
+            style={styles.cameraFrameImage}
+          />
+        </View>
+        </View>
+      )}
 
       {isNamingCreature ? (
         <View
@@ -621,7 +786,7 @@ export function CameraCaptureView() {
             />
           </Pressable>
         </View>
-      ) : (
+      ) : developingPhotoUri ? null : (
         <View
           style={[
             styles.bottomControls,
@@ -705,6 +870,11 @@ export function CameraCaptureView() {
           />
         </Animated.View>
       )}
+
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.shutterFlash, { opacity: shutterFlashOpacity }]}
+      />
 
       {isCoinDialogVisible && (
         <View style={styles.dialogOverlay}>
@@ -936,7 +1106,11 @@ const styles = StyleSheet.create({
   remainingCountText: {
     color: '#41413A',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(14),
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(11),
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    transform: [{ translateY: scaleByDeviceWidth(1) }],
   },
   coinBalanceGroup: {
     width: scaleByDeviceWidth(126),
@@ -951,16 +1125,17 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(32.4),
   },
   coinImage: {
-    width: scaleByDeviceWidth(24),
-    height: scaleByDeviceWidth(24),
+    width: scaleByDeviceWidth(18),
+    height: scaleByDeviceWidth(18),
     marginRight: scaleByDeviceWidth(6),
   },
   coinBalanceText: {
     flex: 1,
     color: '#685A48',
+    fontFamily: 'MemomentKkukkukk',
     fontSize: scaleByDeviceWidth(14),
-    fontWeight: '700',
-    textAlign: 'center',
+    marginRight: scaleByDeviceWidth(4),
+    textAlign: 'right',
   },
   addCoinImage: {
     width: scaleByDeviceWidth(10.8),
@@ -975,36 +1150,69 @@ const styles = StyleSheet.create({
   cameraCard: {
     position: 'absolute',
     alignSelf: 'center',
-    aspectRatio: CAMERA_CARD_ASPECT_RATIO,
-    paddingHorizontal: scaleByDeviceWidth(20),
-    paddingVertical: scaleByDeviceWidth(18),
-    borderWidth: scaleByDeviceWidth(3),
-    borderColor: '#D5C6AF',
-    borderRadius: scaleByDeviceWidth(28),
-    backgroundColor: '#FFFDF7',
   },
-  cameraBezel: {
-    flex: 1,
-    padding: scaleByDeviceWidth(8),
-    paddingBottom: scaleByDeviceWidth(34),
-    borderWidth: scaleByDeviceWidth(4),
-    borderColor: '#302D2E',
-    borderRadius: scaleByDeviceWidth(14),
-    backgroundColor: '#4A4648',
+  cameraFrame: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  cameraFrameImage: {
+    width: '100%',
+    height: '100%',
+  },
+  developingPhotoStage: {
+    position: 'absolute',
+    zIndex: 4,
+    alignSelf: 'center',
+    overflow: 'hidden',
+  },
+  developingPhoto: {
+    position: 'relative',
+    backgroundColor: '#FFFFFF',
+  },
+  polaroidExitBack: {
+    position: 'absolute',
+    width: POLAROID_EXIT_WIDTH,
+    height: POLAROID_EXIT_HEIGHT,
+    alignSelf: 'center',
+  },
+  polaroidExitFrontLip: {
+    position: 'absolute',
+    zIndex: 5,
+    width: POLAROID_EXIT_WIDTH,
+    height: POLAROID_EXIT_HEIGHT - POLAROID_EXIT_FRONT_LIP_TOP,
+    alignSelf: 'center',
+    overflow: 'hidden',
+  },
+  polaroidExitFrontLipImage: {
+    position: 'absolute',
+    top: -POLAROID_EXIT_FRONT_LIP_TOP,
+    width: POLAROID_EXIT_WIDTH,
+    height: POLAROID_EXIT_HEIGHT,
   },
   cameraViewport: {
-    flex: 1,
+    position: 'absolute',
+    top: '5%',
+    right: '7.7%',
+    bottom: '8.1%',
+    left: '8.1%',
     overflow: 'hidden',
-    borderWidth: scaleByDeviceWidth(3),
-    borderColor: '#252324',
     borderRadius: scaleByDeviceWidth(9),
     backgroundColor: '#242224',
   },
-  cameraBrandSlot: {
+  cameraViewportGuide: {
     position: 'absolute',
-    right: 0,
-    left: 0,
-    alignItems: 'center',
+    width: scaleByDeviceWidth(229.8),
+    height: scaleByDeviceWidth(328.18),
+    alignSelf: 'center',
+    top: '50%',
+    left: '50%',
+    transform: [
+      { translateX: scaleByDeviceWidth(-114.9) },
+      { translateY: scaleByDeviceWidth(-164.09) },
+    ],
   },
   captureLimitOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1013,60 +1221,19 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(34, 31, 29, 0.68)',
   },
   captureLimitContent: {
-    width: scaleByDeviceWidth(266),
-    height: scaleByDeviceWidth(290.24),
+    width: '90%',
+    aspectRatio: 1064 / 1161,
   },
   captureLimitImage: {
-    width: scaleByDeviceWidth(266),
-    height: scaleByDeviceWidth(290.24),
+    width: '100%',
+    height: '100%',
   },
   captureLimitButton: {
     position: 'absolute',
     right: 0,
     bottom: 0,
     left: 0,
-    height: scaleByDeviceWidth(72),
-  },
-  focusFrame: {
-    position: 'absolute',
-    top: '11%',
-    right: '9%',
-    bottom: '13%',
-    left: '9%',
-  },
-  corner: {
-    position: 'absolute',
-    width: scaleByDeviceWidth(48),
-    height: scaleByDeviceWidth(48),
-    borderColor: '#FFFFFF',
-  },
-  topLeftCorner: {
-    top: 0,
-    left: 0,
-    borderTopWidth: scaleByDeviceWidth(6),
-    borderLeftWidth: scaleByDeviceWidth(6),
-    borderTopLeftRadius: scaleByDeviceWidth(12),
-  },
-  topRightCorner: {
-    top: 0,
-    right: 0,
-    borderTopWidth: scaleByDeviceWidth(6),
-    borderRightWidth: scaleByDeviceWidth(6),
-    borderTopRightRadius: scaleByDeviceWidth(12),
-  },
-  bottomLeftCorner: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: scaleByDeviceWidth(6),
-    borderLeftWidth: scaleByDeviceWidth(6),
-    borderBottomLeftRadius: scaleByDeviceWidth(12),
-  },
-  bottomRightCorner: {
-    right: 0,
-    bottom: 0,
-    borderRightWidth: scaleByDeviceWidth(6),
-    borderBottomWidth: scaleByDeviceWidth(6),
-    borderBottomRightRadius: scaleByDeviceWidth(12),
+    height: '24.8%',
   },
   bottomControls: {
     position: 'absolute',
@@ -1141,6 +1308,11 @@ const styles = StyleSheet.create({
   },
   disabledButton: {
     opacity: 0.45,
+  },
+  shutterFlash: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+    backgroundColor: '#FFFFFF',
   },
   permissionToast: {
     position: 'absolute',

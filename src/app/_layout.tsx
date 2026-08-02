@@ -1,8 +1,11 @@
 import { useFonts } from 'expo-font';
+import * as NavigationBar from 'expo-navigation-bar';
 import { Stack } from 'expo-router';
 import * as NativeSplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { AppState, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useInitializeSocialLogin } from '@/src/features/social-login';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
@@ -20,6 +23,7 @@ export default function RootLayout() {
     'EliceDXNeolli-Light': require('@/src/shared/assets/fonts/EliceDXNeolli-Light.ttf'),
     'EliceDXNeolli-Medium': require('@/src/shared/assets/fonts/EliceDXNeolli-Medium.ttf'),
     'Galmuri11-Bold': require('@/src/shared/assets/fonts/Galmuri11-Bold.ttf'),
+    MemomentKkukkukk: require('@/src/shared/assets/fonts/MemomentKkukkukk.otf'),
   });
 
   useEffect(() => {
@@ -33,6 +37,26 @@ export default function RootLayout() {
     return () => clearTimeout(splashTimer);
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const hideNavigationBar = () => {
+      void NavigationBar.setVisibilityAsync('hidden').catch(() => undefined);
+    };
+
+    hideNavigationBar();
+
+    const appStateSubscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        hideNavigationBar();
+      }
+    });
+
+    return () => appStateSubscription.remove();
+  }, []);
+
   if (
     (!fontsLoaded && !fontError) ||
     !hasMinimumSplashDurationElapsed
@@ -41,9 +65,9 @@ export default function RootLayout() {
   }
 
   return (
-    <>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }} />
       <StatusBar style="auto" />
-    </>
+    </GestureHandlerRootView>
   );
 }

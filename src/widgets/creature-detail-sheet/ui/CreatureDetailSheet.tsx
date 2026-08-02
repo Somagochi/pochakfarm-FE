@@ -11,6 +11,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   useAnimalDetail,
@@ -119,6 +120,7 @@ export function CreatureDetailSheet({
   onClose,
   width,
 }: CreatureDetailSheetProps) {
+  const insets = useSafeAreaInsets();
   const { animal, errorMessage, isLoading, reload } =
     useAnimalDetail(animalId);
   const { isReleasing, releaseAnimal } = useReleaseAnimal();
@@ -289,6 +291,7 @@ export function CreatureDetailSheet({
             {
               width: sheetWidth,
               height: sheetHeight,
+              marginBottom: insets.bottom,
               transform: [{ translateY }],
             },
           ]}
