@@ -1,5 +1,5 @@
 export type UserProfile = {
-  nickname: string;
+  nickname: string | null;
   level: number;
   coins: number;
 };

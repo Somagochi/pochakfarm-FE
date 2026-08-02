@@ -33,7 +33,7 @@ export function FarmStatusBar({
 
 const styles = StyleSheet.create({
   container: {
-    width: scaleByDeviceWidth(144),
+    width: scaleByDeviceWidth(177),
     height: scaleByDeviceWidth(32),
     paddingHorizontal: scaleByDeviceWidth(11),
     flexDirection: 'row',
@@ -45,10 +45,10 @@ const styles = StyleSheet.create({
     marginRight: scaleByDeviceWidth(5),
   },
   name: {
-    maxWidth: scaleByDeviceWidth(67),
+    maxWidth: scaleByDeviceWidth(90),
     color: '#332F27',
-    fontSize: scaleByDeviceWidth(15),
-    fontWeight: '700',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(14),
   },
   levelBadge: {
     minWidth: scaleByDeviceWidth(40),

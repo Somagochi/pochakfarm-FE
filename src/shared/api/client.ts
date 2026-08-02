@@ -9,6 +9,16 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 const LOGIN_PATH = '/api/auth/login';
 const REFRESH_PATH = '/api/auth/refresh';
 let refreshRequest: Promise<ServiceToken> | null = null;
@@ -181,7 +191,7 @@ async function request<TResponse>(
   if (!response.ok) {
     const message = getErrorMessage(data) ?? 'API 요청에 실패했습니다.';
 
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   return data as TResponse;
@@ -207,6 +217,20 @@ export const apiClient = {
   ) {
     return request<TResponse>(path, {
       method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+  },
+  patch<TResponse, TBody extends object>(
+    path: string,
+    body: TBody,
+    options: RequestOptions = {},
+  ) {
+    return request<TResponse>(path, {
+      method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,

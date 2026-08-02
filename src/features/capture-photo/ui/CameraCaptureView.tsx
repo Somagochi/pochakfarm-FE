@@ -154,7 +154,7 @@ export function CameraCaptureView() {
   const captureGuideTop =
     cameraCardTop + cameraCardHeight + CAMERA_GUIDE_GAP;
   const helpModalScale = Math.min(
-    screenWidth / 411,
+    screenWidth / 360,
     (screenHeight * 0.92) / HELP_MODAL_REFERENCE_HEIGHT,
   );
   const helpModalWidth =

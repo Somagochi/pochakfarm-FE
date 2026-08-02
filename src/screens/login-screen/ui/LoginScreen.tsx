@@ -44,6 +44,7 @@ const PAW_POSITIONS = [
 
 export function LoginScreen() {
   const moveToFarm = () => router.replace('/(tabs)');
+  const handleLoginSuccess = () => router.replace('/nickname');
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,7 +67,7 @@ export function LoginScreen() {
       </View>
 
       <View style={styles.loginArea}>
-        <SocialLoginButtons onLoginSuccess={moveToFarm} />
+        <SocialLoginButtons onLoginSuccess={handleLoginSuccess} />
         <Image
           resizeMode="contain"
           source={LOGIN_DIVIDER_IMAGE}
