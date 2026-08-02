@@ -57,16 +57,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   coinIcon: {
-    width: scaleByDeviceWidth(24),
-    height: scaleByDeviceWidth(24),
+    width: scaleByDeviceWidth(18),
+    height: scaleByDeviceWidth(18),
     marginRight: scaleByDeviceWidth(6),
   },
   balance: {
     flex: 1,
     color: '#685A48',
+    fontFamily: 'MemomentKkukkukk',
     fontSize: scaleByDeviceWidth(14),
-    fontWeight: '700',
-    textAlign: 'center',
+    marginRight: scaleByDeviceWidth(4),
+    textAlign: 'right',
   },
   addCoinIcon: {
     width: scaleByDeviceWidth(10.8),
