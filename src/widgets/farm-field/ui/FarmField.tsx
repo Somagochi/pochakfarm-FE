@@ -118,6 +118,9 @@ export function FarmField({
                     }
                   : undefined
               }
+              isUnlockAvailable={
+                areaNumber === unlockedAreaCount + 1
+              }
               isUnlocked={areaNumber <= unlockedAreaCount}
               onPressCreature={onPressCreature}
               onPressSlot={() => router.push('/(tabs)/capture')}
