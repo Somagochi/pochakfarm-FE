@@ -23,24 +23,21 @@ module.exports = function withIosHomeIndicatorAutoHidden(config) {
     }
 
     let contents = configWithAppDelegate.modResults.contents;
+    const reactNativeDelegateMarker =
+      'class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {';
 
     if (!contents.includes('private final class HomeIndicatorViewController')) {
-      const appDelegateClassMarker = 'public class AppDelegate: ExpoAppDelegate {';
-
-      if (!contents.includes(appDelegateClassMarker)) {
-        throw new Error('AppDelegate 클래스 위치를 찾지 못했습니다.');
+      if (!contents.includes(reactNativeDelegateMarker)) {
+        throw new Error('ReactNativeDelegate 클래스 위치를 찾지 못했습니다.');
       }
 
       contents = contents.replace(
-        appDelegateClassMarker,
-        `${VIEW_CONTROLLER_CLASS}\n${appDelegateClassMarker}`,
+        reactNativeDelegateMarker,
+        `${VIEW_CONTROLLER_CLASS}\n${reactNativeDelegateMarker}`,
       );
     }
 
     if (!contents.includes('HomeIndicatorViewController()')) {
-      const reactNativeDelegateMarker =
-        'class ReactNativeDelegate: ExpoReactNativeFactoryDelegate {';
-
       if (!contents.includes(reactNativeDelegateMarker)) {
         throw new Error('ReactNativeDelegate 클래스 위치를 찾지 못했습니다.');
       }
