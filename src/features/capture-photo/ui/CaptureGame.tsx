@@ -69,7 +69,7 @@ const CAPTURE_TIER_IMAGES = {
   SS: require('@/src/shared/assets/images/capture/capture-tier-ss.png'),
   SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
 } as const;
-const CURRENT_CAPTURE_TIER: keyof typeof CAPTURE_TIER_IMAGES = 'B';
+const CURRENT_CAPTURE_TIER: keyof typeof CAPTURE_TIER_IMAGES = 'S';
 const POLAROID_EXIT_WIDTH = scaleByDeviceWidth(360);
 const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
 const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
@@ -359,7 +359,7 @@ export function CaptureGame({
             ),
           );
           const idealVerticalTravel =
-            frameOrigin.y + FRAME_SIZE / 2 - targetCenter.y;
+            frameOrigin.y + FRAME_HEIGHT / 2 - targetCenter.y;
           const distancePower = upwardDistance / IDEAL_THROW_DISTANCE;
           const velocityPower = upwardSpeed / IDEAL_THROW_VELOCITY;
           const throwPower = Math.max(
@@ -371,7 +371,7 @@ export function CaptureGame({
           );
           const destinationY = -idealVerticalTravel * throwPower;
           const landingCenterY =
-            frameOrigin.y + FRAME_SIZE / 2 + destinationY;
+            frameOrigin.y + FRAME_HEIGHT / 2 + destinationY;
           const flightDuration = Math.max(
             320,
             Math.min(720, 760 - throwPower * 240),
@@ -1013,8 +1013,8 @@ const styles = StyleSheet.create({
   },
   captureTier: {
     position: 'absolute',
-    top: scaleByDeviceWidth(4),
-    right: 0,
+    top: scaleByDeviceWidth(10),
+    right: scaleByDeviceWidth(6),
     zIndex: 2,
     width: scaleByDeviceWidth(56),
     height: scaleByDeviceWidth(56 * (94 / 67)),
