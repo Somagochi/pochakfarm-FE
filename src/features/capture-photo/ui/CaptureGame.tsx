@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import LottieView from 'lottie-react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
@@ -19,7 +20,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CardOpeningSequence } from './CardOpeningSequence';
 
 const CAPTURE_SECONDS = 10;
-const FRAME_SIZE = scaleByDeviceWidth(80);
+const FRAME_WIDTH = scaleByDeviceWidth(44.26);
+const FRAME_HEIGHT = scaleByDeviceWidth(66.02);
+const GUIDE_HEIGHT = scaleByDeviceWidth(28);
+const FRAME_GUIDE_GAP = scaleByDeviceWidth(15.16);
 const TARGET_SIZE = scaleByDeviceWidth(270);
 const TARGET_RING_SIZE = scaleByDeviceWidth(230);
 const SUCCESS_DISTANCE = TARGET_RING_SIZE / 2;
@@ -30,8 +34,9 @@ const TARGET_RESPAWN_DELAY = 120;
 const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
 const MAX_THROWS = 3;
-const CAMERA_CARD_ASPECT_RATIO = 414 / 635;
-const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-frame.png');
+const CAMERA_CARD_ASPECT_RATIO = 1312 / 2080;
+const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-card.png');
+const THROW_CARD_LABEL_IMAGE = require('@/src/shared/assets/images/capture/throw-card-label.png');
 const THROW_GUIDE_IMAGE = require('@/src/shared/assets/images/capture/throw-guide.png');
 const TIMER_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/timer-background.png');
 const TIMER_CLOCK_IMAGE = require('@/src/shared/assets/images/capture/timer-clock.png');
@@ -40,11 +45,18 @@ const OPPORTUNITY_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture
 const OPPORTUNITY_LABEL_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-label.png');
 const OPPORTUNITY_USED_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-used.png');
 const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/throw-opportunity-available.png');
-const CAMERA_BRAND_IMAGE = require('@/src/shared/assets/images/capture/camera-brand.png');
+const CAMERA_FRAME_IMAGE = require('@/src/shared/assets/images/capture/captured-camera-frame.png');
+const POLAROID_EXIT_IMAGE = require('@/src/shared/assets/images/capture/polaroid-exit.png');
 const TARGET_FRAME_IMAGE = require('@/src/shared/assets/images/capture/pochak-circle.png');
 const CAPTURE_RESULT_CARD_IMAGE = require('@/src/shared/assets/images/capture/capture-result-card.png');
+const CAPTURE_SUCCESS_RESULT_IMAGE = require('@/src/shared/assets/images/capture/capture-success-result.png');
+const CAPTURE_SUCCESS_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-success-title.png');
 const CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-success-open-button.png');
-const CAPTURE_FAILURE_CONFIRM_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-confirm-button.png');
+const CAPTURE_FAILURE_RESULT_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-result.png');
+const CAPTURE_FAILURE_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-title.png');
+const CAPTURE_RETRY_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-retry-button.png');
+const CAPTURE_SUCCESS_LOTTIE = require('@/src/shared/assets/images/capture/pochak-success.json');
+const CAPTURE_FAILURE_LOTTIE = require('@/src/shared/assets/images/capture/pochak-fail.json');
 const CAPTURE_TIER_IMAGES = {
   A: require('@/src/shared/assets/images/capture/capture-tier-a.png'),
   B: require('@/src/shared/assets/images/capture/capture-tier-b.png'),
@@ -54,6 +66,9 @@ const CAPTURE_TIER_IMAGES = {
   SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
 } as const;
 const CURRENT_CAPTURE_TIER: keyof typeof CAPTURE_TIER_IMAGES = 'B';
+const POLAROID_EXIT_WIDTH = scaleByDeviceWidth(360);
+const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
+const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
@@ -103,7 +118,6 @@ export function CaptureGame({
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
-  const skipNextResultShakeRef = useRef(false);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -124,18 +138,23 @@ export function CaptureGame({
     }),
     [height, width],
   );
-  const frameOrigin = useMemo(
-    () => ({
-      x: width / 2 - FRAME_SIZE / 2,
-      y: height - insets.bottom - scaleByDeviceWidth(125),
-    }),
-    [height, insets.bottom, width],
-  );
-  const cameraCardTop = insets.top + scaleByDeviceWidth(128);
+  const frameLayoutBottom =
+    height - insets.bottom - scaleByDeviceWidth(125);
+  const cameraCardTop = insets.top + scaleByDeviceWidth(74.94);
   const cameraCardWidth = Math.min(
     width - scaleByDeviceWidth(30),
-    (frameOrigin.y - cameraCardTop - scaleByDeviceWidth(20)) *
+    (frameLayoutBottom - cameraCardTop - scaleByDeviceWidth(20)) *
       CAMERA_CARD_ASPECT_RATIO,
+  );
+  const cameraCardHeight = cameraCardWidth / CAMERA_CARD_ASPECT_RATIO;
+  const guideTop =
+    cameraCardTop + cameraCardHeight + scaleByDeviceWidth(15.62);
+  const frameOrigin = useMemo(
+    () => ({
+      x: width / 2 - FRAME_WIDTH / 2,
+      y: guideTop + GUIDE_HEIGHT + FRAME_GUIDE_GAP,
+    }),
+    [guideTop, width],
   );
 
   const finishGame = (
@@ -218,45 +237,7 @@ export function CaptureGame({
     }
 
     setShowResultActions(false);
-    resultCardShake.setValue(0);
-
-    if (skipNextResultShakeRef.current) {
-      skipNextResultShakeRef.current = false;
-      setShowResultActions(true);
-      return;
-    }
-
-    const shakeAnimation = Animated.sequence([
-      ...Array.from({ length: 10 }, () => [
-        Animated.timing(resultCardShake, {
-          toValue: -1,
-          duration: 90,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(resultCardShake, {
-          toValue: 1,
-          duration: 90,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ]).flat(),
-      Animated.timing(resultCardShake, {
-        toValue: 0,
-        duration: 200,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true,
-      }),
-    ]);
-
-    shakeAnimation.start(({ finished }) => {
-      if (finished) {
-        setShowResultActions(true);
-      }
-    });
-
-    return () => shakeAnimation.stop();
-  }, [result, resultCardShake]);
+  }, [result]);
 
   const resetFrame = useCallback(() => {
     Animated.parallel([
@@ -372,7 +353,7 @@ export function CaptureGame({
             ),
           );
           const destinationY =
-            targetCenter.y - (frameOrigin.y + FRAME_SIZE / 2);
+            targetCenter.y - (frameOrigin.y + FRAME_HEIGHT / 2);
           const flightDuration = Math.max(
             320,
             Math.min(650, 680 - upwardSpeed * 180),
@@ -483,7 +464,6 @@ export function CaptureGame({
                   setThrowsUsed(nextThrowsUsed);
 
                   if (nextThrowsUsed >= MAX_THROWS) {
-                    skipNextResultShakeRef.current = true;
                     finishGame('failure', 'attempts');
                     setIsTimingMiss(false);
                     return;
@@ -558,6 +538,23 @@ export function CaptureGame({
 
   return (
     <View style={styles.container}>
+      {!(result === 'success' && hasOpenedSuccess) && (
+        <Image
+          accessibilityLabel="폴라로이드 사진 출구 안쪽"
+          resizeMode="stretch"
+          source={POLAROID_EXIT_IMAGE}
+          style={[
+            styles.polaroidExitBack,
+            {
+              top:
+                cameraCardTop -
+                POLAROID_EXIT_HEIGHT / 2 +
+                POLAROID_EXIT_TOP_OFFSET,
+            },
+          ]}
+        />
+      )}
+
       <View
         style={[
           styles.gameStatusRow,
@@ -633,18 +630,23 @@ export function CaptureGame({
         source={THROW_GUIDE_IMAGE}
         style={[
           styles.guideImage,
-          { top: insets.top + scaleByDeviceWidth(83) },
+          {
+            top: guideTop,
+          },
         ]}
       />
 
       <View
         style={[
           styles.cameraCard,
-          { top: cameraCardTop, width: cameraCardWidth },
+          {
+            top: cameraCardTop,
+            width: cameraCardWidth,
+            height: cameraCardHeight,
+          },
         ]}
       >
-        <View style={styles.cameraBezel}>
-          <View style={styles.cameraViewport}>
+        <View style={styles.cameraViewport}>
             <Image
               resizeMode="cover"
               source={{ uri: photoUri }}
@@ -657,13 +659,12 @@ export function CaptureGame({
               source={CAPTURE_TIER_IMAGES[CURRENT_CAPTURE_TIER]}
               style={styles.captureTier}
             />
-          </View>
-          <Image
-            resizeMode="contain"
-            source={CAMERA_BRAND_IMAGE}
-            style={styles.cameraBrand}
-          />
         </View>
+        <Image
+          resizeMode="stretch"
+          source={CAMERA_FRAME_IMAGE}
+          style={styles.cameraFrame}
+        />
       </View>
 
       <View
@@ -722,17 +723,20 @@ export function CaptureGame({
         </View>
       </Animated.View>
 
-      <Text
-        pointerEvents="none"
+      <Image
+        accessibilityLabel="카드 던지기"
+        resizeMode="contain"
+        source={THROW_CARD_LABEL_IMAGE}
         style={[
           styles.throwLabel,
           {
-            top: frameOrigin.y + FRAME_SIZE + 10,
+            top:
+              frameOrigin.y +
+              FRAME_HEIGHT +
+              scaleByDeviceWidth(6.99),
           },
         ]}
-      >
-        액자 던지기
-      </Text>
+      />
 
       {result === 'success' && hasOpenedSuccess && (
         <CardOpeningSequence photoUri={photoUri} />
@@ -759,48 +763,85 @@ export function CaptureGame({
 
       {result && !(result === 'success' && hasOpenedSuccess) && (
         <View accessibilityViewIsModal style={styles.resultOverlay}>
-          <Animated.Image
-            accessibilityLabel="포착 결과 카드"
-            resizeMode="contain"
-            source={CAPTURE_RESULT_CARD_IMAGE}
-            style={[
-              styles.resultShakeCard,
-              {
-                transform: [
-                  { translateX: resultCardTranslateX },
-                  { rotate: resultCardRotation },
-                ],
-              },
-            ]}
-          />
+          {!showResultActions && (
+            <LottieView
+              autoPlay
+              loop={false}
+              onAnimationFinish={(isCancelled) => {
+                if (!isCancelled) {
+                  setShowResultActions(true);
+                }
+              }}
+              resizeMode="contain"
+              source={
+                result === 'success'
+                  ? CAPTURE_SUCCESS_LOTTIE
+                  : CAPTURE_FAILURE_LOTTIE
+              }
+              style={styles.resultLottie}
+            />
+          )}
 
-          {showResultActions && (
-            <View style={styles.resultContent}>
-              <Text style={styles.resultTitle}>
-                {result === 'success' ? '포착 성공' : '포착 실패'}
-              </Text>
+          {result === 'success' && showResultActions && (
+            <View style={styles.successResultContent}>
+              <View style={styles.successVisualGroup}>
+                <Image
+                  accessibilityLabel="포착 성공 카드"
+                  resizeMode="contain"
+                  source={CAPTURE_SUCCESS_RESULT_IMAGE}
+                  style={styles.successResultImage}
+                />
+                <Image
+                  accessibilityLabel="포착 성공"
+                  resizeMode="contain"
+                  source={CAPTURE_SUCCESS_TITLE_IMAGE}
+                  style={styles.successTitleImage}
+                />
+              </View>
               <Pressable
-                accessibilityLabel={
-                  result === 'success' ? '카드 오픈하기' : '확인하기'
-                }
+                accessibilityLabel="카드 오픈하기"
                 accessibilityRole="button"
-                onPress={
-                  result === 'success'
-                    ? () => setHasOpenedSuccess(true)
-                    : onRetry
-                }
+                onPress={() => setHasOpenedSuccess(true)}
                 style={({ pressed }) => [
-                  styles.resultImageButton,
+                  styles.successOpenButton,
                   pressed && styles.pressed,
                 ]}
               >
                 <Image
                   resizeMode="contain"
-                  source={
-                    result === 'success'
-                      ? CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE
-                      : CAPTURE_FAILURE_CONFIRM_BUTTON_IMAGE
-                  }
+                  source={CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE}
+                  style={styles.resultButtonImage}
+                />
+              </Pressable>
+            </View>
+          )}
+
+          {showResultActions && result === 'failure' && (
+            <View style={styles.failureResultContent}>
+              <Image
+                accessibilityLabel="포착 실패 카드"
+                resizeMode="contain"
+                source={CAPTURE_FAILURE_RESULT_IMAGE}
+                style={styles.failureResultImage}
+              />
+              <Image
+                accessibilityLabel="포착 실패"
+                resizeMode="contain"
+                source={CAPTURE_FAILURE_TITLE_IMAGE}
+                style={styles.failureTitleImage}
+              />
+              <Pressable
+                accessibilityLabel="다시 도전하기"
+                accessibilityRole="button"
+                onPress={onRetry}
+                style={({ pressed }) => [
+                  styles.retryButton,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Image
+                  resizeMode="contain"
+                  source={CAPTURE_RETRY_BUTTON_IMAGE}
                   style={styles.resultButtonImage}
                 />
               </Pressable>
@@ -924,27 +965,27 @@ const styles = StyleSheet.create({
   cameraCard: {
     position: 'absolute',
     alignSelf: 'center',
-    aspectRatio: CAMERA_CARD_ASPECT_RATIO,
-    padding: scaleByDeviceWidth(20),
-    borderWidth: scaleByDeviceWidth(3),
-    borderColor: '#D5C6AF',
-    borderRadius: scaleByDeviceWidth(28),
-    backgroundColor: '#FFFDF7',
   },
-  cameraBezel: {
-    flex: 1,
-    padding: scaleByDeviceWidth(8),
-    paddingBottom: scaleByDeviceWidth(38),
-    borderWidth: scaleByDeviceWidth(4),
-    borderColor: '#302D2E',
-    borderRadius: scaleByDeviceWidth(14),
-    backgroundColor: '#4A4648',
+  cameraFrame: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  polaroidExitBack: {
+    position: 'absolute',
+    width: POLAROID_EXIT_WIDTH,
+    height: POLAROID_EXIT_HEIGHT,
+    alignSelf: 'center',
   },
   cameraViewport: {
-    flex: 1,
+    position: 'absolute',
+    top: '5%',
+    right: '7.7%',
+    bottom: '8.1%',
+    left: '8.1%',
     overflow: 'hidden',
-    borderWidth: scaleByDeviceWidth(3),
-    borderColor: '#252324',
     borderRadius: scaleByDeviceWidth(9),
     backgroundColor: '#242224',
   },
@@ -955,14 +996,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
     width: scaleByDeviceWidth(56),
     height: scaleByDeviceWidth(56 * (94 / 67)),
-  },
-  cameraBrand: {
-    position: 'absolute',
-    bottom: scaleByDeviceWidth(6),
-    left: '50%',
-    width: scaleByDeviceWidth(142),
-    height: scaleByDeviceWidth(15.55),
-    marginLeft: scaleByDeviceWidth(-71),
   },
   target: {
     position: 'absolute',
@@ -989,23 +1022,22 @@ const styles = StyleSheet.create({
   throwingFrame: {
     position: 'absolute',
     zIndex: 4,
-    width: FRAME_SIZE,
-    height: FRAME_SIZE,
+    width: FRAME_WIDTH,
+    height: FRAME_HEIGHT,
   },
   frameButton: {
-    width: FRAME_SIZE,
-    height: FRAME_SIZE,
+    width: FRAME_WIDTH,
+    height: FRAME_HEIGHT,
   },
   throwFrameImage: {
-    width: scaleByDeviceWidth(80),
-    height: scaleByDeviceWidth(80),
+    width: FRAME_WIDTH,
+    height: FRAME_HEIGHT,
   },
   throwLabel: {
     position: 'absolute',
     alignSelf: 'center',
-    color: '#987A50',
-    fontSize: scaleByDeviceWidth(14),
-    fontWeight: '700',
+    width: scaleByDeviceWidth(53),
+    height: scaleByDeviceWidth(14),
   },
   resultOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -1020,29 +1052,52 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(190),
     height: scaleByDeviceWidth(190),
   },
-  resultContent: {
+  resultLottie: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  successResultImage: {
+    width: scaleByDeviceWidth(323),
+    height: scaleByDeviceWidth(323),
+  },
+  successResultContent: {
     position: 'absolute',
-    top: '55%',
+    top: scaleByDeviceWidth(181.56),
     alignItems: 'center',
-    width: '100%',
-    paddingHorizontal: scaleByDeviceWidth(24),
   },
-  resultTitle: {
-    color: '#FFF8E9',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(28),
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.45)',
-    textShadowOffset: {
-      width: 0,
-      height: scaleByDeviceWidth(2),
-    },
-    textShadowRadius: scaleByDeviceWidth(3),
+  successVisualGroup: {
+    width: scaleByDeviceWidth(323),
+    height: scaleByDeviceWidth(323),
+    alignItems: 'center',
   },
-  resultImageButton: {
+  successTitleImage: {
+    position: 'absolute',
+    bottom: 0,
+    width: scaleByDeviceWidth(171),
+    height: scaleByDeviceWidth(52),
+  },
+  successOpenButton: {
     width: scaleByDeviceWidth(280),
     height: scaleByDeviceWidth(60),
-    marginTop: scaleByDeviceWidth(18),
+    marginTop: scaleByDeviceWidth(43.92),
+  },
+  failureResultContent: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(272.58),
+    alignItems: 'center',
+  },
+  failureResultImage: {
+    width: scaleByDeviceWidth(120),
+    height: scaleByDeviceWidth(128.31),
+  },
+  failureTitleImage: {
+    width: scaleByDeviceWidth(184),
+    height: scaleByDeviceWidth(52),
+    marginTop: scaleByDeviceWidth(32.19),
+  },
+  retryButton: {
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(60),
+    marginTop: scaleByDeviceWidth(63.69),
   },
   resultButtonImage: {
     width: '100%',
