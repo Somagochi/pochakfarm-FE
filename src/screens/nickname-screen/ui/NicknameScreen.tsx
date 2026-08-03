@@ -1,9 +1,12 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { isUsableNickname } from '@/src/features/set-nickname';
+import {
+  isUsableNickname,
+  useCheckNickname,
+} from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BACK_ICON = require('@/src/shared/assets/images/nickname/back-icon.png');
@@ -17,6 +20,7 @@ const NEXT_BUTTON_DISABLED_IMAGE = require('@/src/shared/assets/images/nickname/
 
 export function NicknameScreen() {
   const insets = useSafeAreaInsets();
+  const { checkNickname, isChecking } = useCheckNickname();
   const {
     nickname: initialNickname = '',
     nicknameError,
@@ -30,7 +34,8 @@ export function NicknameScreen() {
   );
   const hasDuplicateNicknameError =
     errorMessage === '이미 있는 닉네임입니다.';
-  const isNextEnabled = isUsableNickname(nickname) && !errorMessage;
+  const isNextEnabled =
+    isUsableNickname(nickname) && !errorMessage && !isChecking;
   const isNicknameInvalid =
     nickname.length > 0 && (!isUsableNickname(nickname) || !!errorMessage);
 
@@ -43,16 +48,32 @@ export function NicknameScreen() {
     setErrorMessage(null);
   }
 
-  function handleNextPress() {
+  async function handleNextPress() {
     if (!isUsableNickname(nickname)) {
       setErrorMessage('사용할 수 없는 이름입니다.');
       return;
     }
 
-    router.push({
-      pathname: '/terms-agreement',
-      params: { nickname },
-    });
+    try {
+      const isAvailable = await checkNickname(nickname);
+
+      if (!isAvailable) {
+        setErrorMessage('이미 있는 닉네임입니다.');
+        return;
+      }
+
+      router.push({
+        pathname: '/terms-agreement',
+        params: { nickname },
+      });
+    } catch (error) {
+      Alert.alert(
+        '닉네임 확인 실패',
+        error instanceof Error
+          ? error.message
+          : '닉네임을 확인하는 중 문제가 발생했습니다.',
+      );
+    }
   }
 
   return (
