@@ -224,6 +224,12 @@ export const apiClient = {
       body: JSON.stringify(body),
     });
   },
+  postWithoutBody<TResponse>(path: string, options: RequestOptions = {}) {
+    return request<TResponse>(path, {
+      method: 'POST',
+      headers: options.headers,
+    });
+  },
   patch<TResponse, TBody extends object>(
     path: string,
     body: TBody,

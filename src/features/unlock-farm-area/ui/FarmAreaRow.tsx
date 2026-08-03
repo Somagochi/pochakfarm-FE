@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 const FARM_SLOT_IMAGE = require('@/src/shared/assets/images/farm/farm-slot.png');
+const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 const BASE_SLOT_SIZE = 58.4;
 const BASE_SLOT_GAP = 26.6;
 const BASE_CREATURE_WIDTH = 80;
@@ -21,15 +22,16 @@ const BASE_UNLOCK_IMAGE_WIDTH = 112;
 
 type FarmAreaRowProps = {
   areaNumber: number;
-  creatureSlot?: {
-    animalImageSource: ImageSourcePropType;
+  creatureSlots: {
+    animalId: number;
+    animalImageSource?: ImageSourcePropType;
     name: string;
     nameplateImageSource: ImageSourcePropType;
     slotNumber: number;
-  };
+  }[];
   isUnlockAvailable: boolean;
   isUnlocked: boolean;
-  onPressCreature?: () => void;
+  onPressCreature?: (animalId: number) => void;
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
   scale: number;
@@ -38,7 +40,7 @@ type FarmAreaRowProps = {
 
 export function FarmAreaRow({
   areaNumber,
-  creatureSlot,
+  creatureSlots,
   isUnlockAvailable,
   isUnlocked,
   onPressCreature,
@@ -70,8 +72,11 @@ export function FarmAreaRow({
       {isUnlocked &&
         Array.from({ length: SLOT_COUNT }, (_, index) => {
           const slotNumber = index + 1;
+          const creatureSlot = creatureSlots.find(
+            (slot) => slot.slotNumber === slotNumber,
+          );
 
-          if (slotNumber === creatureSlot?.slotNumber) {
+          if (creatureSlot) {
             const nameplateWidth = BASE_NAMEPLATE_WIDTH * scale;
             const nameplateHeight = BASE_NAMEPLATE_HEIGHT * scale;
             const animalWidth = BASE_CREATURE_WIDTH * scale;
@@ -82,7 +87,7 @@ export function FarmAreaRow({
                 accessibilityLabel={`${creatureSlot.name} 농장 슬롯`}
                 accessibilityRole="button"
                 key={slotNumber}
-                onPress={onPressCreature}
+                onPress={() => onPressCreature?.(creatureSlot.animalId)}
                 style={({ pressed }) => [
                   styles.creatureSlot,
                   { width: slotSize, height: slotSize },
@@ -91,7 +96,7 @@ export function FarmAreaRow({
               >
                 <Image
                   resizeMode="contain"
-                  source={creatureSlot.animalImageSource}
+                  source={ANIMAL_IMAGE_PLACEHOLDER}
                   style={[
                     styles.creatureImage,
                     {
@@ -104,6 +109,23 @@ export function FarmAreaRow({
                     },
                   ]}
                 />
+                {creatureSlot.animalImageSource && (
+                  <Image
+                    resizeMode="contain"
+                    source={creatureSlot.animalImageSource}
+                    style={[
+                      styles.creatureImage,
+                      {
+                        top:
+                          slotSize * 0.04 +
+                          BASE_CREATURE_TOP_OFFSET * scale,
+                        left: (slotSize - animalWidth) / 2,
+                        width: animalWidth,
+                        height: animalHeight,
+                      },
+                    ]}
+                  />
+                )}
                 <View
                   style={[
                     styles.nameplate,
