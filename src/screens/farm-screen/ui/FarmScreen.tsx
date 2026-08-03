@@ -5,6 +5,7 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FarmCreatureSearchModal } from '@/src/features/find-farm-creature';
+import { type FarmType, useFarm } from '@/src/entities/farm';
 import { useUserProfile } from '@/src/entities/user';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { CreatureDetailSheet } from '@/src/widgets/creature-detail-sheet';
@@ -17,11 +18,29 @@ import {
   type SelectableFarmEnvironment,
 } from '@/src/widgets/farm-status-bar';
 
+const FARM_TYPE_BY_ENVIRONMENT: Record<SelectableFarmEnvironment, FarmType> = {
+  sky: 'SKY',
+  land: 'GROUND',
+  sea: 'SEA',
+  space: 'SPACE',
+};
+
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
-  const { clearError, errorMessage, profile } = useUserProfile();
+  const {
+    clearError,
+    errorMessage,
+    profile,
+    reload: reloadProfile,
+  } = useUserProfile();
   const [selectedEnvironment, setSelectedEnvironment] =
     useState<SelectableFarmEnvironment>('land');
+  const {
+    clearError: clearFarmError,
+    errorMessage: farmErrorMessage,
+    farm,
+    reload: reloadFarm,
+  } = useFarm(FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]);
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
     useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<
@@ -60,8 +79,13 @@ export function FarmScreen() {
         >
           <FarmField
             environment={selectedEnvironment}
-            onPressCreature={() => {
-              setSelectedAnimalId(undefined);
+            farmType={FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]}
+            floors={farm?.floors ?? []}
+            onExpansionSuccess={async () => {
+              await Promise.all([reloadFarm(), reloadProfile()]);
+            }}
+            onPressCreature={(animalId) => {
+              setSelectedAnimalId(animalId);
               setIsCreatureDetailVisible(true);
             }}
             width={contentSize.width}
@@ -114,10 +138,14 @@ export function FarmScreen() {
             setIsCreatureDetailVisible(false);
             setSelectedAnimalId(undefined);
           }}
+          onReleaseSuccess={reloadFarm}
           width={contentSize.width}
         />
       )}
-      <ErrorModal message={errorMessage} onClose={clearError} />
+      <ErrorModal
+        message={farmErrorMessage ?? errorMessage}
+        onClose={farmErrorMessage ? clearFarmError : clearError}
+      />
     </View>
   );
 }

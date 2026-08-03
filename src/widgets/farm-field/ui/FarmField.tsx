@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { router } from 'expo-router';
 import {
   Alert,
@@ -8,8 +9,10 @@ import {
 
 import {
   FarmAreaRow,
-  useFarmAreaUnlock,
+  FarmExpansionModal,
+  useExpandFarmFloor,
 } from '@/src/features/unlock-farm-area';
+import type { FarmFloor, FarmType } from '@/src/entities/farm';
 
 const ENVIRONMENT_ASSETS = {
   sky: {
@@ -31,7 +34,6 @@ const ENVIRONMENT_ASSETS = {
 } as const;
 const REFERENCE_SCREEN_WIDTH = 360;
 const BASE_SLOT_SIZE = 58.4;
-const KKOMI_IMAGE = require('@/src/shared/assets/images/farm/kkomi.png');
 const CREATURE_NAMEPLATE_IMAGE = require('@/src/shared/assets/images/farm/creature-nameplate.png');
 const FARM_AREAS = [
   { areaNumber: 4, sourceCenterY: 700 },
@@ -42,44 +44,47 @@ const FARM_AREAS = [
 
 type FarmFieldProps = {
   environment: 'sky' | 'land' | 'sea' | 'space';
-  onPressCreature?: () => void;
+  farmType: FarmType;
+  floors: FarmFloor[];
+  onExpansionSuccess?: () => Promise<void>;
+  onPressCreature?: (animalId: number) => void;
   width: number;
 };
 
 export function FarmField({
   environment,
+  farmType,
+  floors,
+  onExpansionSuccess,
   onPressCreature,
   width,
 }: FarmFieldProps) {
+  const [expansionFloorNumber, setExpansionFloorNumber] = useState<
+    number | null
+  >(null);
+  const { expandFloor, isExpanding } = useExpandFarmFloor(farmType);
   const { background, unlock } = ENVIRONMENT_ASSETS[environment];
   const { width: imageWidth, height: imageHeight } =
     Image.resolveAssetSource(background);
-  const { isReady, unlockArea, unlockedAreaCount } =
-    useFarmAreaUnlock(environment);
   const farmImageRatio = imageHeight / imageWidth;
   const canvasHeight = width * farmImageRatio;
   const uiScale = width / REFERENCE_SCREEN_WIDTH;
   const slotSize = BASE_SLOT_SIZE * uiScale;
 
-  const handleUnlock = async (areaNumber: number) => {
-    if (!isReady) {
-      return;
-    }
+  const handleExpandFloor = async () => {
+    try {
+      const isExpanded = await expandFloor();
 
-    if (areaNumber !== unlockedAreaCount + 1) {
+      if (isExpanded) {
+        await onExpansionSuccess?.();
+        setExpansionFloorNumber(null);
+      }
+    } catch (error) {
       Alert.alert(
-        '아직 열 수 없어요',
-        '바로 이전 농장 영역을 먼저 잠금 해제해 주세요.',
-      );
-      return;
-    }
-
-    const isUnlocked = await unlockArea(areaNumber);
-
-    if (!isUnlocked) {
-      Alert.alert(
-        '잠금 해제 실패',
-        '농장 영역을 열지 못했습니다. 다시 시도해 주세요.',
+        '공간 확장 실패',
+        error instanceof Error
+          ? error.message
+          : '농장 공간을 확장하지 못했습니다.',
       );
     }
   };
@@ -93,6 +98,13 @@ export function FarmField({
       />
 
       {FARM_AREAS.map(({ areaNumber, sourceCenterY }) => {
+        const floor = floors.find(
+          ({ floorNum }) => floorNum === areaNumber,
+        );
+        const previousFloor = floors.find(
+          ({ floorNum }) => floorNum === areaNumber - 1,
+        );
+
         return (
           <View
             key={areaNumber}
@@ -107,30 +119,42 @@ export function FarmField({
           >
             <FarmAreaRow
               areaNumber={areaNumber}
-              creatureSlot={
-                environment === 'land' && areaNumber === 1
-                  ? {
-                      animalImageSource: KKOMI_IMAGE,
-                      name: '꼬미',
-                      nameplateImageSource:
-                        CREATURE_NAMEPLATE_IMAGE,
-                      slotNumber: 1,
-                    }
-                  : undefined
-              }
+              creatureSlots={(floor?.slots ?? []).flatMap((slot) => {
+                const animal = slot.animal;
+                if (!animal) {
+                  return [];
+                }
+
+                return [{
+                  animalId: animal.animalId,
+                  animalImageSource: animal.animalImageUrl
+                    ? { uri: animal.animalImageUrl }
+                    : undefined,
+                  name: animal.animalName,
+                  nameplateImageSource: CREATURE_NAMEPLATE_IMAGE,
+                  slotNumber: slot.slotNum,
+                }];
+              })}
               isUnlockAvailable={
-                areaNumber === unlockedAreaCount + 1
+                floor?.unlocked === false &&
+                (areaNumber === 1 || previousFloor?.unlocked === true)
               }
-              isUnlocked={areaNumber <= unlockedAreaCount}
+              isUnlocked={floor?.unlocked === true}
               onPressCreature={onPressCreature}
               onPressSlot={() => router.push('/(tabs)/capture')}
-              onPressUnlock={() => void handleUnlock(areaNumber)}
+              onPressUnlock={() => setExpansionFloorNumber(areaNumber)}
               scale={uiScale}
               unlockImageSource={unlock}
             />
           </View>
         );
       })}
+      <FarmExpansionModal
+        floorNumber={expansionFloorNumber}
+        isConfirming={isExpanding}
+        onClose={() => setExpansionFloorNumber(null)}
+        onConfirm={() => void handleExpandFloor()}
+      />
     </View>
   );
 }
