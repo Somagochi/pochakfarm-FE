@@ -52,6 +52,7 @@ const OPPORTUNITY_AVAILABLE_IMAGE = require('@/src/shared/assets/images/capture/
 const CAMERA_FRAME_IMAGE = require('@/src/shared/assets/images/capture/captured-camera-frame.png');
 const POLAROID_EXIT_IMAGE = require('@/src/shared/assets/images/capture/polaroid-exit.png');
 const TARGET_FRAME_IMAGE = require('@/src/shared/assets/images/capture/pochak-circle.png');
+const TARGET_CONTRACTING_RING_IMAGE = require('@/src/shared/assets/images/capture/pochak-contracting-circle.png');
 const CAPTURE_RESULT_CARD_IMAGE = require('@/src/shared/assets/images/capture/capture-result-card.png');
 const CAPTURE_SUCCESS_RESULT_IMAGE = require('@/src/shared/assets/images/capture/capture-success-result.png');
 const CAPTURE_SUCCESS_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-success-title.png');
@@ -553,10 +554,18 @@ export function CaptureGame({
       scaleByDeviceWidth(8),
     ],
   });
-  const targetRingSize = pulseScale.interpolate({
-    inputRange: [TARGET_MIN_SCALE, 1],
-    outputRange: [0, TARGET_RING_SIZE],
+  const targetRingColor = pulseScale.interpolate({
+    inputRange: [0, 0.333, 0.334, 0.666, 0.667, 1],
+    outputRange: [
+      '#628D38',
+      '#628D38',
+      '#E28112',
+      '#E28112',
+      '#D93920',
+      '#D93920',
+    ],
   });
+  const targetRingTextureScale = Animated.multiply(pulseScale, 0.95);
 
   return (
     <View style={styles.container}>
@@ -706,13 +715,21 @@ export function CaptureGame({
         />
         <Animated.View
           style={[
-            styles.targetContractingRing,
+            styles.targetContractingRingTexture,
             {
-              width: targetRingSize,
-              height: targetRingSize,
+              transform: [{ scale: targetRingTextureScale }],
             },
           ]}
-        />
+        >
+          <Animated.Image
+            resizeMode="contain"
+            source={TARGET_CONTRACTING_RING_IMAGE}
+            style={[
+              styles.targetRingTextureImage,
+              { tintColor: targetRingColor },
+            ]}
+          />
+        </Animated.View>
       </View>
 
       <Animated.View
@@ -1031,15 +1048,14 @@ const styles = StyleSheet.create({
     width: TARGET_SIZE,
     height: TARGET_SIZE,
   },
-  targetContractingRing: {
+  targetContractingRingTexture: {
     position: 'absolute',
-    borderWidth: scaleByDeviceWidth(1.5),
-    borderColor: 'rgba(255, 249, 218, 0.9)',
-    borderRadius: TARGET_RING_SIZE / 2,
-    shadowColor: '#FFF4C2',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.9,
-    shadowRadius: scaleByDeviceWidth(5),
+    width: TARGET_SIZE,
+    height: TARGET_SIZE,
+  },
+  targetRingTextureImage: {
+    width: TARGET_SIZE,
+    height: TARGET_SIZE,
   },
   throwingFrame: {
     position: 'absolute',
