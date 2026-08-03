@@ -27,7 +27,14 @@ const DETAIL_TOGGLE_IMAGE = require('@/src/shared/assets/images/farm/creature-de
 const CARD_DETAIL_TOGGLE_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-card-toggle.png');
 const CREATURE_CARD_FRAME_IMAGE = require('@/src/shared/assets/images/farm/creature-card-frame.png');
 const CREATURE_CARD_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card.png');
-const CREATURE_CARD_BACK_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card-back.png');
+const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
+const CARD_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/card-image-placeholder.png');
+const CREATURE_CARD_BACK_IMAGES: Record<AnimalCardType, number> = {
+  GROUND: require('@/src/shared/assets/images/farm/card-back-ground.png'),
+  SEA: require('@/src/shared/assets/images/farm/card-back-sea.png'),
+  SKY: require('@/src/shared/assets/images/farm/kkomi-card-back.png'),
+  SPACE: require('@/src/shared/assets/images/farm/card-back-space.png'),
+};
 const CREATURE_CARD_NAME_FIELD_IMAGE = require('@/src/shared/assets/images/farm/creature-card-name-field.png');
 const PROFILE_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-profile-label.png');
 const CARD_LABEL_IMAGE = require('@/src/shared/assets/images/farm/creature-card-label.png');
@@ -108,6 +115,7 @@ const CARD_JOURNEY_BUTTON_TOP_GAP = scaleByDeviceWidth(8);
 type CreatureDetailSheetProps = {
   animalId?: number;
   onClose: () => void;
+  onReleaseSuccess?: () => Promise<void>;
   width: number;
 };
 
@@ -118,6 +126,7 @@ function normalizeCardRotation(rotation: number) {
 export function CreatureDetailSheet({
   animalId,
   onClose,
+  onReleaseSuccess,
   width,
 }: CreatureDetailSheetProps) {
   const insets = useSafeAreaInsets();
@@ -153,6 +162,9 @@ export function CreatureDetailSheet({
     : animalId === undefined
       ? CREATURE_CARD_IMAGE
       : null;
+  const creatureCardBackSource = CREATURE_CARD_BACK_IMAGES[
+    animal?.cardType ?? 'GROUND'
+  ];
   const sheetWidth = width;
   const sheetHeight = sheetWidth / SHEET_ASPECT_RATIO;
   const detailFrameTop = sheetHeight * IMAGE_BOX_TOP_RATIO;
@@ -186,6 +198,7 @@ export function CreatureDetailSheet({
 
       if (isReleased) {
         setIsReleaseAlertVisible(false);
+        await onReleaseSuccess?.();
         onClose();
       }
     } catch (error) {
@@ -383,6 +396,20 @@ export function CreatureDetailSheet({
                 ]}
               />
 
+              <Image
+                accessibilityLabel={`${creatureName} 이미지 준비 중`}
+                resizeMode="contain"
+                source={ANIMAL_IMAGE_PLACEHOLDER}
+                style={[
+                  styles.creature,
+                  {
+                    top: detailFrameTop + CREATURE_TOP_OFFSET,
+                    width: CREATURE_SIZE,
+                    height: CREATURE_SIZE,
+                  },
+                ]}
+              />
+
               {creatureImageSource && (
                 <Image
                   accessibilityLabel={creatureName}
@@ -568,6 +595,22 @@ export function CreatureDetailSheet({
                   },
                 ]}
               >
+                <Animated.Image
+                  resizeMode="contain"
+                  source={CARD_IMAGE_PLACEHOLDER}
+                  style={[
+                    styles.creatureCardFace,
+                    {
+                      width: CARD_IMAGE_WIDTH,
+                      height: CARD_IMAGE_HEIGHT,
+                      opacity: cardFrontOpacity,
+                      transform: [
+                        { perspective: scaleByDeviceWidth(800) },
+                        { rotateY: cardFrontRotateY },
+                      ],
+                    },
+                  ]}
+                />
                 {creatureCardSource && (
                   <Animated.Image
                     resizeMode="stretch"
@@ -588,7 +631,7 @@ export function CreatureDetailSheet({
                 )}
                 <Animated.Image
                   resizeMode="stretch"
-                  source={CREATURE_CARD_BACK_IMAGE}
+                  source={creatureCardBackSource}
                   style={[
                     styles.creatureCardFace,
                     {
