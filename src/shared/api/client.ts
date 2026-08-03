@@ -9,6 +9,11 @@ type RequestOptions = {
   headers?: Record<string, string>;
 };
 
+export type ApiResponse<TData> = {
+  data: TData;
+  status: number;
+};
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -159,10 +164,10 @@ async function retryWithAccessToken(
   });
 }
 
-async function request<TResponse>(
+async function requestWithResponse<TResponse>(
   path: string,
   init: RequestInit = {},
-): Promise<TResponse> {
+): Promise<ApiResponse<TResponse>> {
   if (!env.apiBaseUrl) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
   }
@@ -194,7 +199,18 @@ async function request<TResponse>(
     throw new ApiError(message, response.status);
   }
 
-  return data as TResponse;
+  return {
+    data: data as TResponse,
+    status: response.status,
+  };
+}
+
+async function request<TResponse>(
+  path: string,
+  init: RequestInit = {},
+): Promise<TResponse> {
+  const response = await requestWithResponse<TResponse>(path, init);
+  return response.data;
 }
 
 export const apiClient = {
@@ -216,6 +232,20 @@ export const apiClient = {
     options: RequestOptions = {},
   ) {
     return request<TResponse>(path, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+  },
+  postWithResponse<TResponse, TBody extends object>(
+    path: string,
+    body: TBody,
+    options: RequestOptions = {},
+  ) {
+    return requestWithResponse<TResponse>(path, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
