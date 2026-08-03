@@ -1,12 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { MoreScreen } from '@/src/screens/more-screen';
 
 export default function MoreRoute() {
-  return <View style={styles.screen} />;
+  return <MoreScreen />;
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-});
