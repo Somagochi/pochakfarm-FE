@@ -84,8 +84,8 @@ export function FarmScreen() {
             onExpansionSuccess={async () => {
               await Promise.all([reloadFarm(), reloadProfile()]);
             }}
-            onPressCreature={(animalId) => {
-              setSelectedAnimalId(animalId);
+            onPressCreature={(animal) => {
+              setSelectedAnimalId(animal.animalId);
               setIsCreatureDetailVisible(true);
             }}
             width={contentSize.width}
@@ -141,7 +141,9 @@ export function FarmScreen() {
             setIsCreatureDetailVisible(false);
             setSelectedAnimalId(undefined);
           }}
-          onReleaseSuccess={reloadFarm}
+          onReleaseSuccess={async () => {
+            await reloadFarm();
+          }}
           width={contentSize.width}
         />
       )}

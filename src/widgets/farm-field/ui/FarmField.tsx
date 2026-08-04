@@ -13,7 +13,7 @@ import {
   FarmExpansionModal,
   useExpandFarmFloor,
 } from '@/src/features/unlock-farm-area';
-import type { FarmFloor, FarmType } from '@/src/entities/farm';
+import type { FarmAnimal, FarmFloor, FarmType } from '@/src/entities/farm';
 
 const ENVIRONMENT_ASSETS = {
   sky: {
@@ -47,9 +47,13 @@ type FarmFieldProps = {
   environment: 'sky' | 'land' | 'sea' | 'space';
   farmType: FarmType;
   floors: FarmFloor[];
-  onExpansionSuccess?: () => Promise<void>;
+  onExpansionSuccess?: () => Promise<unknown>;
   onPressEmptySlot?: (floorNumber: number, slotNumber: number) => void;
-  onPressCreature?: (animalId: number) => void;
+  onPressCreature?: (
+    animal: FarmAnimal,
+    floorNumber: number,
+    slotNumber: number,
+  ) => void;
   selectedSlot?: { floorNumber: number; slotNumber: number } | null;
   selectionSlotImageSource?: ImageSourcePropType;
   selectedSlotImageSource?: ImageSourcePropType;
@@ -135,6 +139,7 @@ export function FarmField({
                 }
 
                 return [{
+                  animal,
                   animalId: animal.animalId,
                   animalImageSource: animal.animalImageUrl
                     ? { uri: animal.animalImageUrl }

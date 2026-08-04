@@ -6,7 +6,7 @@ import {
   View,
 } from 'react-native';
 
-import { useAnimalDetail } from '@/src/entities/creature';
+import type { FarmAnimal } from '@/src/entities/farm';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const MODAL_IMAGE = require('@/src/shared/assets/images/farm/replace-creature-modal.png');
@@ -39,23 +39,27 @@ const BUTTON_GAP = scaleByDeviceWidth(4);
 const CLOSE_SIZE = scaleByDeviceWidth(40);
 
 type ReplaceCreatureModalProps = {
-  animalId: number | null;
+  animal: FarmAnimal | null;
+  capturedCardImageUrl?: string;
+  isConfirming: boolean;
   onClose: () => void;
+  onConfirm: () => void;
 };
 
 export function ReplaceCreatureModal({
-  animalId,
+  animal,
+  capturedCardImageUrl,
+  isConfirming,
   onClose,
+  onConfirm,
 }: ReplaceCreatureModalProps) {
-  const { animal } = useAnimalDetail(animalId ?? undefined);
-
   return (
     <Modal
       animationType="fade"
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
-      visible={animalId !== null}
+      visible={animal !== null}
     >
       <View
         accessibilityLabel="기존 동물 교체"
@@ -103,7 +107,11 @@ export function ReplaceCreatureModal({
               <Image
                 accessibilityLabel="새로 포착한 동물 카드"
                 resizeMode="contain"
-                source={CAPTURED_CARD_IMAGE}
+                source={
+                  capturedCardImageUrl
+                    ? { uri: capturedCardImageUrl }
+                    : CAPTURED_CARD_IMAGE
+                }
                 style={styles.card}
               />
               <Image
@@ -124,6 +132,7 @@ export function ReplaceCreatureModal({
             <Pressable
               accessibilityLabel="동물 교체 취소하기"
               accessibilityRole="button"
+              disabled={isConfirming}
               onPress={onClose}
               style={({ pressed }) => [
                 styles.actionButton,
@@ -136,20 +145,27 @@ export function ReplaceCreatureModal({
                 style={styles.actionButtonImage}
               />
             </Pressable>
-            <View
+            <Pressable
               accessibilityLabel="동물 교체하기"
-              style={styles.actionButton}
+              accessibilityRole="button"
+              disabled={isConfirming}
+              onPress={onConfirm}
+              style={({ pressed }) => [
+                styles.actionButton,
+                (pressed || isConfirming) && styles.pressed,
+              ]}
             >
               <Image
                 resizeMode="contain"
                 source={CONFIRM_BUTTON_IMAGE}
                 style={styles.actionButtonImage}
               />
-            </View>
+            </Pressable>
           </View>
           <Pressable
             accessibilityLabel="동물 교체창 닫기"
             accessibilityRole="button"
+            disabled={isConfirming}
             hitSlop={scaleByDeviceWidth(8)}
             onPress={onClose}
             style={({ pressed }) => [

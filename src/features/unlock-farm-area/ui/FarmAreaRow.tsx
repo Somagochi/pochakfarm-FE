@@ -8,6 +8,8 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 
+import type { FarmAnimal } from '@/src/entities/farm';
+
 const FARM_SLOT_IMAGE = require('@/src/shared/assets/images/farm/farm-slot.png');
 const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 const BASE_SLOT_SIZE = 58.4;
@@ -24,6 +26,7 @@ const BASE_UNLOCK_IMAGE_WIDTH = 112;
 type FarmAreaRowProps = {
   areaNumber: number;
   creatureSlots: {
+    animal: FarmAnimal;
     animalId: number;
     animalImageSource?: ImageSourcePropType;
     name: string;
@@ -32,7 +35,11 @@ type FarmAreaRowProps = {
   }[];
   isUnlockAvailable: boolean;
   isUnlocked: boolean;
-  onPressCreature?: (animalId: number) => void;
+  onPressCreature?: (
+    animal: FarmAnimal,
+    floorNumber: number,
+    slotNumber: number,
+  ) => void;
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
   scale: number;
@@ -100,7 +107,13 @@ export function FarmAreaRow({
                 accessibilityLabel={`${creatureSlot.name} 농장 슬롯`}
                 accessibilityRole="button"
                 key={slotNumber}
-                onPress={() => onPressCreature?.(creatureSlot.animalId)}
+                onPress={() =>
+                  onPressCreature?.(
+                    creatureSlot.animal,
+                    areaNumber,
+                    slotNumber,
+                  )
+                }
                 style={({ pressed }) => [
                   styles.creatureSlot,
                   { width: slotSize, height: slotSize },
