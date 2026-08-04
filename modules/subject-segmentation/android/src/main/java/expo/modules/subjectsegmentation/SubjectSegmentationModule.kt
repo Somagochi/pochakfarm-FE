@@ -61,6 +61,52 @@ class SubjectSegmentationModule : Module() {
         }
     }
 
+    AsyncFunction("downloadModel") { promise: Promise ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("E_NO_CONTEXT", "Android 앱 컨텍스트를 사용할 수 없습니다.", null)
+        return@AsyncFunction
+      }
+
+      val segmenter = createSegmenter()
+      val moduleInstallClient = ModuleInstall.getClient(context)
+
+      moduleInstallClient.areModulesAvailable(segmenter)
+        .addOnSuccessListener { availability ->
+          if (availability.areModulesAvailable()) {
+            segmenter.close()
+            promise.resolve(true)
+            return@addOnSuccessListener
+          }
+
+          val request = ModuleInstallRequest.newBuilder()
+            .addApi(segmenter)
+            .build()
+
+          moduleInstallClient.installModules(request)
+            .addOnSuccessListener {
+              segmenter.close()
+              promise.resolve(true)
+            }
+            .addOnFailureListener { error ->
+              segmenter.close()
+              promise.reject(
+                "E_MODEL_DOWNLOAD_FAILED",
+                "누끼 제거 모델을 다운로드하지 못했습니다. 네트워크 연결을 확인해 주세요.",
+                error,
+              )
+            }
+        }
+        .addOnFailureListener { error ->
+          segmenter.close()
+          promise.reject(
+            "E_MODEL_CHECK_FAILED",
+            "누끼 제거 모델 상태를 확인하지 못했습니다.",
+            error,
+          )
+        }
+    }
+
     AsyncFunction("removeBackground") { photoUri: String, promise: Promise ->
       val context = appContext.reactContext
       if (context == null) {

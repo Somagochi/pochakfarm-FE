@@ -24,12 +24,16 @@ const BUTTON_GAP = scaleByDeviceWidth(4);
 const CLOSE_SIZE = scaleByDeviceWidth(36);
 
 type SaveCreatureConfirmModalProps = {
+  isConfirming: boolean;
   onClose: () => void;
+  onConfirm: () => void;
   visible: boolean;
 };
 
 export function SaveCreatureConfirmModal({
+  isConfirming,
   onClose,
+  onConfirm,
   visible,
 }: SaveCreatureConfirmModalProps) {
   return (
@@ -60,6 +64,7 @@ export function SaveCreatureConfirmModal({
             <Pressable
               accessibilityLabel="저장 취소하기"
               accessibilityRole="button"
+              disabled={isConfirming}
               onPress={onClose}
               style={({ pressed }) => [
                 styles.actionButton,
@@ -72,20 +77,27 @@ export function SaveCreatureConfirmModal({
                 style={styles.actionButtonImage}
               />
             </Pressable>
-            <View
+            <Pressable
               accessibilityLabel="선택한 위치에 저장하기"
-              style={styles.actionButton}
+              accessibilityRole="button"
+              disabled={isConfirming}
+              onPress={onConfirm}
+              style={({ pressed }) => [
+                styles.actionButton,
+                (pressed || isConfirming) && styles.pressed,
+              ]}
             >
               <Image
                 resizeMode="contain"
                 source={CONFIRM_BUTTON_IMAGE}
                 style={styles.actionButtonImage}
               />
-            </View>
+            </Pressable>
           </View>
           <Pressable
             accessibilityLabel="저장 확인창 닫기"
             accessibilityRole="button"
+            disabled={isConfirming}
             hitSlop={scaleByDeviceWidth(8)}
             onPress={onClose}
             style={({ pressed }) => [

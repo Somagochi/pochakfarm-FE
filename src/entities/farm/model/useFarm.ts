@@ -19,6 +19,8 @@ export function useFarm(type: FarmType) {
       if (requestId === requestIdRef.current) {
         setFarm(nextFarm);
       }
+
+      return nextFarm;
     } catch (error) {
       if (requestId === requestIdRef.current) {
         setErrorMessage(
@@ -27,6 +29,8 @@ export function useFarm(type: FarmType) {
             : '농장 정보를 불러오지 못했습니다.',
         );
       }
+
+      return null;
     }
   }, [type]);
 

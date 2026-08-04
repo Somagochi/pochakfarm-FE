@@ -23,5 +23,9 @@ export function useSelectFarmSlot() {
     });
   };
 
-  return { selectedSlot, selectSlot };
+  return {
+    clearSelection: () => setSelectedSlot(null),
+    selectedSlot,
+    selectSlot,
+  };
 }

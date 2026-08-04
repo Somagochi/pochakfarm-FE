@@ -10,8 +10,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { type FarmType, useFarm } from '@/src/entities/farm';
-import { SaveCreatureConfirmModal } from '@/src/features/save-creature';
+import {
+  type FarmAnimal,
+  type FarmType,
+  useFarm,
+} from '@/src/entities/farm';
+import { requestCaptureFlowReset } from '@/src/features/capture-photo';
+import {
+  SaveCreatureConfirmModal,
+  usePlaceCapturedAnimal,
+} from '@/src/features/save-creature';
 import { ReplaceCreatureModal } from '@/src/features/replace-creature';
 import { useSelectFarmSlot } from '@/src/features/select-farm-slot';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
@@ -41,21 +49,41 @@ function isFarmType(value: string | string[] | undefined): value is FarmType {
 
 export function SaveToFarmScreen() {
   const insets = useSafeAreaInsets();
-  const { farmType: farmTypeParam } = useLocalSearchParams<{
+  const {
+    animalImageKey,
+    captureId: captureIdParam,
+    cardImageUrl,
+    cardType,
+    farmType: farmTypeParam,
+  } = useLocalSearchParams<{
+    animalImageKey?: string;
+    captureId?: string;
+    cardImageUrl?: string;
+    cardType?: string;
     farmType?: string;
   }>();
-  const farmType = isFarmType(farmTypeParam) ? farmTypeParam : 'GROUND';
+  const captureId = Number(captureIdParam);
+  const farmType = isFarmType(cardType)
+    ? cardType
+    : isFarmType(farmTypeParam)
+      ? farmTypeParam
+      : 'GROUND';
   const {
     clearError,
     errorMessage,
     farm,
     reload: reloadFarm,
   } = useFarm(farmType);
-  const { selectedSlot, selectSlot } = useSelectFarmSlot();
+  const { clearSelection, selectedSlot, selectSlot } = useSelectFarmSlot();
+  const { isLoading: isPlacingAnimal, placeAnimal } =
+    usePlaceCapturedAnimal();
   const [isSaveConfirmVisible, setIsSaveConfirmVisible] = useState(false);
-  const [replacementAnimalId, setReplacementAnimalId] = useState<
-    number | null
-  >(null);
+  const [replacementTarget, setReplacementTarget] = useState<{
+    animal: FarmAnimal;
+    floorNumber: number;
+    slotNumber: number;
+  } | null>(null);
+  const [placementError, setPlacementError] = useState<string | null>(null);
   const [fieldWidth, setFieldWidth] = useState(0);
   const slotSummary = useMemo(() => {
     const unlockedSlots = (farm?.floors ?? [])
@@ -67,6 +95,75 @@ export function SaveToFarmScreen() {
       total: unlockedSlots.length,
     };
   }, [farm]);
+
+  const handlePlaceAnimal = async (
+    floorNumber: number,
+    slotNumber: number,
+    replacedAnimalId: number | null,
+  ) => {
+    if (!Number.isFinite(captureId) || !animalImageKey) {
+      setPlacementError('저장할 포착 정보를 찾지 못했습니다.');
+      return;
+    }
+
+    const result = await placeAnimal(captureId, {
+      animalImageKey,
+      floorNum: floorNumber,
+      slotNum: slotNumber,
+      replacedAnimalId,
+    });
+
+    if (result.ok) {
+      requestCaptureFlowReset();
+      router.replace('/(tabs)/farm');
+      return;
+    }
+
+    if (result.code === 'FARM_SLOT_OCCUPIED') {
+      const nextFarm = await reloadFarm();
+      const currentAnimal = nextFarm?.floors
+        .find(({ floorNum }) => floorNum === floorNumber)
+        ?.slots.find(({ slotNum }) => slotNum === slotNumber)?.animal;
+
+      setIsSaveConfirmVisible(false);
+      if (currentAnimal) {
+        setReplacementTarget({
+          animal: currentAnimal,
+          floorNumber,
+          slotNumber,
+        });
+      } else {
+        setPlacementError(result.message);
+      }
+      return;
+    }
+
+    if (result.code === 'ANIMAL_REPLACEMENT_CONFLICT') {
+      await reloadFarm();
+      setReplacementTarget(null);
+      clearSelection();
+      setPlacementError(result.message);
+      return;
+    }
+
+    if (result.code === 'CAPTURE_PLACEMENT_CONFLICT') {
+      await reloadFarm();
+      setIsSaveConfirmVisible(false);
+      setReplacementTarget(null);
+      clearSelection();
+    }
+
+    if (
+      result.code === 'CAPTURE_NOT_PLACEABLE' ||
+      result.code === 'CAPTURE_ALREADY_PLACED'
+    ) {
+      setIsSaveConfirmVisible(false);
+      setReplacementTarget(null);
+      clearSelection();
+    }
+
+    setPlacementError(result.message);
+  };
 
   return (
     <View
@@ -113,7 +210,9 @@ export function SaveToFarmScreen() {
               floors={farm?.floors ?? []}
               onExpansionSuccess={reloadFarm}
               onPressEmptySlot={selectSlot}
-              onPressCreature={setReplacementAnimalId}
+              onPressCreature={(animal, floorNumber, slotNumber) => {
+                setReplacementTarget({ animal, floorNumber, slotNumber });
+              }}
               selectedSlot={selectedSlot}
               selectedSlotImageSource={SELECTED_SAVE_SLOT_IMAGE}
               selectionSlotImageSource={EMPTY_SAVE_SLOT_IMAGE}
@@ -166,14 +265,41 @@ export function SaveToFarmScreen() {
       </View>
 
       <SaveCreatureConfirmModal
+        isConfirming={isPlacingAnimal}
         onClose={() => setIsSaveConfirmVisible(false)}
+        onConfirm={() => {
+          if (selectedSlot) {
+            void handlePlaceAnimal(
+              selectedSlot.floorNumber,
+              selectedSlot.slotNumber,
+              null,
+            );
+          }
+        }}
         visible={isSaveConfirmVisible}
       />
       <ReplaceCreatureModal
-        animalId={replacementAnimalId}
-        onClose={() => setReplacementAnimalId(null)}
+        animal={replacementTarget?.animal ?? null}
+        capturedCardImageUrl={cardImageUrl}
+        isConfirming={isPlacingAnimal}
+        onClose={() => setReplacementTarget(null)}
+        onConfirm={() => {
+          if (replacementTarget) {
+            void handlePlaceAnimal(
+              replacementTarget.floorNumber,
+              replacementTarget.slotNumber,
+              replacementTarget.animal.animalId,
+            );
+          }
+        }}
       />
-      <ErrorModal message={errorMessage} onClose={clearError} />
+      <ErrorModal
+        message={placementError ?? errorMessage}
+        onClose={() => {
+          setPlacementError(null);
+          clearError();
+        }}
+      />
     </View>
   );
 }

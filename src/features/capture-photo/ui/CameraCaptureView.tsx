@@ -20,11 +20,18 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
+import { CreatureNameConfirmModal } from './CreatureNameConfirmModal';
+import { SubjectModelDownloadModal } from './SubjectModelDownloadModal';
 import { useCaptureAvailability } from '../model/useCaptureAvailability';
+import { subscribeCaptureFlowReset } from '../model/captureFlowReset';
 import { useCaptureOverview } from '../model/useCaptureOverview';
+import { useCreateCapture } from '../model/useCreateCapture';
+import { usePrepareSubjectSegmentationModel } from '../model/usePrepareSubjectSegmentationModel';
+import { usePurchaseCaptureAttempt } from '../model/usePurchaseCaptureAttempt';
 import type { CaptureCardType, CaptureTier } from '../model/types';
 
 const CLOSE_IMAGE = require('@/src/shared/assets/images/capture/capture-close.png');
@@ -89,6 +96,7 @@ const CAPTURE_TIERS: CaptureTier[] = [
   'SS',
   'SSS',
 ] as const;
+const DAILY_CAPTURE_LIMIT = 5;
 
 export function CameraCaptureView() {
   const { height: screenHeight, width: screenWidth } =
@@ -99,10 +107,16 @@ export function CameraCaptureView() {
   const [cameraZoom, setCameraZoom] = useState(0);
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
+  const [capturedPhotoContentType, setCapturedPhotoContentType] =
+    useState('image/jpeg');
+  const [capturedWithCoinPayment, setCapturedWithCoinPayment] =
+    useState(false);
   const [creatureName, setCreatureName] = useState('');
   const [isNameInputFocused, setIsNameInputFocused] = useState(false);
   const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
   const [hasConfirmedName, setHasConfirmedName] = useState(false);
+  const [isNameConfirmModalVisible, setIsNameConfirmModalVisible] =
+    useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
   const [remainingCaptureCount, setRemainingCaptureCount] =
     useState(0);
@@ -113,6 +127,27 @@ export function CameraCaptureView() {
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
   const { availability: captureAvailability } =
     useCaptureAvailability();
+  const {
+    animalImageKey,
+    captureDetail,
+    clearError: clearCreateCaptureError,
+    createCapture,
+    errorMessage: createCaptureError,
+    isLoading: isCreatingCapture,
+    result: createCaptureResult,
+    submitGameResult,
+  } = useCreateCapture();
+  const {
+    errorMessage: subjectModelError,
+    prepare: prepareSubjectModel,
+    state: subjectModelState,
+  } = usePrepareSubjectSegmentationModel(permission?.granted === true);
+  const {
+    clearError: clearPurchaseAttemptError,
+    errorMessage: purchaseAttemptError,
+    isLoading: isPurchasingAttempt,
+    purchaseAttempt,
+  } = usePurchaseCaptureAttempt();
   const {
     errorMessage: captureOverviewError,
     isLoading: isCaptureOverviewLoading,
@@ -228,11 +263,10 @@ export function CameraCaptureView() {
       probabilityPercent,
     ]),
   );
-  const dailyCaptureLimit =
-    captureAvailability?.freeAttempts.dailyLimit ?? 0;
-  const extraCaptureCost = captureAvailability?.extraCaptureCost ?? 0;
+  const extraCaptureCost =
+    captureAvailability?.attemptPurchaseCost ?? 0;
   const hasCaptureOpportunity =
-    captureAvailability?.canStartCapture === true &&
+    captureAvailability !== null &&
     (remainingCaptureCount > 0 || isPaidCaptureSessionActive);
   const isNamingCreature =
     capturedPhotoUri !== null && !hasConfirmedName;
@@ -265,7 +299,7 @@ export function CameraCaptureView() {
       return;
     }
 
-    setRemainingCaptureCount(captureAvailability.freeAttempts.remaining);
+    setRemainingCaptureCount(captureAvailability.attempts.remaining);
     setCoinBalance(captureAvailability.coins);
     setIsPaidCaptureSessionActive(false);
   }, [captureAvailability]);
@@ -349,6 +383,21 @@ export function CameraCaptureView() {
     permissionToastOpacity,
   ]);
 
+  useEffect(
+    () =>
+      subscribeCaptureFlowReset(() => {
+        setCapturedPhotoUri(null);
+        setDevelopingPhotoUri(null);
+        setCreatureName('');
+        setCapturedPhotoContentType('image/jpeg');
+        setCapturedWithCoinPayment(false);
+        setIsNameInputFocused(false);
+        setIsNameConfirmModalVisible(false);
+        setHasConfirmedName(false);
+      }),
+    [],
+  );
+
   const handleRequestPermission = async () => {
     const nextPermission = await requestPermission();
 
@@ -359,6 +408,7 @@ export function CameraCaptureView() {
 
   const consumeCaptureOpportunity = () => {
     if (remainingCaptureCount > 0) {
+      setCapturedWithCoinPayment(false);
       setRemainingCaptureCount((currentCount) =>
         Math.max(0, currentCount - 1),
       );
@@ -366,9 +416,7 @@ export function CameraCaptureView() {
     }
 
     if (isPaidCaptureSessionActive) {
-      setCoinBalance((currentBalance) =>
-        Math.max(0, currentBalance - extraCaptureCost),
-      );
+      setCapturedWithCoinPayment(true);
       setIsPaidCaptureSessionActive(false);
     }
   };
@@ -403,6 +451,7 @@ export function CameraCaptureView() {
       });
 
       if (photo?.uri) {
+        setCapturedPhotoContentType('image/jpeg');
         consumeCaptureOpportunity();
         developingPhotoTranslateY.setValue(-cameraCardHeight);
         setDevelopingPhotoUri(photo.uri);
@@ -441,6 +490,9 @@ export function CameraCaptureView() {
       const selectedPhoto = result.assets?.[0];
 
       if (!result.canceled && selectedPhoto?.uri) {
+        setCapturedPhotoContentType(
+          selectedPhoto.mimeType ?? 'image/jpeg',
+        );
         consumeCaptureOpportunity();
         setCapturedPhotoUri(selectedPhoto.uri);
       }
@@ -462,7 +514,7 @@ export function CameraCaptureView() {
     );
   }
 
-  const handleUseCoins = () => {
+  const handleUseCoins = async () => {
     if (!captureAvailability) {
       Alert.alert(
         '포착 정보 확인 중',
@@ -480,8 +532,25 @@ export function CameraCaptureView() {
       return;
     }
 
-    setIsPaidCaptureSessionActive(true);
-    setIsCoinDialogVisible(false);
+    const purchase = await purchaseAttempt();
+
+    if (purchase) {
+      setRemainingCaptureCount(purchase.remaining);
+      setCoinBalance(purchase.currentCoins);
+      setIsPaidCaptureSessionActive(true);
+      setIsCoinDialogVisible(false);
+    }
+  };
+
+  const resetCaptureFlow = () => {
+    setCapturedPhotoUri(null);
+    setDevelopingPhotoUri(null);
+    setCreatureName('');
+    setCapturedPhotoContentType('image/jpeg');
+    setCapturedWithCoinPayment(false);
+    setIsNameInputFocused(false);
+    setIsNameConfirmModalVisible(false);
+    setHasConfirmedName(false);
   };
 
   if (!permission.granted) {
@@ -516,14 +585,29 @@ export function CameraCaptureView() {
   if (capturedPhotoUri && hasConfirmedName) {
     return (
       <CaptureGame
-        onClose={() => router.replace('/(tabs)/farm')}
+        animalImageKey={animalImageKey}
+        apiErrorMessage={createCaptureError}
+        captureDetail={captureDetail}
+        cardType={createCaptureResult?.cardType}
+        onCloseApiError={() => {
+          clearCreateCaptureError();
+          router.replace('/(tabs)/farm');
+        }}
+        onClose={() => {
+          resetCaptureFlow();
+          router.replace('/(tabs)/farm');
+        }}
+        onGameResult={(throws) => {
+          void submitGameResult(throws);
+        }}
         onRetry={() => {
-          setCapturedPhotoUri(null);
-          setCreatureName('');
-          setIsNameInputFocused(false);
-          setHasConfirmedName(false);
+          resetCaptureFlow();
         }}
         photoUri={capturedPhotoUri}
+        ringShrinkDurationMs={
+          createCaptureResult?.difficulty.ringShrinkDurationMs
+        }
+        tier={createCaptureResult?.tier}
       />
     );
   }
@@ -544,7 +628,7 @@ export function CameraCaptureView() {
       >
         <View style={styles.captureStatusGroup}>
           <View
-            accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${dailyCaptureLimit}`}
+            accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${DAILY_CAPTURE_LIMIT}`}
             style={styles.remainingCountGroup}
           >
             <Image
@@ -558,7 +642,7 @@ export function CameraCaptureView() {
               style={styles.remainingCountImage}
             />
             <Text style={styles.remainingCountText}>
-              {remainingCaptureCount} / {dailyCaptureLimit}
+              {remainingCaptureCount} / {DAILY_CAPTURE_LIMIT}
             </Text>
           </View>
 
@@ -824,7 +908,10 @@ export function CameraCaptureView() {
             accessibilityLabel="동물 이름 저장"
             accessibilityRole="button"
             disabled={!creatureName.trim()}
-            onPress={() => setHasConfirmedName(true)}
+            onPress={() => {
+              Keyboard.dismiss();
+              setIsNameConfirmModalVisible(true);
+            }}
             style={styles.saveNameButton}
           >
             <Image
@@ -903,6 +990,49 @@ export function CameraCaptureView() {
         </View>
       )}
 
+      <CreatureNameConfirmModal
+        creatureName={creatureName.trim()}
+        isConfirming={isCreatingCapture}
+        onClose={() => setIsNameConfirmModalVisible(false)}
+        onConfirm={() => {
+          if (!capturedPhotoUri) {
+            return;
+          }
+
+          void createCapture({
+            contentType: capturedPhotoContentType,
+            animalName: creatureName.trim(),
+            allowCoinPayment: capturedWithCoinPayment,
+            photoUri: capturedPhotoUri,
+          });
+          setIsNameConfirmModalVisible(false);
+          setHasConfirmedName(true);
+        }}
+        visible={isNameConfirmModalVisible}
+      />
+
+      <ErrorModal
+        message={createCaptureError}
+        onClose={() => {
+          clearCreateCaptureError();
+          router.replace('/(tabs)/farm');
+        }}
+      />
+
+      <ErrorModal
+        message={purchaseAttemptError}
+        onClose={clearPurchaseAttemptError}
+      />
+
+      <SubjectModelDownloadModal
+        errorMessage={subjectModelError}
+        onRetry={() => void prepareSubjectModel()}
+        visible={
+          subjectModelState === 'downloading' ||
+          subjectModelState === 'error'
+        }
+      />
+
       {isPermissionToastVisible && (
         <Animated.View
           pointerEvents="none"
@@ -940,20 +1070,26 @@ export function CameraCaptureView() {
             <Pressable
               accessibilityLabel="닫기"
               accessibilityRole="button"
+              disabled={isPurchasingAttempt}
               onPress={() => setIsCoinDialogVisible(false)}
               style={styles.dialogCloseButton}
             />
             <Pressable
               accessibilityLabel="취소하기"
               accessibilityRole="button"
+              disabled={isPurchasingAttempt}
               onPress={() => setIsCoinDialogVisible(false)}
               style={styles.dialogCancelButton}
             />
             <Pressable
               accessibilityLabel={`${extraCaptureCost.toLocaleString('ko-KR')}코인 사용`}
               accessibilityRole="button"
-              onPress={handleUseCoins}
-              style={styles.dialogConfirmButton}
+              disabled={isPurchasingAttempt}
+              onPress={() => void handleUseCoins()}
+              style={[
+                styles.dialogConfirmButton,
+                isPurchasingAttempt && styles.buttonPressed,
+              ]}
             />
           </View>
         </View>

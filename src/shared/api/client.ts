@@ -18,10 +18,32 @@ export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
+    public readonly code: string | null = null,
   ) {
     super(message);
     this.name = 'ApiError';
   }
+}
+
+function getErrorCode(data: unknown) {
+  if (!isRecord(data)) {
+    return null;
+  }
+
+  if ('code' in data && typeof data.code === 'string') {
+    return data.code;
+  }
+
+  if (
+    'data' in data &&
+    isRecord(data.data) &&
+    'code' in data.data &&
+    typeof data.data.code === 'string'
+  ) {
+    return data.data.code;
+  }
+
+  return null;
 }
 
 const LOGIN_PATH = '/api/auth/login';
@@ -196,7 +218,7 @@ async function requestWithResponse<TResponse>(
   if (!response.ok) {
     const message = getErrorMessage(data) ?? 'API 요청에 실패했습니다.';
 
-    throw new ApiError(message, response.status);
+    throw new ApiError(message, response.status, getErrorCode(data));
   }
 
   return {
@@ -222,6 +244,12 @@ export const apiClient = {
   },
   get<TResponse>(path: string, options: RequestOptions = {}) {
     return request<TResponse>(path, {
+      method: 'GET',
+      headers: options.headers,
+    });
+  },
+  getWithResponse<TResponse>(path: string, options: RequestOptions = {}) {
+    return requestWithResponse<TResponse>(path, {
       method: 'GET',
       headers: options.headers,
     });
@@ -256,6 +284,15 @@ export const apiClient = {
   },
   postWithoutBody<TResponse>(path: string, options: RequestOptions = {}) {
     return request<TResponse>(path, {
+      method: 'POST',
+      headers: options.headers,
+    });
+  },
+  postWithoutBodyWithResponse<TResponse>(
+    path: string,
+    options: RequestOptions = {},
+  ) {
+    return requestWithResponse<TResponse>(path, {
       method: 'POST',
       headers: options.headers,
     });
