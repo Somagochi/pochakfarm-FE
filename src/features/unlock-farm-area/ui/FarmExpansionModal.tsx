@@ -4,7 +4,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  Text,
   View,
 } from 'react-native';
 
@@ -15,10 +14,12 @@ const TEXT_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-text.
 const CANCEL_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-cancel-button.png');
 const CONFIRM_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-confirm-button.png');
 const MODAL_WIDTH = scaleByDeviceWidth(280);
-const MODAL_HEIGHT = scaleByDeviceWidth(181);
+const MODAL_HEIGHT = MODAL_WIDTH * (832 / 1120);
 const TEXT_WIDTH = scaleByDeviceWidth(191);
 const TEXT_HEIGHT = scaleByDeviceWidth(86);
-const BUTTON_WIDTH = scaleByDeviceWidth(105.25);
+const TEXT_TOP = scaleByDeviceWidth(30);
+const TEXT_BUTTON_GAP = scaleByDeviceWidth(16);
+const BUTTON_WIDTH = scaleByDeviceWidth(126);
 const BUTTON_HEIGHT = scaleByDeviceWidth(42);
 
 type FarmExpansionModalProps = {
@@ -49,7 +50,7 @@ export function FarmExpansionModal({
       >
         <View style={styles.modal}>
           <Image
-            resizeMode="stretch"
+            resizeMode="contain"
             source={MODAL_IMAGE}
             style={styles.modalImage}
           />
@@ -74,7 +75,6 @@ export function FarmExpansionModal({
                 source={CANCEL_BUTTON_IMAGE}
                 style={styles.actionButtonImage}
               />
-              <Text style={styles.buttonText}>취소하기</Text>
             </Pressable>
             <Pressable
               accessibilityLabel="1000코인 사용"
@@ -93,9 +93,7 @@ export function FarmExpansionModal({
               />
               {isConfirming ? (
                 <ActivityIndicator color="#684500" size="small" />
-              ) : (
-                <Text style={styles.buttonText}>1000코인 사용</Text>
-              )}
+              ) : null}
             </Pressable>
           </View>
           <Pressable
@@ -132,17 +130,17 @@ const styles = StyleSheet.create({
   },
   textImage: {
     position: 'absolute',
-    top: scaleByDeviceWidth(27),
+    top: TEXT_TOP,
     alignSelf: 'center',
     width: TEXT_WIDTH,
     height: TEXT_HEIGHT,
   },
   buttonRow: {
     position: 'absolute',
-    bottom: scaleByDeviceWidth(10),
+    top: TEXT_TOP + TEXT_HEIGHT + TEXT_BUTTON_GAP,
     alignSelf: 'center',
     flexDirection: 'row',
-    columnGap: scaleByDeviceWidth(8),
+    columnGap: scaleByDeviceWidth(4),
   },
   actionButton: {
     width: BUTTON_WIDTH,
@@ -154,14 +152,6 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
-  },
-  buttonText: {
-    color: '#684500',
-    fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(12),
-    lineHeight: scaleByDeviceWidth(16),
-    includeFontPadding: false,
-    textAlign: 'center',
   },
   closeButton: {
     position: 'absolute',
