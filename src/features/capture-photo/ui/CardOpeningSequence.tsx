@@ -1,4 +1,5 @@
 import { Image as ExpoImage } from 'expo-image';
+import { router } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -260,12 +261,19 @@ export function CardOpeningSequence({
   if (stage === 'result') {
     return (
       <View style={styles.container}>
-        <ResultCard
-          onRelease={() => setIsReleaseAlertVisible(true)}
-        />
-        {isReleaseAlertVisible && (
+        {isReleaseAlertVisible ? (
           <ReleaseCreatureAlert
             onClose={() => setIsReleaseAlertVisible(false)}
+          />
+        ) : (
+          <ResultCard
+            onRelease={() => setIsReleaseAlertVisible(true)}
+            onSave={() =>
+              router.push({
+                pathname: '/save-to-farm',
+                params: { farmType: 'GROUND' },
+              })
+            }
           />
         )}
       </View>
@@ -901,8 +909,10 @@ function OpeningAnimation({ progress }: { progress: Animated.Value }) {
 
 function ResultCard({
   onRelease,
+  onSave,
 }: {
   onRelease: () => void;
+  onSave: () => void;
 }) {
   const cardRotation = useRef(new Animated.Value(180)).current;
   const cardRotationStartRef = useRef(0);
@@ -1033,12 +1043,17 @@ function ResultCard({
         />
       </View>
       <View style={styles.resultActions}>
-        <Image
+        <Pressable
           accessibilityLabel="농장에 저장하기"
-          resizeMode="contain"
-          source={SAVE_TO_FARM_BUTTON_IMAGE}
+          onPress={onSave}
           style={styles.resultActionButton}
-        />
+        >
+          <Image
+            resizeMode="contain"
+            source={SAVE_TO_FARM_BUTTON_IMAGE}
+            style={styles.resultActionButtonImage}
+          />
+        </Pressable>
         <Pressable
           accessibilityLabel="자연으로 돌려보내기"
           onPress={onRelease}

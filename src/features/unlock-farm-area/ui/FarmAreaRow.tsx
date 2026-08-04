@@ -35,6 +35,9 @@ type FarmAreaRowProps = {
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
   scale: number;
+  selectedSlotNumber?: number;
+  selectionSlotImageSource?: ImageSourcePropType;
+  selectedSlotImageSource?: ImageSourcePropType;
   unlockImageSource: ImageSourcePropType;
 };
 
@@ -47,6 +50,9 @@ export function FarmAreaRow({
   onPressSlot,
   onPressUnlock,
   scale,
+  selectedSlotNumber,
+  selectionSlotImageSource,
+  selectedSlotImageSource,
   unlockImageSource,
 }: FarmAreaRowProps) {
   const slotSize = BASE_SLOT_SIZE * scale;
@@ -181,7 +187,13 @@ export function FarmAreaRow({
               ]}
             >
               <Image
-                source={FARM_SLOT_IMAGE}
+                resizeMode="contain"
+                source={
+                  selectedSlotNumber === slotNumber &&
+                  selectedSlotImageSource
+                    ? selectedSlotImageSource
+                    : selectionSlotImageSource ?? FARM_SLOT_IMAGE
+                }
                 style={{ width: slotSize, height: slotSize }}
               />
             </Pressable>
