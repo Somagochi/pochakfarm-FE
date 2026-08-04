@@ -6,6 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useState } from 'react';
 
 const FARM_SLOT_IMAGE = require('@/src/shared/assets/images/farm/farm-slot.png');
 const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
@@ -55,6 +56,9 @@ export function FarmAreaRow({
   selectedSlotImageSource,
   unlockImageSource,
 }: FarmAreaRowProps) {
+  const [loadedAnimalImageIds, setLoadedAnimalImageIds] = useState<
+    Set<number>
+  >(() => new Set());
   const slotSize = BASE_SLOT_SIZE * scale;
   const slotGap = BASE_SLOT_GAP * scale;
   const rowWidth = slotSize * SLOT_COUNT + slotGap * (SLOT_COUNT - 1);
@@ -83,6 +87,9 @@ export function FarmAreaRow({
           );
 
           if (creatureSlot) {
+            const isAnimalImageLoaded = loadedAnimalImageIds.has(
+              creatureSlot.animalId,
+            );
             const nameplateWidth = BASE_NAMEPLATE_WIDTH * scale;
             const nameplateHeight = BASE_NAMEPLATE_HEIGHT * scale;
             const animalWidth = BASE_CREATURE_WIDTH * scale;
@@ -100,23 +107,46 @@ export function FarmAreaRow({
                   pressed && styles.pressed,
                 ]}
               >
-                <Image
-                  resizeMode="contain"
-                  source={ANIMAL_IMAGE_PLACEHOLDER}
-                  style={[
-                    styles.creatureImage,
-                    {
-                      top:
-                        slotSize * 0.04 +
-                        BASE_CREATURE_TOP_OFFSET * scale,
-                      left: (slotSize - animalWidth) / 2,
-                      width: animalWidth,
-                      height: animalHeight,
-                    },
-                  ]}
-                />
+                {!isAnimalImageLoaded && (
+                  <Image
+                    resizeMode="contain"
+                    source={ANIMAL_IMAGE_PLACEHOLDER}
+                    style={[
+                      styles.creatureImage,
+                      {
+                        top:
+                          slotSize * 0.04 +
+                          BASE_CREATURE_TOP_OFFSET * scale,
+                        left: (slotSize - animalWidth) / 2,
+                        width: animalWidth,
+                        height: animalHeight,
+                      },
+                    ]}
+                  />
+                )}
                 {creatureSlot.animalImageSource && (
                   <Image
+                    onError={() => {
+                      setLoadedAnimalImageIds((currentIds) => {
+                        const nextIds = new Set(currentIds);
+                        nextIds.delete(creatureSlot.animalId);
+                        return nextIds;
+                      });
+                    }}
+                    onLoad={() => {
+                      setLoadedAnimalImageIds((currentIds) => {
+                        const nextIds = new Set(currentIds);
+                        nextIds.add(creatureSlot.animalId);
+                        return nextIds;
+                      });
+                    }}
+                    onLoadStart={() => {
+                      setLoadedAnimalImageIds((currentIds) => {
+                        const nextIds = new Set(currentIds);
+                        nextIds.delete(creatureSlot.animalId);
+                        return nextIds;
+                      });
+                    }}
                     resizeMode="contain"
                     source={creatureSlot.animalImageSource}
                     style={[
@@ -128,6 +158,7 @@ export function FarmAreaRow({
                         left: (slotSize - animalWidth) / 2,
                         width: animalWidth,
                         height: animalHeight,
+                        opacity: isAnimalImageLoaded ? 1 : 0,
                       },
                     ]}
                   />

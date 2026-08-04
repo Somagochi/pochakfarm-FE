@@ -136,6 +136,10 @@ export function CreatureDetailSheet({
   const [selectedView, setSelectedView] = useState<'profile' | 'card'>(
     'profile',
   );
+  const [isCreatureImageLoaded, setIsCreatureImageLoaded] =
+    useState(false);
+  const [isCreatureCardLoaded, setIsCreatureCardLoaded] =
+    useState(false);
   const [isReleaseAlertVisible, setIsReleaseAlertVisible] =
     useState(false);
   const hasDetailContent = animalId === undefined || animal !== null;
@@ -148,16 +152,18 @@ export function CreatureDetailSheet({
   const creatureTraits = animal
     ? [animal.skill1, animal.skill2]
     : CREATURE_TRAITS;
+  const creatureImageUri = animal?.animalImageUrl ?? null;
+  const creatureCardUri = animal?.cardImageUrl ?? null;
   const creatureImageSource = animal
-    ? animal.animalImageUrl
-      ? { uri: animal.animalImageUrl }
+    ? creatureImageUri
+      ? { uri: creatureImageUri }
       : null
     : animalId === undefined
       ? CREATURE_IMAGE
       : null;
   const creatureCardSource = animal
-    ? animal.cardImageUrl
-      ? { uri: animal.cardImageUrl }
+    ? creatureCardUri
+      ? { uri: creatureCardUri }
       : null
     : animalId === undefined
       ? CREATURE_CARD_IMAGE
@@ -282,6 +288,14 @@ export function CreatureDetailSheet({
     }).start();
   }, [sheetHeight, translateY]);
 
+  useEffect(() => {
+    setIsCreatureImageLoaded(false);
+  }, [animalId, creatureImageUri]);
+
+  useEffect(() => {
+    setIsCreatureCardLoaded(false);
+  }, [animalId, creatureCardUri]);
+
   return (
     <Modal
       animationType="none"
@@ -396,23 +410,28 @@ export function CreatureDetailSheet({
                 ]}
               />
 
-              <Image
-                accessibilityLabel={`${creatureName} 이미지 준비 중`}
-                resizeMode="contain"
-                source={ANIMAL_IMAGE_PLACEHOLDER}
-                style={[
-                  styles.creature,
-                  {
-                    top: detailFrameTop + CREATURE_TOP_OFFSET,
-                    width: CREATURE_SIZE,
-                    height: CREATURE_SIZE,
-                  },
-                ]}
-              />
+              {!isCreatureImageLoaded && (
+                <Image
+                  accessibilityLabel={`${creatureName} 이미지 준비 중`}
+                  resizeMode="contain"
+                  source={ANIMAL_IMAGE_PLACEHOLDER}
+                  style={[
+                    styles.creature,
+                    {
+                      top: detailFrameTop + CREATURE_TOP_OFFSET,
+                      width: CREATURE_SIZE,
+                      height: CREATURE_SIZE,
+                    },
+                  ]}
+                />
+              )}
 
               {creatureImageSource && (
                 <Image
                   accessibilityLabel={creatureName}
+                  onError={() => setIsCreatureImageLoaded(false)}
+                  onLoad={() => setIsCreatureImageLoaded(true)}
+                  onLoadStart={() => setIsCreatureImageLoaded(false)}
                   resizeMode="contain"
                   source={creatureImageSource}
                   style={[
@@ -421,6 +440,7 @@ export function CreatureDetailSheet({
                       top: detailFrameTop + CREATURE_TOP_OFFSET,
                       width: CREATURE_SIZE,
                       height: CREATURE_SIZE,
+                      opacity: isCreatureImageLoaded ? 1 : 0,
                     },
                   ]}
                 />
@@ -595,24 +615,29 @@ export function CreatureDetailSheet({
                   },
                 ]}
               >
-                <Animated.Image
-                  resizeMode="contain"
-                  source={CARD_IMAGE_PLACEHOLDER}
-                  style={[
-                    styles.creatureCardFace,
-                    {
-                      width: CARD_IMAGE_WIDTH,
-                      height: CARD_IMAGE_HEIGHT,
-                      opacity: cardFrontOpacity,
-                      transform: [
-                        { perspective: scaleByDeviceWidth(800) },
-                        { rotateY: cardFrontRotateY },
-                      ],
-                    },
-                  ]}
-                />
+                {!isCreatureCardLoaded && (
+                  <Animated.Image
+                    resizeMode="contain"
+                    source={CARD_IMAGE_PLACEHOLDER}
+                    style={[
+                      styles.creatureCardFace,
+                      {
+                        width: CARD_IMAGE_WIDTH,
+                        height: CARD_IMAGE_HEIGHT,
+                        opacity: cardFrontOpacity,
+                        transform: [
+                          { perspective: scaleByDeviceWidth(800) },
+                          { rotateY: cardFrontRotateY },
+                        ],
+                      },
+                    ]}
+                  />
+                )}
                 {creatureCardSource && (
                   <Animated.Image
+                    onError={() => setIsCreatureCardLoaded(false)}
+                    onLoad={() => setIsCreatureCardLoaded(true)}
+                    onLoadStart={() => setIsCreatureCardLoaded(false)}
                     resizeMode="stretch"
                     source={creatureCardSource}
                     style={[
@@ -620,7 +645,9 @@ export function CreatureDetailSheet({
                       {
                         width: CARD_IMAGE_WIDTH,
                         height: CARD_IMAGE_HEIGHT,
-                        opacity: cardFrontOpacity,
+                        opacity: isCreatureCardLoaded
+                          ? cardFrontOpacity
+                          : 0,
                         transform: [
                           { perspective: scaleByDeviceWidth(800) },
                           { rotateY: cardFrontRotateY },
