@@ -1,5 +1,4 @@
 import {
-  ActivityIndicator,
   Image,
   Modal,
   Pressable,
@@ -9,42 +8,40 @@ import {
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
-const MODAL_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-modal.png');
-const TEXT_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-text.png');
-const CANCEL_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-cancel-button.png');
-const CONFIRM_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/farm-expansion-confirm-button.png');
+const MODAL_IMAGE = require('@/src/shared/assets/images/farm/save-confirm-modal.png');
+const TEXT_IMAGE = require('@/src/shared/assets/images/farm/save-confirm-text.png');
+const CANCEL_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/save-confirm-cancel-button.png');
+const CONFIRM_BUTTON_IMAGE = require('@/src/shared/assets/images/farm/save-confirm-button.png');
 const MODAL_WIDTH = scaleByDeviceWidth(280);
 const MODAL_HEIGHT = MODAL_WIDTH * (832 / 1120);
-const TEXT_WIDTH = scaleByDeviceWidth(191);
-const TEXT_HEIGHT = scaleByDeviceWidth(86);
+const TEXT_WIDTH = scaleByDeviceWidth(179);
+const TEXT_HEIGHT = TEXT_WIDTH * (256 / 716);
 const TEXT_TOP = scaleByDeviceWidth(30);
 const TEXT_BUTTON_GAP = scaleByDeviceWidth(16);
 const BUTTON_WIDTH = scaleByDeviceWidth(126);
 const BUTTON_HEIGHT = scaleByDeviceWidth(42);
+const BUTTON_GAP = scaleByDeviceWidth(4);
+const CLOSE_SIZE = scaleByDeviceWidth(36);
 
-type FarmExpansionModalProps = {
-  floorNumber: number | null;
-  isConfirming?: boolean;
+type SaveCreatureConfirmModalProps = {
   onClose: () => void;
-  onConfirm: () => void;
+  visible: boolean;
 };
 
-export function FarmExpansionModal({
-  floorNumber,
-  isConfirming = false,
+export function SaveCreatureConfirmModal({
   onClose,
-  onConfirm,
-}: FarmExpansionModalProps) {
+  visible,
+}: SaveCreatureConfirmModalProps) {
   return (
     <Modal
       animationType="fade"
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
-      visible={floorNumber !== null}
+      visible={visible}
     >
       <View
-        accessibilityLabel={`${floorNumber ?? ''}층 공간 확장 확인`}
+        accessibilityLabel="선택한 농장 위치에 저장하기 확인"
         accessibilityViewIsModal
         style={styles.overlay}
       >
@@ -61,9 +58,8 @@ export function FarmExpansionModal({
           />
           <View style={styles.buttonRow}>
             <Pressable
-              accessibilityLabel="취소하기"
+              accessibilityLabel="저장 취소하기"
               accessibilityRole="button"
-              disabled={isConfirming}
               onPress={onClose}
               style={({ pressed }) => [
                 styles.actionButton,
@@ -71,35 +67,25 @@ export function FarmExpansionModal({
               ]}
             >
               <Image
-                resizeMode="stretch"
+                resizeMode="contain"
                 source={CANCEL_BUTTON_IMAGE}
                 style={styles.actionButtonImage}
               />
             </Pressable>
-            <Pressable
-              accessibilityLabel="1000코인 사용"
-              accessibilityRole="button"
-              disabled={isConfirming}
-              onPress={onConfirm}
-              style={({ pressed }) => [
-                styles.actionButton,
-                pressed && styles.pressed,
-              ]}
+            <View
+              accessibilityLabel="선택한 위치에 저장하기"
+              style={styles.actionButton}
             >
               <Image
-                resizeMode="stretch"
+                resizeMode="contain"
                 source={CONFIRM_BUTTON_IMAGE}
                 style={styles.actionButtonImage}
               />
-              {isConfirming ? (
-                <ActivityIndicator color="#684500" size="small" />
-              ) : null}
-            </Pressable>
+            </View>
           </View>
           <Pressable
-            accessibilityLabel="공간 확장 확인창 닫기"
+            accessibilityLabel="저장 확인창 닫기"
             accessibilityRole="button"
-            disabled={isConfirming}
             hitSlop={scaleByDeviceWidth(8)}
             onPress={onClose}
             style={({ pressed }) => [
@@ -140,25 +126,22 @@ const styles = StyleSheet.create({
     top: TEXT_TOP + TEXT_HEIGHT + TEXT_BUTTON_GAP,
     alignSelf: 'center',
     flexDirection: 'row',
-    columnGap: scaleByDeviceWidth(4),
+    columnGap: BUTTON_GAP,
   },
   actionButton: {
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   actionButtonImage: {
-    ...StyleSheet.absoluteFillObject,
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
   },
   closeButton: {
     position: 'absolute',
-    top: scaleByDeviceWidth(7),
+    top: scaleByDeviceWidth(13),
     right: scaleByDeviceWidth(7),
-    width: scaleByDeviceWidth(28),
-    height: scaleByDeviceWidth(28),
+    width: CLOSE_SIZE,
+    height: CLOSE_SIZE,
   },
   pressed: {
     opacity: 0.55,

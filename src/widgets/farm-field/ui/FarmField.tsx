@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import {
   Alert,
   Image,
+  type ImageSourcePropType,
   StyleSheet,
   View,
 } from 'react-native';
@@ -47,7 +48,11 @@ type FarmFieldProps = {
   farmType: FarmType;
   floors: FarmFloor[];
   onExpansionSuccess?: () => Promise<void>;
+  onPressEmptySlot?: (floorNumber: number, slotNumber: number) => void;
   onPressCreature?: (animalId: number) => void;
+  selectedSlot?: { floorNumber: number; slotNumber: number } | null;
+  selectionSlotImageSource?: ImageSourcePropType;
+  selectedSlotImageSource?: ImageSourcePropType;
   width: number;
 };
 
@@ -56,7 +61,11 @@ export function FarmField({
   farmType,
   floors,
   onExpansionSuccess,
+  onPressEmptySlot,
   onPressCreature,
+  selectedSlot,
+  selectionSlotImageSource,
+  selectedSlotImageSource,
   width,
 }: FarmFieldProps) {
   const [expansionFloorNumber, setExpansionFloorNumber] = useState<
@@ -141,9 +150,23 @@ export function FarmField({
               }
               isUnlocked={floor?.unlocked === true}
               onPressCreature={onPressCreature}
-              onPressSlot={() => router.push('/(tabs)/capture')}
+              onPressSlot={(slotNumber) => {
+                if (onPressEmptySlot) {
+                  onPressEmptySlot(areaNumber, slotNumber);
+                  return;
+                }
+
+                router.push('/(tabs)/capture');
+              }}
               onPressUnlock={() => setExpansionFloorNumber(areaNumber)}
               scale={uiScale}
+              selectedSlotNumber={
+                selectedSlot?.floorNumber === areaNumber
+                  ? selectedSlot.slotNumber
+                  : undefined
+              }
+              selectionSlotImageSource={selectionSlotImageSource}
+              selectedSlotImageSource={selectedSlotImageSource}
               unlockImageSource={unlock}
             />
           </View>

@@ -118,6 +118,9 @@ export function FarmScreen() {
         <CoinBalanceBar balance={profile?.coins ?? 0} />
         <View style={styles.utilityButtons}>
           <FarmUtilityButtons
+            onPressRefresh={() => {
+              void Promise.all([reloadFarm(), reloadProfile()]);
+            }}
             onPressSearch={() => setIsCreatureSearchVisible(true)}
           />
         </View>

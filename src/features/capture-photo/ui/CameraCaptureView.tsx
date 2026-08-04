@@ -19,15 +19,12 @@ import {
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
-import {
-  getLevelProgress,
-  getRemainingExpForNextLevel,
-  MAX_USER_LEVEL,
-} from '@/src/entities/user';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
+import { useCaptureOverview } from '../model/useCaptureOverview';
+import type { CaptureCardType, CaptureTier } from '../model/types';
 
 const CLOSE_IMAGE = require('@/src/shared/assets/images/capture/capture-close.png');
 const REMAINING_COUNT_IMAGE = require('@/src/shared/assets/images/capture/remaining-count.png');
@@ -76,13 +73,23 @@ const MAX_CAMERA_ZOOM = 1;
 const PINCH_ZOOM_SENSITIVITY = 0.5;
 const HELP_MODAL_REFERENCE_WIDTH = 328;
 const HELP_MODAL_REFERENCE_HEIGHT = 626;
-const MOCK_USER_LEVEL = 1;
-const MOCK_USER_EXP = 31;
-const MOCK_CAPTURE_COUNTS = [
-  { color: '#E9B400', count: 23, label: '하늘' },
-  { color: '#2F7D35', count: 8, label: '땅' },
-  { color: '#2185A8', count: 15, label: '바다' },
-  { color: '#4A38A7', count: 3, label: '우주' },
+const CAPTURE_COUNT_ITEMS: {
+  cardType: CaptureCardType;
+  color: string;
+  label: string;
+}[] = [
+  { cardType: 'SKY', color: '#E9B400', label: '하늘' },
+  { cardType: 'GROUND', color: '#2F7D35', label: '땅' },
+  { cardType: 'SEA', color: '#2185A8', label: '바다' },
+  { cardType: 'SPACE', color: '#4A38A7', label: '우주' },
+] as const;
+const CAPTURE_TIERS: CaptureTier[] = [
+  'C',
+  'B',
+  'A',
+  'S',
+  'SS',
+  'SSS',
 ] as const;
 
 export function CameraCaptureView() {
@@ -108,6 +115,12 @@ export function CameraCaptureView() {
     useState(false);
   const [isCoinDialogVisible, setIsCoinDialogVisible] = useState(false);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
+  const {
+    errorMessage: captureOverviewError,
+    isLoading: isCaptureOverviewLoading,
+    overview: captureOverview,
+    reload: reloadCaptureOverview,
+  } = useCaptureOverview(isHelpModalVisible);
   const [isPermissionToastVisible, setIsPermissionToastVisible] =
     useState(false);
   const [developingPhotoUri, setDevelopingPhotoUri] = useState<string | null>(
@@ -192,15 +205,31 @@ export function CameraCaptureView() {
     HELP_MODAL_REFERENCE_WIDTH * helpModalScale;
   const helpModalHeight =
     HELP_MODAL_REFERENCE_HEIGHT * helpModalScale;
-  const remainingExp = getRemainingExpForNextLevel(
-    MOCK_USER_LEVEL,
-    MOCK_USER_EXP,
+  const currentLevel = captureOverview?.level.currentLevel;
+  const remainingExp = captureOverview?.level.remainingExperience;
+  const requiredExp = captureOverview?.level.requiredExperience ?? 0;
+  const levelProgress = requiredExp > 0
+    ? Math.min(
+        1,
+        Math.max(
+          0,
+          (captureOverview?.level.currentExperience ?? 0) / requiredExp,
+        ),
+      )
+    : 1;
+  const isMaxLevel = requiredExp === 0 && captureOverview !== null;
+  const captureCountByType = new Map(
+    captureOverview?.captureCounts.map(({ cardType, count }) => [
+      cardType,
+      count,
+    ]),
   );
-  const levelProgress = getLevelProgress(
-    MOCK_USER_LEVEL,
-    MOCK_USER_EXP,
+  const tierProbabilityByTier = new Map(
+    captureOverview?.tierProbabilities.map(({ tier, probabilityPercent }) => [
+      tier,
+      probabilityPercent,
+    ]),
   );
-  const isMaxLevel = MOCK_USER_LEVEL >= MAX_USER_LEVEL;
   const hasCaptureOpportunity =
     remainingCaptureCount > 0 || isPaidCaptureSessionActive;
   const isNamingCreature =
@@ -934,7 +963,11 @@ export function CameraCaptureView() {
               }}
             />
             <Text
-              accessibilityLabel={`현재 레벨 ${MOCK_USER_LEVEL}`}
+              accessibilityLabel={
+                currentLevel === undefined
+                  ? '현재 레벨 불러오는 중'
+                  : `현재 레벨 ${currentLevel}`
+              }
               style={[
                 styles.helpModalLevel,
                 {
@@ -945,11 +978,13 @@ export function CameraCaptureView() {
                 },
               ]}
             >
-              {MOCK_USER_LEVEL}
+              {currentLevel ?? '-'}
             </Text>
             <Text
               accessibilityLabel={
-                isMaxLevel
+                captureOverview === null
+                  ? '포착 확률 정보 불러오는 중'
+                  : isMaxLevel
                   ? '최고 레벨에 도달했어요'
                   : `다음 레벨까지 ${remainingExp} EXP 남았어요`
               }
@@ -964,7 +999,13 @@ export function CameraCaptureView() {
                 },
               ]}
             >
-              {isMaxLevel ? (
+              {captureOverview === null ? (
+                isCaptureOverviewLoading ? (
+                  '불러오는 중...'
+                ) : (
+                  '포착 확률을 불러오지 못했어요'
+                )
+              ) : isMaxLevel ? (
                 '최고 레벨에 도달했어요'
               ) : (
                 <>
@@ -1010,34 +1051,103 @@ export function CameraCaptureView() {
                 },
               ]}
             >
-              {MOCK_CAPTURE_COUNTS.map(
-                ({ color, count, label }) => (
+              {CAPTURE_COUNT_ITEMS.map(
+                ({ cardType, color, label }) => {
+                  const count = captureCountByType.get(cardType);
+
+                  return (
+                    <Text
+                      accessibilityLabel={
+                        count === undefined
+                          ? `${label} 타입 포착 횟수 불러오는 중`
+                          : `${label} 타입 ${count}번 포착`
+                      }
+                      key={label}
+                      style={[
+                        styles.helpModalCaptureCount,
+                        {
+                          color,
+                          width: 66.25 * helpModalScale,
+                          fontSize: 14 * helpModalScale,
+                          lineHeight: 17 * helpModalScale,
+                        },
+                      ]}
+                    >
+                      {count ?? '-'}
+                      <Text
+                        style={[
+                          styles.helpModalCaptureCountUnit,
+                          { fontSize: 9 * helpModalScale },
+                        ]}
+                      >
+                        번
+                      </Text>
+                    </Text>
+                  );
+                },
+              )}
+            </View>
+            <View
+              style={[
+                styles.helpModalTierProbabilities,
+                {
+                  top: 558 * helpModalScale,
+                  left: 31 * helpModalScale,
+                  width: 266 * helpModalScale,
+                  height: 20 * helpModalScale,
+                },
+              ]}
+            >
+              {CAPTURE_TIERS.map((tier) => {
+                const probability = tierProbabilityByTier.get(tier);
+
+                return (
                   <Text
-                    accessibilityLabel={`${label} 타입 ${count}번 포착`}
-                    key={label}
+                    accessibilityLabel={
+                      probability === undefined
+                        ? `${tier} 등급 확률 불러오는 중`
+                        : `${tier} 등급 확률 ${probability}퍼센트`
+                    }
+                    key={tier}
                     style={[
-                      styles.helpModalCaptureCount,
+                      styles.helpModalTierProbability,
                       {
-                        color,
-                        width: 66.25 * helpModalScale,
-                        fontSize: 14 * helpModalScale,
-                        lineHeight: 17 * helpModalScale,
+                        width: (266 / CAPTURE_TIERS.length) * helpModalScale,
+                        fontSize: 8 * helpModalScale,
+                        lineHeight: 15 * helpModalScale,
                       },
                     ]}
                   >
-                    {count}
-                    <Text
-                      style={[
-                        styles.helpModalCaptureCountUnit,
-                        { fontSize: 9 * helpModalScale },
-                      ]}
-                    >
-                      번
-                    </Text>
+                    {probability === undefined ? '-' : `${probability}%`}
                   </Text>
-                ),
-              )}
+                );
+              })}
             </View>
+            {captureOverviewError && !isCaptureOverviewLoading && (
+              <Pressable
+                accessibilityLabel="포착 확률 다시 불러오기"
+                accessibilityRole="button"
+                onPress={() => void reloadCaptureOverview()}
+                style={[
+                  styles.helpModalRetryButton,
+                  {
+                    top: 225 * helpModalScale,
+                    left: 90 * helpModalScale,
+                    width: 192.75 * helpModalScale,
+                    height: 22 * helpModalScale,
+                  },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.helpModalRetryText,
+                    { fontSize: 8 * helpModalScale },
+                  ]}
+                >
+                  {captureOverviewError} · 다시 시도
+                </Text>
+              </Pressable>
+            )}
             <Pressable
               accessibilityLabel="포착 확률 안내 닫기"
               accessibilityRole="button"
@@ -1410,6 +1520,30 @@ const styles = StyleSheet.create({
   },
   helpModalCaptureCountUnit: {
     fontFamily: 'EliceDXNeolli-Bold',
+  },
+  helpModalTierProbabilities: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFCF7',
+  },
+  helpModalTierProbability: {
+    color: '#413D37',
+    fontFamily: 'EliceDXNeolli-Medium',
+    includeFontPadding: false,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  helpModalRetryButton: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helpModalRetryText: {
+    color: '#B45C4D',
+    fontFamily: 'EliceDXNeolli-Medium',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   helpModalCloseButton: {
     position: 'absolute',
