@@ -18,3 +18,15 @@ export type CaptureOverview = {
     probabilityPercent: number;
   }[];
 };
+
+export type CaptureAvailability = {
+  freeAttempts: {
+    dailyLimit: number;
+    used: number;
+    remaining: number;
+    resetsAt: string;
+  };
+  extraCaptureCost: number;
+  coins: number;
+  canStartCapture: boolean;
+};
