@@ -14,6 +14,11 @@ public final class SubjectSegmentationModule: Module {
     }
     .runOnQueue(.main)
 
+    AsyncFunction("downloadModel") { () -> Bool in
+      // iOS는 시스템 VisionKit을 사용하므로 별도 모델 다운로드가 없습니다.
+      return true
+    }
+
     AsyncFunction("removeBackground") { (photoUri: String) async throws -> String in
       guard #available(iOS 17.0, *) else {
         throw SubjectSegmentationException(

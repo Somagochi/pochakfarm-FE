@@ -20,13 +20,52 @@ export type CaptureOverview = {
 };
 
 export type CaptureAvailability = {
-  freeAttempts: {
+  attempts: {
+    remaining: number;
+  };
+  attemptPurchaseCost: number;
+  coins: number;
+};
+
+export type CreateCaptureResult = {
+  captureId: number;
+  tier: CaptureTier;
+  cardType: CaptureCardType;
+  difficulty: {
+    ringShrinkDurationMs: number;
+  };
+  upload: {
+    url: string;
+    key: string;
+    expiresAt: string;
+  };
+  attempts: {
     dailyLimit: number;
     used: number;
     remaining: number;
-    resetsAt: string;
   };
-  extraCaptureCost: number;
-  coins: number;
-  canStartCapture: boolean;
+  payment: {
+    type: 'FREE' | 'COIN';
+    chargedCoins: number;
+    currentCoins: number;
+  };
+  gameResultExpiresAt: string;
+};
+
+export type CaptureThrowResult = {
+  round: number;
+  succeeded: boolean;
+};
+
+export type CaptureDetail = {
+  captureId: number;
+  tier: CaptureTier;
+  cardType: CaptureCardType;
+  generationStatus: string;
+  gameStatus: string;
+  sceneImageUrl: string | null;
+  cardImageUrl: string;
+  animalImageUrl: string | null;
+  elapsedMs: number;
+  failureReason: string | null;
 };

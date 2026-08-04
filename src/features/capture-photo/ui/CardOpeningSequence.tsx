@@ -3,9 +3,11 @@ import { router } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Animated,
   Easing,
   Image,
+  type ImageSourcePropType,
   PanResponder,
   Pressable,
   StyleSheet,
@@ -16,8 +18,15 @@ import {
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
-const CARD_FRONT_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card.png');
-const CARD_BACK_IMAGE = require('@/src/shared/assets/images/farm/kkomi-card-back.png');
+import type { CaptureCardType, CaptureDetail } from '../model/types';
+
+const CARD_PLACEHOLDER_IMAGE = require('@/src/shared/assets/images/farm/card-image-placeholder.png');
+const CARD_BACK_IMAGES: Record<CaptureCardType, ImageSourcePropType> = {
+  GROUND: require('@/src/shared/assets/images/farm/card-back-ground.png'),
+  SEA: require('@/src/shared/assets/images/farm/card-back-sea.png'),
+  SKY: require('@/src/shared/assets/images/farm/kkomi-card-back.png'),
+  SPACE: require('@/src/shared/assets/images/farm/card-back-space.png'),
+};
 const CARD_PACK_FRONT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-pack-front.png');
 const CARD_PACK_BACK_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-pack-back.png');
 const CARD_PACK_READY_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-pack-ready.png');
@@ -62,9 +71,14 @@ type OpeningStage =
   | 'cut'
   | 'opening'
   | 'sky'
+  | 'waiting-result'
   | 'result';
 
 type CardOpeningSequenceProps = {
+  animalImageKey: string | null;
+  cardType?: CaptureCardType;
+  captureDetail: CaptureDetail | null;
+  onReturnToFarm: () => void;
   photoUri: string;
 };
 
@@ -73,6 +87,10 @@ function normalizeResultCardRotation(rotation: number) {
 }
 
 export function CardOpeningSequence({
+  animalImageKey,
+  cardType,
+  captureDetail,
+  onReturnToFarm,
   photoUri,
 }: CardOpeningSequenceProps) {
   const [stage, setStage] = useState<OpeningStage>('analyzing');
@@ -83,6 +101,7 @@ export function CardOpeningSequence({
   >(null);
   const [isReleaseAlertVisible, setIsReleaseAlertVisible] =
     useState(false);
+  const cardBackImage = CARD_BACK_IMAGES[cardType ?? 'GROUND'];
   const shimmer = useRef(new Animated.Value(0)).current;
   const packFloat = useRef(new Animated.Value(0)).current;
   const opening = useRef(new Animated.Value(0)).current;
@@ -187,6 +206,12 @@ export function CardOpeningSequence({
     };
   }, [skyArrivals, stage]);
 
+  useEffect(() => {
+    if (stage === 'waiting-result' && captureDetail) {
+      setStage('result');
+    }
+  }, [captureDetail, stage]);
+
   const cutPanResponder = useMemo(
     () =>
       PanResponder.create({
@@ -253,7 +278,18 @@ export function CardOpeningSequence({
   if (stage === 'opening') {
     return (
       <View accessibilityLabel="카드팩 개봉 중" style={styles.container}>
-        <OpeningAnimation progress={opening} />
+        <OpeningAnimation cardBackImage={cardBackImage} progress={opening} />
+      </View>
+    );
+  }
+
+  if (stage === 'waiting-result') {
+    return (
+      <View accessibilityLabel="카드 결과 생성 중" style={styles.container}>
+        <ActivityIndicator color="#F6C94C" size="large" />
+        <Text style={styles.resultLoadingText}>
+          카드 결과를 만들고 있어요
+        </Text>
       </View>
     );
   }
@@ -264,15 +300,37 @@ export function CardOpeningSequence({
         {isReleaseAlertVisible ? (
           <ReleaseCreatureAlert
             onClose={() => setIsReleaseAlertVisible(false)}
+            onConfirm={onReturnToFarm}
           />
         ) : (
           <ResultCard
+            cardBackImage={cardBackImage}
+            cardImageUrl={captureDetail?.cardImageUrl}
             onRelease={() => setIsReleaseAlertVisible(true)}
             onSave={() =>
-              router.push({
+              {
+                router.push({
                 pathname: '/save-to-farm',
-                params: { farmType: 'GROUND' },
-              })
+                params: {
+                  farmType: captureDetail?.cardType ?? 'GROUND',
+                  ...(animalImageKey ? { animalImageKey } : {}),
+                  ...(captureDetail
+                    ? {
+                        captureId: captureDetail.captureId,
+                        tier: captureDetail.tier,
+                        cardType: captureDetail.cardType,
+                        generationStatus: captureDetail.generationStatus,
+                        gameStatus: captureDetail.gameStatus,
+                        sceneImageUrl: captureDetail.sceneImageUrl,
+                        cardImageUrl: captureDetail.cardImageUrl,
+                        animalImageUrl: captureDetail.animalImageUrl,
+                        elapsedMs: captureDetail.elapsedMs,
+                        failureReason: captureDetail.failureReason,
+                      }
+                  : {}),
+                },
+                });
+              }
             }
           />
         )}
@@ -464,7 +522,9 @@ export function CardOpeningSequence({
               disabled={!canSelectCard}
               onHoverIn={() => setHighlightedCardIndex(index)}
               onHoverOut={() => setHighlightedCardIndex(null)}
-              onPress={() => setStage('result')}
+              onPress={() =>
+                setStage(captureDetail ? 'result' : 'waiting-result')
+              }
               onPressIn={() => setHighlightedCardIndex(index)}
               onPressOut={() => setHighlightedCardIndex(null)}
               style={[
@@ -491,7 +551,7 @@ export function CardOpeningSequence({
                     )}
                     <Animated.Image
                       resizeMode="contain"
-                      source={CARD_BACK_IMAGE}
+                      source={cardBackImage}
                       style={[
                         styles.skyCard,
                         isHighlighted && styles.skyCardHighlighted,
@@ -695,7 +755,13 @@ function SelectingSweepCard({
   );
 }
 
-function OpeningAnimation({ progress }: { progress: Animated.Value }) {
+function OpeningAnimation({
+  cardBackImage,
+  progress,
+}: {
+  cardBackImage: ImageSourcePropType;
+  progress: Animated.Value;
+}) {
   const glowProgress = useRef(new Animated.Value(0)).current;
   const cardLaunches = [
     { bumpX: 2, delay: 2902, endX: 2, rotation: '0deg', startX: 0 },
@@ -760,7 +826,7 @@ function OpeningAnimation({ progress }: { progress: Animated.Value }) {
           <Animated.Image
             key={delay}
             resizeMode="contain"
-            source={CARD_BACK_IMAGE}
+            source={cardBackImage}
             style={[
               styles.launchCard,
               {
@@ -908,9 +974,13 @@ function OpeningAnimation({ progress }: { progress: Animated.Value }) {
 }
 
 function ResultCard({
+  cardBackImage,
+  cardImageUrl,
   onRelease,
   onSave,
 }: {
+  cardBackImage: ImageSourcePropType;
+  cardImageUrl?: string;
   onRelease: () => void;
   onSave: () => void;
 }) {
@@ -1015,7 +1085,9 @@ function ResultCard({
       >
         <Animated.Image
           resizeMode="contain"
-          source={CARD_FRONT_IMAGE}
+          source={
+            cardImageUrl ? { uri: cardImageUrl } : CARD_PLACEHOLDER_IMAGE
+          }
           style={[
             styles.resultCardFace,
             {
@@ -1029,7 +1101,7 @@ function ResultCard({
         />
         <Animated.Image
           resizeMode="contain"
-          source={CARD_BACK_IMAGE}
+          source={cardBackImage}
           style={[
             styles.resultCardFace,
             {
@@ -1078,6 +1150,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(13, 18, 23, 0.94)',
+  },
+  resultLoadingText: {
+    marginTop: scaleByDeviceWidth(16),
+    color: '#F8F2E7',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(16),
+    lineHeight: scaleByDeviceWidth(22),
   },
   heading: {
     position: 'absolute',

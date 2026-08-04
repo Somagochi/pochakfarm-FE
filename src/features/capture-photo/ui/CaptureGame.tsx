@@ -15,9 +15,16 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CardOpeningSequence } from './CardOpeningSequence';
+import type {
+  CaptureCardType,
+  CaptureDetail,
+  CaptureTier,
+  CaptureThrowResult,
+} from '../model/types';
 
 const CAPTURE_SECONDS = 10;
 const FRAME_WIDTH = scaleByDeviceWidth(44.26);
@@ -29,7 +36,7 @@ const TARGET_RING_SIZE = scaleByDeviceWidth(230);
 const SUCCESS_DISTANCE = TARGET_RING_SIZE / 2;
 const SUCCESS_SCALE = 0.38;
 const TARGET_MIN_SCALE = 0;
-const TARGET_CONTRACT_DURATION = 1800;
+const DEFAULT_RING_SHRINK_DURATION_MS = 1800;
 const TARGET_RESPAWN_DELAY = 120;
 const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
 const MIN_THROW_VELOCITY = 0.18;
@@ -70,7 +77,6 @@ const CAPTURE_TIER_IMAGES = {
   SS: require('@/src/shared/assets/images/capture/capture-tier-ss.png'),
   SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
 } as const;
-const CURRENT_CAPTURE_TIER: keyof typeof CAPTURE_TIER_IMAGES = 'S';
 const POLAROID_EXIT_WIDTH = scaleByDeviceWidth(360);
 const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
 const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
@@ -93,15 +99,31 @@ async function triggerFailedThrowHaptics() {
 }
 
 type CaptureGameProps = {
+  animalImageKey: string | null;
+  apiErrorMessage: string | null;
+  cardType?: CaptureCardType;
+  captureDetail: CaptureDetail | null;
   photoUri: string;
+  onCloseApiError: () => void;
   onClose: () => void;
+  onGameResult: (throws: CaptureThrowResult[]) => void;
   onRetry: () => void;
+  ringShrinkDurationMs?: number;
+  tier?: CaptureTier;
 };
 
 export function CaptureGame({
+  animalImageKey,
+  apiErrorMessage,
+  cardType,
+  captureDetail,
   photoUri,
+  onCloseApiError,
   onClose,
+  onGameResult,
   onRetry,
+  ringShrinkDurationMs = DEFAULT_RING_SHRINK_DURATION_MS,
+  tier,
 }: CaptureGameProps) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -123,6 +145,10 @@ export function CaptureGame({
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
+  const resolvedRingShrinkDurationMs =
+    ringShrinkDurationMs > 0
+      ? ringShrinkDurationMs
+      : DEFAULT_RING_SHRINK_DURATION_MS;
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -162,18 +188,29 @@ export function CaptureGame({
     [guideTop, width],
   );
 
-  const finishGame = (
-    nextResult: Exclude<CaptureResult, null>,
-    nextFailureReason: FailureReason = null,
-  ) => {
-    if (resultRef.current) {
-      return;
-    }
+  const finishGame = useCallback(
+    (
+      nextResult: Exclude<CaptureResult, null>,
+      throwCount: number,
+      nextFailureReason: FailureReason = null,
+    ) => {
+      if (resultRef.current) {
+        return;
+      }
 
-    resultRef.current = nextResult;
-    setFailureReason(nextFailureReason);
-    setResult(nextResult);
-  };
+      resultRef.current = nextResult;
+      onGameResult(
+        Array.from({ length: throwCount }, (_, index) => ({
+          round: index + 1,
+          succeeded:
+            nextResult === 'success' && index === throwCount - 1,
+        })),
+      );
+      setFailureReason(nextFailureReason);
+      setResult(nextResult);
+    },
+    [onGameResult],
+  );
 
   useEffect(() => {
     if (result || isThrowing) {
@@ -189,7 +226,7 @@ export function CaptureGame({
           void triggerFailedThrowHaptics();
 
           if (nextThrowsUsed >= MAX_THROWS) {
-            finishGame('failure', 'timeout');
+            finishGame('failure', nextThrowsUsed, 'timeout');
             return 0;
           }
 
@@ -201,7 +238,7 @@ export function CaptureGame({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isThrowing, result, throwsUsed]);
+  }, [finishGame, isThrowing, result, throwsUsed]);
 
   useEffect(() => {
     if (result || isTargetPaused) {
@@ -215,7 +252,7 @@ export function CaptureGame({
       Animated.sequence([
         Animated.timing(pulseScale, {
           toValue: TARGET_MIN_SCALE,
-          duration: TARGET_CONTRACT_DURATION,
+          duration: resolvedRingShrinkDurationMs,
           easing: Easing.inOut(Easing.sin),
           useNativeDriver: false,
         }),
@@ -234,7 +271,12 @@ export function CaptureGame({
       animation.stop();
       pulseScale.removeListener(listenerId);
     };
-  }, [isTargetPaused, pulseScale, result]);
+  }, [
+    isTargetPaused,
+    pulseScale,
+    resolvedRingShrinkDurationMs,
+    result,
+  ]);
 
   useEffect(() => {
     if (!result) {
@@ -432,7 +474,7 @@ export function CaptureGame({
               pulseScaleValue.current <= SUCCESS_SCALE;
 
             if (isPositionMatched && isTimingMatched) {
-              finishGame('success');
+              finishGame('success', nextThrowsUsed);
               return;
             }
 
@@ -441,7 +483,7 @@ export function CaptureGame({
               setThrowsUsed(nextThrowsUsed);
 
               if (nextThrowsUsed >= MAX_THROWS) {
-                finishGame('failure', 'attempts');
+                finishGame('failure', nextThrowsUsed, 'attempts');
                 return;
               }
 
@@ -487,7 +529,7 @@ export function CaptureGame({
                   setThrowsUsed(nextThrowsUsed);
 
                   if (nextThrowsUsed >= MAX_THROWS) {
-                    finishGame('failure', 'attempts');
+                    finishGame('failure', nextThrowsUsed, 'attempts');
                     setIsTimingMiss(false);
                     return;
                   }
@@ -522,6 +564,7 @@ export function CaptureGame({
       }),
     [
       frameOrigin.y,
+      finishGame,
       isThrowing,
       resetFrame,
       respawnFrame,
@@ -684,12 +727,14 @@ export function CaptureGame({
               style={StyleSheet.absoluteFill}
             />
             <View pointerEvents="none" style={styles.dimOverlay} />
-            <Image
-              accessibilityLabel={`${CURRENT_CAPTURE_TIER} 티어`}
-              resizeMode="contain"
-              source={CAPTURE_TIER_IMAGES[CURRENT_CAPTURE_TIER]}
-              style={styles.captureTier}
-            />
+            {tier && (
+              <Image
+                accessibilityLabel={`${tier} 티어`}
+                resizeMode="contain"
+                source={CAPTURE_TIER_IMAGES[tier]}
+                style={styles.captureTier}
+              />
+            )}
         </View>
         <Image
           resizeMode="stretch"
@@ -778,7 +823,13 @@ export function CaptureGame({
       />
 
       {result === 'success' && hasOpenedSuccess && (
-        <CardOpeningSequence photoUri={photoUri} />
+        <CardOpeningSequence
+          animalImageKey={animalImageKey}
+          cardType={cardType}
+          captureDetail={captureDetail}
+          onReturnToFarm={onClose}
+          photoUri={photoUri}
+        />
       )}
 
       {isTimingMiss && !result && (
@@ -888,6 +939,11 @@ export function CaptureGame({
           )}
         </View>
       )}
+
+      <ErrorModal
+        message={apiErrorMessage}
+        onClose={onCloseApiError}
+      />
     </View>
   );
 }
