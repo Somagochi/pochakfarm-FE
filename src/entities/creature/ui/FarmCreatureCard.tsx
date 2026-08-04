@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   },
   creatureImage: {
     position: 'absolute',
-    top: scaleByDeviceWidth(23),
+    top: scaleByDeviceWidth(38),
     left: scaleByDeviceWidth(15),
     width: scaleByDeviceWidth(70),
     height: scaleByDeviceWidth(70),
