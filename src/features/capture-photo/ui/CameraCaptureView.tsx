@@ -23,6 +23,7 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
+import { useCaptureAvailability } from '../model/useCaptureAvailability';
 import { useCaptureOverview } from '../model/useCaptureOverview';
 import type { CaptureCardType, CaptureTier } from '../model/types';
 
@@ -66,9 +67,6 @@ const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
 const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
 const POLAROID_EXIT_FRONT_LIP_TOP = POLAROID_EXIT_HEIGHT * 0.67;
 const PHOTO_DEVELOP_DURATION_MS = 600;
-const MAX_CAPTURE_COUNT = 5;
-const PAID_CAPTURE_SESSION_COST = 200;
-const MOCK_INITIAL_COIN_BALANCE = 12500;
 const MAX_CAMERA_ZOOM = 1;
 const PINCH_ZOOM_SENSITIVITY = 0.5;
 const HELP_MODAL_REFERENCE_WIDTH = 328;
@@ -107,14 +105,14 @@ export function CameraCaptureView() {
   const [hasConfirmedName, setHasConfirmedName] = useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
   const [remainingCaptureCount, setRemainingCaptureCount] =
-    useState(MAX_CAPTURE_COUNT);
-  const [coinBalance, setCoinBalance] = useState(
-    MOCK_INITIAL_COIN_BALANCE,
-  );
+    useState(0);
+  const [coinBalance, setCoinBalance] = useState(0);
   const [isPaidCaptureSessionActive, setIsPaidCaptureSessionActive] =
     useState(false);
   const [isCoinDialogVisible, setIsCoinDialogVisible] = useState(false);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
+  const { availability: captureAvailability } =
+    useCaptureAvailability();
   const {
     errorMessage: captureOverviewError,
     isLoading: isCaptureOverviewLoading,
@@ -230,8 +228,12 @@ export function CameraCaptureView() {
       probabilityPercent,
     ]),
   );
+  const dailyCaptureLimit =
+    captureAvailability?.freeAttempts.dailyLimit ?? 0;
+  const extraCaptureCost = captureAvailability?.extraCaptureCost ?? 0;
   const hasCaptureOpportunity =
-    remainingCaptureCount > 0 || isPaidCaptureSessionActive;
+    captureAvailability?.canStartCapture === true &&
+    (remainingCaptureCount > 0 || isPaidCaptureSessionActive);
   const isNamingCreature =
     capturedPhotoUri !== null && !hasConfirmedName;
   const pinchGesture = useMemo(
@@ -257,6 +259,16 @@ export function CameraCaptureView() {
         }),
     [hasCaptureOpportunity, isNamingCreature],
   );
+
+  useEffect(() => {
+    if (!captureAvailability) {
+      return;
+    }
+
+    setRemainingCaptureCount(captureAvailability.freeAttempts.remaining);
+    setCoinBalance(captureAvailability.coins);
+    setIsPaidCaptureSessionActive(false);
+  }, [captureAvailability]);
 
   useEffect(() => {
     const handleKeyboardShow = ({
@@ -355,7 +367,7 @@ export function CameraCaptureView() {
 
     if (isPaidCaptureSessionActive) {
       setCoinBalance((currentBalance) =>
-        Math.max(0, currentBalance - PAID_CAPTURE_SESSION_COST),
+        Math.max(0, currentBalance - extraCaptureCost),
       );
       setIsPaidCaptureSessionActive(false);
     }
@@ -451,9 +463,20 @@ export function CameraCaptureView() {
   }
 
   const handleUseCoins = () => {
-    if (coinBalance < PAID_CAPTURE_SESSION_COST) {
+    if (!captureAvailability) {
+      Alert.alert(
+        '포착 정보 확인 중',
+        '포착 가능 정보를 불러온 뒤 다시 시도해 주세요.',
+      );
+      return;
+    }
+
+    if (coinBalance < extraCaptureCost) {
       setIsCoinDialogVisible(false);
-      Alert.alert('코인이 부족해요', '포착에는 200코인이 필요해요.');
+      Alert.alert(
+        '코인이 부족해요',
+        `포착에는 ${extraCaptureCost.toLocaleString('ko-KR')}코인이 필요해요.`,
+      );
       return;
     }
 
@@ -521,7 +544,7 @@ export function CameraCaptureView() {
       >
         <View style={styles.captureStatusGroup}>
           <View
-            accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${MAX_CAPTURE_COUNT}`}
+            accessibilityLabel={`남은횟수 ${remainingCaptureCount} / ${dailyCaptureLimit}`}
             style={styles.remainingCountGroup}
           >
             <Image
@@ -535,7 +558,7 @@ export function CameraCaptureView() {
               style={styles.remainingCountImage}
             />
             <Text style={styles.remainingCountText}>
-              {remainingCaptureCount} / {MAX_CAPTURE_COUNT}
+              {remainingCaptureCount} / {dailyCaptureLimit}
             </Text>
           </View>
 
@@ -732,7 +755,7 @@ export function CameraCaptureView() {
                     style={styles.captureLimitImage}
                   />
                   <Pressable
-                    accessibilityLabel="200코인으로 포착하기"
+                    accessibilityLabel={`${extraCaptureCost.toLocaleString('ko-KR')}코인으로 포착하기`}
                     accessibilityRole="button"
                     onPress={() => setIsCoinDialogVisible(true)}
                     style={({ pressed }) => [
@@ -909,7 +932,7 @@ export function CameraCaptureView() {
         <View style={styles.dialogOverlay}>
           <View style={styles.coinDialog}>
             <Image
-              accessibilityLabel="200코인으로 포착 기회를 추가할까요?"
+              accessibilityLabel={`${extraCaptureCost.toLocaleString('ko-KR')}코인으로 포착 기회를 추가할까요?`}
               resizeMode="contain"
               source={CAPTURE_COIN_DIALOG_IMAGE}
               style={styles.coinDialogImage}
@@ -927,7 +950,7 @@ export function CameraCaptureView() {
               style={styles.dialogCancelButton}
             />
             <Pressable
-              accessibilityLabel="200코인 사용"
+              accessibilityLabel={`${extraCaptureCost.toLocaleString('ko-KR')}코인 사용`}
               accessibilityRole="button"
               onPress={handleUseCoins}
               style={styles.dialogConfirmButton}
