@@ -8,9 +8,10 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TAB_BAR_CONTENT_HEIGHT = scaleByDeviceWidth(72);
+const TAB_BAR_CONTENT_HEIGHT = scaleByDeviceWidth(80);
+const TAB_BAR_BACKGROUND_WIDTH = scaleByDeviceWidth(368);
+const TAB_BAR_BACKGROUND = require('@/src/shared/assets/images/bottom-tab-bar/nav-bottom.png');
 const CAPTURE_LABEL_IMAGE = require('@/src/shared/assets/images/bottom-tab-bar/capture-label.png');
 
 const TAB_IMAGES: Record<string, ImageSourcePropType> = {
@@ -34,7 +35,6 @@ export function BottomTabBar({
   descriptors,
   navigation,
 }: BottomTabBarProps) {
-  const insets = useSafeAreaInsets();
   const activeRoute = state.routes[state.index];
 
   if (activeRoute?.name === 'capture') {
@@ -42,15 +42,14 @@ export function BottomTabBar({
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        {
-          height: TAB_BAR_CONTENT_HEIGHT + insets.bottom,
-          paddingBottom: insets.bottom,
-        },
-      ]}
-    >
+    <View style={styles.container}>
+      <View pointerEvents="none" style={styles.backgroundClip}>
+        <Image
+          resizeMode="stretch"
+          source={TAB_BAR_BACKGROUND}
+          style={styles.background}
+        />
+      </View>
       <View style={styles.buttonGroup}>
         {state.routes.map((route, index) => {
           const imageSource = TAB_IMAGES[route.name];
@@ -95,7 +94,9 @@ export function BottomTabBar({
                 route.name === 'capture'
                   ? styles.captureButton
                   : styles.tabButton,
-                isFocused ? styles.focused : styles.unfocused,
+                route.name === 'capture' || isFocused
+                  ? styles.focused
+                  : styles.unfocused,
                 pressed && styles.pressed,
               ]}
             >
@@ -119,7 +120,6 @@ export function BottomTabBar({
                   style={styles.tabImage}
                 />
               )}
-              {isFocused && <View style={styles.activeIndicator} />}
             </Pressable>
           );
         })}
@@ -130,11 +130,24 @@ export function BottomTabBar({
 
 const styles = StyleSheet.create({
   container: {
+    height: TAB_BAR_CONTENT_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
-    borderTopColor: '#E5E7EB',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+  },
+  backgroundClip: {
+    position: 'absolute',
+    top: 0,
+    width: scaleByDeviceWidth(368),
+    height: TAB_BAR_CONTENT_HEIGHT,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  background: {
+    position: 'absolute',
+    top: 0,
+    width: TAB_BAR_BACKGROUND_WIDTH,
+    height: TAB_BAR_CONTENT_HEIGHT,
   },
   buttonGroup: {
     width: '100%',
@@ -173,13 +186,6 @@ const styles = StyleSheet.create({
   },
   unfocused: {
     opacity: 0.5,
-  },
-  activeIndicator: {
-    position: 'absolute',
-    bottom: scaleByDeviceWidth(-8),
-    width: scaleByDeviceWidth(5),
-    height: scaleByDeviceWidth(5),
-    backgroundColor: '#D99A00',
   },
   pressed: {
     opacity: 0.7,
