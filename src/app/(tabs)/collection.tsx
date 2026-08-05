@@ -1,12 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { CollectionScreen } from '@/src/screens/collection-screen';
 
 export default function CollectionRoute() {
-  return <View style={styles.screen} />;
+  return <CollectionScreen />;
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-});
