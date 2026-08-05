@@ -11,7 +11,7 @@ const BACK_ICON_IMAGE = require('@/src/shared/assets/images/coupon-registration/
 const termsLines = TERMS_OF_SERVICE_CONTENT.split('\n');
 
 function isSectionTitle(line: string) {
-  return /^제\d+조\s/.test(line) || line === '부칙';
+  return /^제\d+조(?:\s|\()/.test(line) || line === '부칙';
 }
 
 export function ServiceTermsDetailScreen() {
