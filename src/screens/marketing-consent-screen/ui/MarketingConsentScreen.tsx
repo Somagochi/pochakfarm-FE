@@ -4,26 +4,31 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
-import { TERMS_OF_SERVICE_CONTENT } from '../model/termsOfServiceContent';
+import { MARKETING_CONSENT_CONTENT } from '../model/marketingConsentContent';
 
 const BACK_ICON_IMAGE = require('@/src/shared/assets/images/coupon-registration/back-icon.png');
-
-const termsLines = TERMS_OF_SERVICE_CONTENT.split('\n');
+const consentLines = MARKETING_CONSENT_CONTENT.split('\n');
 
 function isSectionTitle(line: string) {
-  return /^제\d+조(?:\s|\()/.test(line) || line === '부칙';
+  return /^\d+\.\s/.test(line) || line === '적용일';
 }
 
-export function ServiceTermsDetailScreen() {
+function isSubsectionTitle(line: string) {
+  return [
+    '수집·이용 목적',
+    '수집·이용 항목',
+    '보유 및 이용기간',
+    '동의 거부 권리 및 불이익',
+    '수신 채널',
+    '동의 철회 및 수신 거부',
+  ].includes(line);
+}
+
+export function MarketingConsentScreen() {
   const insets = useSafeAreaInsets();
 
   return (
-    <View
-      style={[
-        styles.screen,
-        { paddingTop: insets.top + scaleByDeviceWidth(10) },
-      ]}
-    >
+    <View style={[styles.screen, { paddingTop: insets.top + scaleByDeviceWidth(10) }]}>
       <View style={styles.header}>
         <Pressable
           accessibilityLabel="뒤로 가기"
@@ -34,7 +39,7 @@ export function ServiceTermsDetailScreen() {
         >
           <Image source={BACK_ICON_IMAGE} style={styles.backIcon} />
         </Pressable>
-        <Text style={styles.title}>포착팜 서비스 이용약관</Text>
+        <Text style={styles.title}>마케팅 앱 푸시 수신 동의</Text>
       </View>
 
       <ScrollView
@@ -42,23 +47,22 @@ export function ServiceTermsDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.document}>
-          {termsLines.map((line, index) => {
-            if (!line) {
-              return <View key={`space-${index}`} style={styles.paragraphGap} />;
-            }
-
-            return (
+          {consentLines.map((line, index) =>
+            line ? (
               <Text
                 key={`${index}-${line}`}
                 style={[
                   styles.documentText,
                   isSectionTitle(line) && styles.sectionTitle,
+                  isSubsectionTitle(line) && styles.subsectionTitle,
                 ]}
               >
                 {line}
               </Text>
-            );
-          })}
+            ) : (
+              <View key={`space-${index}`} style={styles.paragraphGap} />
+            ),
+          )}
         </View>
       </ScrollView>
     </View>
@@ -66,10 +70,7 @@ export function ServiceTermsDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FCFAF6',
-  },
+  screen: { flex: 1, backgroundColor: '#FCFAF6' },
   header: {
     width: '100%',
     height: scaleByDeviceWidth(28),
@@ -88,10 +89,7 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(24),
     height: scaleByDeviceWidth(24),
   },
-  backIcon: {
-    width: '100%',
-    height: '100%',
-  },
+  backIcon: { width: '100%', height: '100%' },
   scrollContent: {
     paddingHorizontal: scaleByDeviceWidth(16),
     paddingTop: scaleByDeviceWidth(12),
@@ -116,14 +114,10 @@ const styles = StyleSheet.create({
     lineHeight: scaleByDeviceWidth(20),
   },
   sectionTitle: {
-    fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(22),
   },
-  paragraphGap: {
-    height: scaleByDeviceWidth(12),
-  },
-  pressed: {
-    opacity: 0.6,
-  },
+  subsectionTitle: { fontFamily: 'EliceDXNeolli-Bold' },
+  paragraphGap: { height: scaleByDeviceWidth(12) },
+  pressed: { opacity: 0.6 },
 });

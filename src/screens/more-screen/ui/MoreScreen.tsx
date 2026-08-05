@@ -26,15 +26,19 @@ const NOTICE_ROW_IMAGE = require('@/src/shared/assets/images/more/notice-row.png
 const INQUIRY_ROW_IMAGE = require('@/src/shared/assets/images/more/inquiry-row.png');
 const TERMS_OF_SERVICE_ROW_IMAGE = require('@/src/shared/assets/images/more/terms-of-service-row.png');
 const MENU_DIVIDER_IMAGE = require('@/src/shared/assets/images/more/menu-divider.png');
-const TEMP_CURRENT_EXP = 674;
-const TEMP_TOTAL_EXP = 1_000;
-const TEMP_REMAINING_EXP = TEMP_TOTAL_EXP - TEMP_CURRENT_EXP;
 const NOTICE_INSTAGRAM_URL =
   'https://www.instagram.com/pochakfarm.official/?hl=hr';
 
 export function MoreScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useUserProfile();
+  const currentExperience = profile?.currentExperience ?? 0;
+  const requiredExperience = profile?.requiredExperience ?? 0;
+  const remainingExperience = profile?.remainingExperience ?? 0;
+  const experienceProgress =
+    requiredExperience > 0
+      ? Math.min(Math.max(currentExperience / requiredExperience, 0), 1)
+      : 0;
 
   async function handleNoticePress() {
     try {
@@ -88,24 +92,29 @@ export function MoreScreen() {
           {profile ? `Lv. ${profile.level}` : ''}
         </Text>
         <Text style={styles.remainingExpText}>
-          다음 레벨까지{' '}
-          <Text style={styles.remainingExpValue}>
-            {TEMP_REMAINING_EXP.toLocaleString('ko-KR')} EXP
-          </Text>
+          {profile ? (
+            <>
+              다음 레벨까지{' '}
+              <Text style={styles.remainingExpValue}>
+                {remainingExperience.toLocaleString('ko-KR')} EXP
+              </Text>
+            </>
+          ) : null}
         </Text>
         <View
-          accessibilityLabel={`경험치 ${TEMP_CURRENT_EXP.toLocaleString('ko-KR')} / ${TEMP_TOTAL_EXP.toLocaleString('ko-KR')}`}
+          accessibilityLabel={`경험치 ${currentExperience.toLocaleString('ko-KR')} / ${requiredExperience.toLocaleString('ko-KR')}`}
           style={styles.expProgressBar}
         >
           <View
             style={[
               styles.expProgressFill,
-              { width: `${(TEMP_CURRENT_EXP / TEMP_TOTAL_EXP) * 100}%` },
+              { width: `${experienceProgress * 100}%` },
             ]}
           />
           <Text style={styles.expProgressText}>
-            {TEMP_CURRENT_EXP.toLocaleString('ko-KR')} /{' '}
-            {TEMP_TOTAL_EXP.toLocaleString('ko-KR')}
+            {profile
+              ? `${currentExperience.toLocaleString('ko-KR')} / ${requiredExperience.toLocaleString('ko-KR')}`
+              : ''}
           </Text>
         </View>
       </View>
