@@ -7,8 +7,6 @@ import {
 } from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
-import { getUserProfileApi } from '@/src/entities/user';
-
 import { socialLoginApi } from '../api/socialLoginApi';
 import { AuthCancelledError } from '../lib/authError';
 import { saveServiceToken } from '../lib/tokenStorage';
@@ -140,11 +138,14 @@ export function useSocialLogin() {
       setLoadingProvider(provider);
 
       const providerToken = await getProviderToken[provider]();
-      const serviceToken = await socialLoginApi(provider, providerToken);
+      const { isNew, token: serviceToken } = await socialLoginApi(
+        provider,
+        providerToken,
+      );
 
       await saveServiceToken(serviceToken);
 
-      return getUserProfileApi();
+      return { isNew };
     } finally {
       setLoadingProvider(null);
     }
