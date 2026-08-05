@@ -5,5 +5,7 @@ export {
   MAX_USER_LEVEL,
 } from './lib/levelPolicy';
 export { getUserProfileApi } from './api/getUserProfileApi';
+export { getUserAccountApi } from './api/getUserAccountApi';
+export { useUserAccount } from './model/useUserAccount';
 export { useUserProfile } from './model/useUserProfile';
-export type { UserProfile } from './model/types';
+export type { UserAccount, UserProfile } from './model/types';
