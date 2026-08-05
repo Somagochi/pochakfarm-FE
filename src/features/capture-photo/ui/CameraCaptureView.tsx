@@ -21,6 +21,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { CoinShopComingSoonModal } from '@/src/shared/ui/CoinShopComingSoonModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
@@ -124,6 +125,8 @@ export function CameraCaptureView() {
   const [isPaidCaptureSessionActive, setIsPaidCaptureSessionActive] =
     useState(false);
   const [isCoinDialogVisible, setIsCoinDialogVisible] = useState(false);
+  const [isCoinShopComingSoonVisible, setIsCoinShopComingSoonVisible] =
+    useState(false);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
   const { availability: captureAvailability } =
     useCaptureAvailability();
@@ -663,11 +666,19 @@ export function CameraCaptureView() {
             <Text numberOfLines={1} style={styles.coinBalanceText}>
               {coinBalance.toLocaleString('ko-KR')}
             </Text>
-            <Image
-              resizeMode="contain"
-              source={ADD_COIN_IMAGE}
-              style={styles.addCoinImage}
-            />
+            <Pressable
+              accessibilityLabel="코인 추가"
+              accessibilityRole="button"
+              hitSlop={scaleByDeviceWidth(8)}
+              onPress={() => setIsCoinShopComingSoonVisible(true)}
+              style={({ pressed }) => pressed && styles.buttonPressed}
+            >
+              <Image
+                resizeMode="contain"
+                source={ADD_COIN_IMAGE}
+                style={styles.addCoinImage}
+              />
+            </Pressable>
           </View>
         </View>
 
@@ -1022,6 +1033,11 @@ export function CameraCaptureView() {
       <ErrorModal
         message={purchaseAttemptError}
         onClose={clearPurchaseAttemptError}
+      />
+
+      <CoinShopComingSoonModal
+        onClose={() => setIsCoinShopComingSoonVisible(false)}
+        visible={isCoinShopComingSoonVisible}
       />
 
       <SubjectModelDownloadModal
