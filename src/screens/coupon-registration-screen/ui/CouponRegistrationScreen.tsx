@@ -11,7 +11,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { useRedeemCoupon } from '@/src/features/redeem-coupon';
+import {
+  CouponFarmFullModal,
+  useRedeemCoupon,
+} from '@/src/features/redeem-coupon';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const COUPON_REGISTRATION_TITLE_IMAGE = require('@/src/shared/assets/images/coupon-registration/title.png');
@@ -22,8 +25,14 @@ const NEXT_BUTTON_DISABLED_IMAGE = require('@/src/shared/assets/images/nickname/
 
 export function CouponRegistrationScreen() {
   const insets = useSafeAreaInsets();
-  const { clearError, errorMessage, isLoading, redeemCoupon } =
-    useRedeemCoupon();
+  const {
+    clearError,
+    closeFarmFullModal,
+    errorMessage,
+    isFarmFull,
+    isLoading,
+    redeemCoupon,
+  } = useRedeemCoupon();
   const [couponNumber, setCouponNumber] = useState('');
   const isNextEnabled = couponNumber.trim().length > 0 && !isLoading;
 
@@ -128,6 +137,14 @@ export function CouponRegistrationScreen() {
           style={[styles.nextButton, !isNextEnabled && styles.disabledButton]}
         />
       </Pressable>
+      <CouponFarmFullModal
+        onClose={closeFarmFullModal}
+        onOrganize={() => {
+          closeFarmFullModal();
+          router.replace('/(tabs)/farm');
+        }}
+        visible={isFarmFull}
+      />
     </View>
   );
 }
