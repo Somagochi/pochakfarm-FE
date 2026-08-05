@@ -71,6 +71,16 @@ export function TermsAgreementScreen() {
       return;
     }
 
+    if (label === '[필수] 개인정보 수집 및 이용') {
+      router.push('/privacy-policy');
+      return;
+    }
+
+    if (label === '[선택] 서비스 품질 향상') {
+      router.push('/marketing-consent');
+      return;
+    }
+
     Alert.alert(label, '약관 상세 내용은 준비 중입니다.');
   }
 
