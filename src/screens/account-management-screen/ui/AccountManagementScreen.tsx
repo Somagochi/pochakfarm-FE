@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { router } from 'expo-router';
 import {
   Image,
@@ -10,6 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useUserAccount, useUserProfile } from '@/src/entities/user';
+import { LogoutConfirmModal } from '@/src/features/logout';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const ACCOUNT_MANAGEMENT_TITLE_IMAGE = require('@/src/shared/assets/images/account-management/title.png');
@@ -29,6 +31,7 @@ const PROVIDER_CONTENT = {
 
 export function AccountManagementScreen() {
   const insets = useSafeAreaInsets();
+  const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
   const { account } = useUserAccount();
   const { profile } = useUserProfile();
   const accountProvider = account?.provider?.toLowerCase();
@@ -98,6 +101,15 @@ export function AccountManagementScreen() {
         style={styles.logoutBackground}
       >
         <Pressable
+          accessibilityLabel="로그아웃"
+          accessibilityRole="button"
+          onPress={() => setIsLogoutModalVisible(true)}
+          style={({ pressed }) => [
+            styles.logoutButton,
+            pressed && styles.pressed,
+          ]}
+        />
+        <Pressable
           accessibilityLabel="회원 탈퇴"
           accessibilityRole="button"
           onPress={() => router.push('/account-withdrawal')}
@@ -113,6 +125,11 @@ export function AccountManagementScreen() {
           />
         </Pressable>
       </ImageBackground>
+      <LogoutConfirmModal
+        onClose={() => setIsLogoutModalVisible(false)}
+        onLoggedOut={() => router.replace('/login')}
+        visible={isLogoutModalVisible}
+      />
     </View>
   );
 }
@@ -189,9 +206,15 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(12),
     backgroundColor: '#FAF5EB',
   },
+  logoutButton: {
+    position: 'absolute',
+    top: 0,
+    width: scaleByDeviceWidth(328),
+    height: scaleByDeviceWidth(50),
+  },
   accountWithdrawalButton: {
     position: 'absolute',
-    top: scaleByDeviceWidth(50),
+    top: scaleByDeviceWidth(66),
     width: scaleByDeviceWidth(328),
     height: scaleByDeviceWidth(50),
   },

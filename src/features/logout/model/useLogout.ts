@@ -17,7 +17,7 @@ export function useLogout() {
         throw new Error('저장된 로그인 토큰이 없습니다.');
       }
 
-      await logoutApi(token.accessToken, token.refreshToken);
+      await logoutApi(token.refreshToken);
       await clearServiceToken();
     } finally {
       setIsLoading(false);
