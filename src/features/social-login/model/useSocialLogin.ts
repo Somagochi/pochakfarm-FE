@@ -21,6 +21,16 @@ type AppleAuthError = {
 
 const KAKAO_EMAIL_SCOPE = 'account_email';
 
+function maskEmail(email: string) {
+  const [localPart, domain] = email.split('@');
+
+  if (!localPart || !domain) {
+    return '(invalid email format)';
+  }
+
+  return `${localPart.slice(0, 2)}***@${domain}`;
+}
+
 async function getKakaoAccessToken() {
   let kakaoToken = await kakaoSdkLogin();
 
@@ -66,6 +76,18 @@ async function getNaverAccessToken() {
 
   if (!accessToken) {
     throw new Error('네이버 AccessToken이 없습니다.');
+  }
+
+  if (__DEV__) {
+    const profile = await NaverLogin.getProfile(accessToken);
+    const email = profile.response?.email;
+
+    console.info('[Naver profile diagnostic]', {
+      email: email ? maskEmail(email) : null,
+      hasEmail: Boolean(email),
+      message: profile.message,
+      resultCode: profile.resultcode,
+    });
   }
 
   return accessToken;
