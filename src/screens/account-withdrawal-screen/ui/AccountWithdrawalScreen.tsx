@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
 import {
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -10,6 +11,10 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import {
+  type WithdrawalReason,
+  useWithdrawAccount,
+} from '@/src/features/withdraw-account';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const ACCOUNT_WITHDRAWAL_TITLE_IMAGE = require('@/src/shared/assets/images/account-withdrawal/title.png');
@@ -23,10 +28,10 @@ const CHECKBOX_ACTIVE_IMAGE = require('@/src/shared/assets/images/nickname/check
 const CHECKBOX_DISABLED_IMAGE = require('@/src/shared/assets/images/nickname/checkbox.png');
 
 const WITHDRAWAL_REASONS = [
-  '앱 이용이 불편했어요',
-  '앱을 자주 사용하지 않아요',
-  '새로운 계정을 사용하고 싶어요',
-  '기타',
+  { label: '앱 이용이 불편했어요', value: 'INCONVENIENT' },
+  { label: '앱을 자주 사용하지 않아요', value: 'LOW_USAGE' },
+  { label: '새로운 계정을 사용하고 싶어요', value: 'NEW_ACCOUNT' },
+  { label: '기타', value: 'OTHER' },
 ] as const;
 
 export function AccountWithdrawalScreen() {
@@ -34,7 +39,33 @@ export function AccountWithdrawalScreen() {
   const [selectedReasonIndex, setSelectedReasonIndex] = useState<number | null>(
     null,
   );
-  const isWithdrawalEnabled = selectedReasonIndex !== null;
+  const { isLoading, withdrawAccount } = useWithdrawAccount();
+  const isWithdrawalEnabled = selectedReasonIndex !== null && !isLoading;
+
+  async function handleWithdraw() {
+    if (selectedReasonIndex === null) {
+      return;
+    }
+
+    const withdrawalReason: WithdrawalReason =
+      WITHDRAWAL_REASONS[selectedReasonIndex].value;
+
+    try {
+      const isWithdrawn = await withdrawAccount(withdrawalReason);
+
+      if (isWithdrawn) {
+        router.replace('/login');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert(
+        '회원 탈퇴 실패',
+        error instanceof Error
+          ? error.message
+          : '회원 탈퇴 중 문제가 발생했습니다.',
+      );
+    }
+  }
 
   return (
     <ScrollView
@@ -80,10 +111,11 @@ export function AccountWithdrawalScreen() {
       <View style={styles.reasonOptions}>
         {WITHDRAWAL_REASONS.map((reason, index) => (
           <Pressable
-            accessibilityLabel={reason}
+            accessibilityLabel={reason.label}
             accessibilityRole="radio"
             accessibilityState={{ checked: selectedReasonIndex === index }}
-            key={reason}
+            disabled={isLoading}
+            key={reason.value}
             onPress={() =>
               setSelectedReasonIndex((currentIndex) =>
                 currentIndex === index ? null : index,
@@ -106,7 +138,7 @@ export function AccountWithdrawalScreen() {
                 }
                 style={styles.reasonCheckbox}
               />
-              <Text style={styles.reasonText}>{reason}</Text>
+              <Text style={styles.reasonText}>{reason.label}</Text>
             </View>
           </Pressable>
         ))}
@@ -114,8 +146,12 @@ export function AccountWithdrawalScreen() {
       <Pressable
         accessibilityLabel="탈퇴하기"
         accessibilityRole="button"
-        accessibilityState={{ disabled: !isWithdrawalEnabled }}
+        accessibilityState={{
+          busy: isLoading,
+          disabled: !isWithdrawalEnabled,
+        }}
         disabled={!isWithdrawalEnabled}
+        onPress={handleWithdraw}
         style={styles.withdrawButton}
       >
         <Image

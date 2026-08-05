@@ -1,7 +1,9 @@
 import { router } from 'expo-router';
 import {
+  Alert,
   Image,
   ImageBackground,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useUserProfile } from '@/src/entities/user';
+import { buildSupportEmailUrl } from '@/src/features/contact-support';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const PROFILE_CARD_IMAGE = require('@/src/shared/assets/images/more/profile-card.png');
@@ -26,10 +29,31 @@ const MENU_DIVIDER_IMAGE = require('@/src/shared/assets/images/more/menu-divider
 const TEMP_CURRENT_EXP = 674;
 const TEMP_TOTAL_EXP = 1_000;
 const TEMP_REMAINING_EXP = TEMP_TOTAL_EXP - TEMP_CURRENT_EXP;
+const NOTICE_INSTAGRAM_URL =
+  'https://www.instagram.com/pochakfarm.official/?hl=hr';
 
 export function MoreScreen() {
   const insets = useSafeAreaInsets();
   const { profile } = useUserProfile();
+
+  async function handleNoticePress() {
+    try {
+      await Linking.openURL(NOTICE_INSTAGRAM_URL);
+    } catch {
+      Alert.alert('링크 열기 실패', '공지사항 페이지를 열 수 없습니다.');
+    }
+  }
+
+  async function handleInquiryPress() {
+    try {
+      await Linking.openURL(buildSupportEmailUrl(profile?.nickname));
+    } catch {
+      Alert.alert(
+        '메일 앱 열기 실패',
+        '메일 앱이 설치되어 있고 메일 계정이 설정되어 있는지 확인해주세요.',
+      );
+    }
+  }
 
   return (
     <ScrollView
@@ -131,7 +155,7 @@ export function MoreScreen() {
         <Pressable
           accessibilityLabel="공지사항"
           accessibilityRole="button"
-          onPress={() => router.push('/notice')}
+          onPress={handleNoticePress}
           style={({ pressed }) => [
             styles.informationRow,
             pressed && styles.pressed,
@@ -146,7 +170,7 @@ export function MoreScreen() {
         <Pressable
           accessibilityLabel="문의"
           accessibilityRole="button"
-          onPress={() => router.push('/inquiry')}
+          onPress={handleInquiryPress}
           style={({ pressed }) => [
             styles.informationRow,
             pressed && styles.pressed,

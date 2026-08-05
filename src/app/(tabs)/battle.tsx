@@ -1,12 +1,5 @@
-import { StyleSheet, View } from 'react-native';
+import { BattleScreen } from '@/src/screens/battle-screen';
 
 export default function BattleRoute() {
-  return <View style={styles.screen} />;
+  return <BattleScreen />;
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-});

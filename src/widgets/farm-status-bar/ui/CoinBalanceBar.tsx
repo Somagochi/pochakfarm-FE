@@ -5,8 +5,10 @@ import {
   StyleSheet,
   Text,
 } from 'react-native';
+import { useState } from 'react';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { CoinShopComingSoonModal } from '@/src/shared/ui/CoinShopComingSoonModal';
 
 const STATUS_BACKGROUND = require('@/src/shared/assets/images/farm-status/status-background.png');
 const COIN_ICON = require('@/src/shared/assets/images/farm-status/coin.png');
@@ -21,30 +23,43 @@ export function CoinBalanceBar({
   balance = 12500,
   onPressAddCoin,
 }: CoinBalanceBarProps) {
+  const [isComingSoonVisible, setIsComingSoonVisible] = useState(false);
+
+  function handleAddCoinPress() {
+    onPressAddCoin?.();
+    setIsComingSoonVisible(true);
+  }
+
   return (
-    <ImageBackground
-      resizeMode="stretch"
-      source={STATUS_BACKGROUND}
-      style={styles.container}
-    >
-      <Image resizeMode="contain" source={COIN_ICON} style={styles.coinIcon} />
-      <Text numberOfLines={1} style={styles.balance}>
-        {balance.toLocaleString('ko-KR')}
-      </Text>
-      <Pressable
-        accessibilityLabel="코인 추가"
-        accessibilityRole="button"
-        hitSlop={scaleByDeviceWidth(8)}
-        onPress={() => onPressAddCoin?.()}
-        style={({ pressed }) => pressed && styles.pressed}
+    <>
+      <ImageBackground
+        resizeMode="stretch"
+        source={STATUS_BACKGROUND}
+        style={styles.container}
       >
-        <Image
-          resizeMode="contain"
-          source={ADD_COIN_ICON}
-          style={styles.addCoinIcon}
-        />
-      </Pressable>
-    </ImageBackground>
+        <Image resizeMode="contain" source={COIN_ICON} style={styles.coinIcon} />
+        <Text numberOfLines={1} style={styles.balance}>
+          {balance.toLocaleString('ko-KR')}
+        </Text>
+        <Pressable
+          accessibilityLabel="코인 추가"
+          accessibilityRole="button"
+          hitSlop={scaleByDeviceWidth(8)}
+          onPress={handleAddCoinPress}
+          style={({ pressed }) => pressed && styles.pressed}
+        >
+          <Image
+            resizeMode="contain"
+            source={ADD_COIN_ICON}
+            style={styles.addCoinIcon}
+          />
+        </Pressable>
+      </ImageBackground>
+      <CoinShopComingSoonModal
+        onClose={() => setIsComingSoonVisible(false)}
+        visible={isComingSoonVisible}
+      />
+    </>
   );
 }
 
