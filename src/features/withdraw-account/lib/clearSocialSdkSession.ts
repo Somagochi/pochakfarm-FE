@@ -18,5 +18,11 @@ export async function clearSocialSdkSession(
     return;
   }
 
-  await clearSdkSession[provider]();
+  const clearSession = clearSdkSession[provider];
+
+  if (typeof clearSession !== 'function') {
+    throw new Error(`지원하지 않는 소셜 로그인 제공자입니다: ${provider}`);
+  }
+
+  await clearSession();
 }
