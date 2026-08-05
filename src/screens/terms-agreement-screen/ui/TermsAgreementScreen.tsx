@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useAgreeToTerms } from '@/src/features/agree-to-terms';
 import { useSetNickname } from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
@@ -32,6 +33,10 @@ export function TermsAgreementScreen() {
   const insets = useSafeAreaInsets();
   const { nickname = '' } = useLocalSearchParams<{ nickname?: string }>();
   const {
+    agreeToTerms,
+    isLoading: isTermsAgreementLoading,
+  } = useAgreeToTerms();
+  const {
     clearError,
     errorMessage,
     isLoading,
@@ -42,7 +47,9 @@ export function TermsAgreementScreen() {
   );
   const isAllAgreed = checkedAgreements.every(Boolean);
   const isCompleteEnabled =
-    checkedAgreements.slice(0, 3).every(Boolean) && !isLoading;
+    checkedAgreements.slice(0, 3).every(Boolean) &&
+    !isLoading &&
+    !isTermsAgreementLoading;
 
   function handleAllAgreementPress() {
     const nextValue = !isAllAgreed;
@@ -72,6 +79,13 @@ export function TermsAgreementScreen() {
       const isNicknameUpdated = await setNickname(nickname);
 
       if (isNicknameUpdated) {
+        await agreeToTerms({
+          ageRequirementAgreed: checkedAgreements[0],
+          termsOfServiceAgreed: checkedAgreements[1],
+          privacyPolicyAgreed: checkedAgreements[2],
+          serviceQualityAgreed: checkedAgreements[3],
+          marketingAgreed: checkedAgreements[4],
+        });
         router.replace('/(tabs)/farm');
         return;
       }
