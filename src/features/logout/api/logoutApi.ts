@@ -4,16 +4,11 @@ type LogoutRequest = {
   refreshToken: string;
 };
 
-export function logoutApi(accessToken: string, refreshToken: string) {
+export function logoutApi(refreshToken: string) {
   return apiClient.post<unknown, LogoutRequest>(
     '/api/auth/logout',
     {
       refreshToken,
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
     },
   );
 }

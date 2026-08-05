@@ -3,3 +3,8 @@ export type UserProfile = {
   level: number;
   coins: number;
 };
+
+export type UserAccount = {
+  email: string | null;
+  provider: 'apple' | 'kakao' | 'naver' | null;
+};
