@@ -279,6 +279,7 @@ const styles = StyleSheet.create({
     paddingRight: scaleByDeviceWidth(12),
     paddingVertical: 0,
     color: '#332F27',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(14),
     lineHeight: scaleByDeviceWidth(18),
   },

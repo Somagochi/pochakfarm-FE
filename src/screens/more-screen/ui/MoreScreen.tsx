@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     top: scaleByDeviceWidth(28),
     left: scaleByDeviceWidth(20),
     color: '#302F2B',
-    fontFamily: 'EliceDXNeolli-Medium',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(20),
     lineHeight: scaleByDeviceWidth(25),
   },

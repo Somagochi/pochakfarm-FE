@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
     left: scaleByDeviceWidth(4),
     width: scaleByDeviceWidth(92),
     color: '#302F2A',
-    fontFamily: 'EliceDXNeolli-Medium',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(21),
     textAlign: 'center',

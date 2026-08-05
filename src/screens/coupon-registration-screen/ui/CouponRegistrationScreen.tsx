@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
     borderWidth: scaleByDeviceWidth(1),
     backgroundColor: '#FFFFFF',
     color: '#332016',
-    fontFamily: 'EliceDXNeolli-Light',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(14),
     textAlignVertical: 'center',
   },

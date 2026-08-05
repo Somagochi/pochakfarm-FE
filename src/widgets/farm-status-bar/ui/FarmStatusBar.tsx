@@ -47,7 +47,7 @@ const styles = StyleSheet.create({
   name: {
     maxWidth: scaleByDeviceWidth(90),
     color: '#332F27',
-    fontFamily: 'EliceDXNeolli-Medium',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(14),
   },
   levelBadge: {

@@ -1540,7 +1540,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: scaleByDeviceWidth(16),
     color: '#5F5140',
-    fontFamily: 'EliceDXNeolli-Light',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(14),
   },
   saveNameButton: {
