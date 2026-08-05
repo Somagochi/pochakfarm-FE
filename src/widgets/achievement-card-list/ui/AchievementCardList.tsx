@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ActivityIndicator, FlatList, StyleSheet } from 'react-native';
 
 import {
@@ -16,13 +16,6 @@ import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 export function AchievementCardList() {
   const [claimedAchievement, setClaimedAchievement] =
     useState<Achievement | null>(null);
-  const [isTestRewardVisible, setIsTestRewardVisible] = useState(__DEV__);
-
-  useEffect(() => {
-    if (__DEV__) {
-      setIsTestRewardVisible(true);
-    }
-  }, []);
   const {
     achievements,
     clearError,
@@ -86,12 +79,9 @@ export function AchievementCardList() {
       <AchievementClaimRewardModal
         badgeImageUrl={claimedAchievement?.imageUrl}
         coinAmount={claimedCoinReward?.amount ?? 300}
-        onClose={() => {
-          setClaimedAchievement(null);
-          setIsTestRewardVisible(false);
-        }}
+        onClose={() => setClaimedAchievement(null)}
         title={claimedBadgeReward?.badgeName ?? '첫 보금자리'}
-        visible={claimedAchievement !== null || isTestRewardVisible}
+        visible={claimedAchievement !== null}
       />
     </>
   );
