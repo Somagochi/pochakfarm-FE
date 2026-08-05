@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -49,6 +49,7 @@ function isFarmType(value: string | string[] | undefined): value is FarmType {
 
 export function SaveToFarmScreen() {
   const insets = useSafeAreaInsets();
+  const farmScrollRef = useRef<ScrollView>(null);
   const {
     animalImageKey,
     captureId: captureIdParam,
@@ -202,6 +203,10 @@ export function SaveToFarmScreen() {
         {fieldWidth > 0 && (
           <ScrollView
             bounces={false}
+            onContentSizeChange={() => {
+              farmScrollRef.current?.scrollToEnd({ animated: false });
+            }}
+            ref={farmScrollRef}
             showsVerticalScrollIndicator={false}
           >
             <FarmField
