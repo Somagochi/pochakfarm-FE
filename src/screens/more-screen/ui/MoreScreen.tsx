@@ -18,7 +18,6 @@ const EXP_ICON_IMAGE = require('@/src/shared/assets/images/more/exp-icon.png');
 const COUPON_REGISTRATION_BUTTON_IMAGE = require('@/src/shared/assets/images/more/coupon-registration-button.png');
 const SETTINGS_CARD_IMAGE = require('@/src/shared/assets/images/more/settings-card.png');
 const ACCOUNT_MANAGEMENT_ROW_IMAGE = require('@/src/shared/assets/images/more/account-management-row.png');
-const NOTIFICATION_SETTINGS_ROW_IMAGE = require('@/src/shared/assets/images/more/notification-settings-row.png');
 const TERMS_CARD_IMAGE = require('@/src/shared/assets/images/more/terms-card.png');
 const NOTICE_ROW_IMAGE = require('@/src/shared/assets/images/more/notice-row.png');
 const INQUIRY_ROW_IMAGE = require('@/src/shared/assets/images/more/inquiry-row.png');
@@ -122,32 +121,6 @@ export function MoreScreen() {
             style={styles.settingsRowImage}
           />
         </Pressable>
-        <Pressable
-          accessibilityLabel="알림 설정"
-          accessibilityRole="button"
-          onPress={() => router.push('/notification-settings')}
-          style={({ pressed }) => [
-            styles.settingsRow,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Image
-            resizeMode="contain"
-            source={NOTIFICATION_SETTINGS_ROW_IMAGE}
-            style={styles.settingsRowImage}
-          />
-        </Pressable>
-        <View
-          pointerEvents="none"
-          style={[styles.menuDivider, styles.settingsMenuDivider]}
-        >
-          <Image
-            accessible={false}
-            resizeMode="stretch"
-            source={MENU_DIVIDER_IMAGE}
-            style={styles.menuDividerImage}
-          />
-        </View>
       </ImageBackground>
       <ImageBackground
         accessibilityLabel="이용안내"
@@ -331,9 +304,9 @@ const styles = StyleSheet.create({
   },
   settingsCard: {
     width: scaleByDeviceWidth(328),
-    height: scaleByDeviceWidth(159),
+    height: scaleByDeviceWidth(96),
     marginTop: scaleByDeviceWidth(8),
-    paddingTop: scaleByDeviceWidth(39),
+    paddingTop: scaleByDeviceWidth(31),
     alignItems: 'center',
   },
   settingsRow: {
@@ -363,9 +336,6 @@ const styles = StyleSheet.create({
   menuDividerImage: {
     width: '100%',
     height: '100%',
-  },
-  settingsMenuDivider: {
-    top: scaleByDeviceWidth(95),
   },
   firstInformationMenuDivider: {
     top: scaleByDeviceWidth(97),
