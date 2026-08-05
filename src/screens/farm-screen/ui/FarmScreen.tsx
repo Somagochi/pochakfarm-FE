@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { setBottomTabBarHidden } from '@/src/shared/lib/navigation/bottomTabBarVisibility';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FarmCreatureSearchModal } from '@/src/features/find-farm-creature';
+import { useMoveFarmCreature } from '@/src/features/move-farm-creature';
 import { type FarmType, useFarm } from '@/src/entities/farm';
 import { useUserProfile } from '@/src/entities/user';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
@@ -24,6 +26,8 @@ const FARM_TYPE_BY_ENVIRONMENT: Record<SelectableFarmEnvironment, FarmType> = {
   sea: 'SEA',
   space: 'SPACE',
 };
+const CLOSE_REORDER_BUTTON = require('@/src/shared/assets/images/capture/capture-close.png');
+const SAVE_REORDER_BUTTON = require('@/src/shared/assets/images/farm-status/save-reorder-button.png');
 
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
@@ -49,10 +53,23 @@ export function FarmScreen() {
   >(undefined);
   const [isCreatureSearchVisible, setIsCreatureSearchVisible] =
     useState(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const {
+    clearError: clearMoveError,
+    errorMessage: moveErrorMessage,
+    isMoving,
+    moveCreature,
+  } = useMoveFarmCreature();
   const [contentSize, setContentSize] = useState({
     height: 0,
     width: 0,
   });
+
+  useEffect(() => {
+    setBottomTabBarHidden(isReordering);
+
+    return () => setBottomTabBarHidden(false);
+  }, [isReordering]);
 
   return (
     <View
@@ -80,56 +97,107 @@ export function FarmScreen() {
             farmScrollRef.current?.scrollToEnd({ animated: false });
           }}
           ref={farmScrollRef}
+          scrollEnabled={!isReordering && !isMoving}
           showsVerticalScrollIndicator={false}
         >
           <FarmField
             environment={selectedEnvironment}
             farmType={FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]}
             floors={farm?.floors ?? []}
+            isReordering={isReordering}
+            onMoveCreature={async (
+              animalId,
+              targetFloorNumber,
+              targetSlotNumber,
+            ) => {
+              const didMove = await moveCreature(animalId, {
+                floorNumber: targetFloorNumber,
+                slotNumber: targetSlotNumber,
+              });
+
+              if (didMove) {
+                await reloadFarm();
+                setIsReordering(false);
+              }
+            }}
             onExpansionSuccess={async () => {
               await Promise.all([reloadFarm(), reloadProfile()]);
             }}
-            onPressCreature={(animal) => {
-              setSelectedAnimalId(animal.animalId);
-              setIsCreatureDetailVisible(true);
-            }}
+            onPressCreature={
+              isReordering
+                ? undefined
+                : (animal) => {
+                    setSelectedAnimalId(animal.animalId);
+                    setIsCreatureDetailVisible(true);
+                  }
+            }
             width={contentSize.width}
           />
         </ScrollView>
       )}
-      <View
-        style={[
-          styles.statusControls,
-          { top: insets.top + scaleByDeviceWidth(2.2) },
-        ]}
-      >
-        <FarmStatusBar
-          level={profile?.level ?? 0}
-          name={profile?.nickname ?? ''}
-        />
-        <View style={styles.actionButton}>
-          <FarmEnvironmentSelector
-            onSelectEnvironment={setSelectedEnvironment}
-            selectedEnvironment={selectedEnvironment}
+      {!isReordering && (
+        <View
+          style={[
+            styles.statusControls,
+            { top: insets.top + scaleByDeviceWidth(2.2) },
+          ]}
+        >
+          <FarmStatusBar
+            level={profile?.level ?? 0}
+            name={profile?.nickname ?? ''}
           />
+          <View style={styles.actionButton}>
+            <FarmEnvironmentSelector
+              onSelectEnvironment={setSelectedEnvironment}
+              selectedEnvironment={selectedEnvironment}
+            />
+          </View>
         </View>
-      </View>
-      <View
-        style={[
-          styles.rightControls,
-          { top: insets.top + scaleByDeviceWidth(2.2) },
-        ]}
-      >
-        <CoinBalanceBar balance={profile?.coins ?? 0} />
-        <View style={styles.utilityButtons}>
-          <FarmUtilityButtons
-            onPressRefresh={() => {
-              void Promise.all([reloadFarm(), reloadProfile()]);
-            }}
-            onPressSearch={() => setIsCreatureSearchVisible(true)}
-          />
+      )}
+      {!isReordering && (
+        <View
+          style={[
+            styles.rightControls,
+            { top: insets.top + scaleByDeviceWidth(2.2) },
+          ]}
+        >
+          <CoinBalanceBar balance={profile?.coins ?? 0} />
+          <View style={styles.utilityButtons}>
+            <FarmUtilityButtons
+              onPressAnimalSwitch={() => setIsReordering(true)}
+              onPressSearch={() => setIsCreatureSearchVisible(true)}
+            />
+          </View>
         </View>
-      </View>
+      )}
+      {isReordering && (
+        <View
+          pointerEvents="box-none"
+          style={[
+            styles.reorderControls,
+            { top: insets.top + scaleByDeviceWidth(16) },
+          ]}
+        >
+          <Pressable
+            accessibilityLabel="동물 교체 취소"
+            accessibilityRole="button"
+            disabled={isMoving}
+            onPress={() => setIsReordering(false)}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <Image source={CLOSE_REORDER_BUTTON} style={styles.closeButton} />
+          </Pressable>
+          <Pressable
+            accessibilityLabel="동물 배치 저장"
+            accessibilityRole="button"
+            disabled={isMoving}
+            onPress={() => setIsReordering(false)}
+            style={({ pressed }) => pressed && styles.pressed}
+          >
+            <Image source={SAVE_REORDER_BUTTON} style={styles.saveButton} />
+          </Pressable>
+        </View>
+      )}
       <FarmCreatureSearchModal
         onClose={() => setIsCreatureSearchVisible(false)}
         onSelectAnimal={(animalId) => {
@@ -153,8 +221,14 @@ export function FarmScreen() {
         />
       )}
       <ErrorModal
-        message={farmErrorMessage ?? errorMessage}
-        onClose={farmErrorMessage ? clearFarmError : clearError}
+        message={moveErrorMessage ?? farmErrorMessage ?? errorMessage}
+        onClose={
+          moveErrorMessage
+            ? clearMoveError
+            : farmErrorMessage
+              ? clearFarmError
+              : clearError
+        }
       />
     </View>
   );
@@ -186,5 +260,25 @@ const styles = StyleSheet.create({
   utilityButtons: {
     marginTop: scaleByDeviceWidth(4.4),
     alignSelf: 'flex-end',
+  },
+  reorderControls: {
+    position: 'absolute',
+    left: scaleByDeviceWidth(18),
+    right: scaleByDeviceWidth(18),
+    zIndex: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  closeButton: {
+    width: scaleByDeviceWidth(44),
+    height: scaleByDeviceWidth(46.2),
+  },
+  saveButton: {
+    width: scaleByDeviceWidth(80),
+    height: scaleByDeviceWidth(42),
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

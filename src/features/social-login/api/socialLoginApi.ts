@@ -21,5 +21,5 @@ export async function socialLoginApi(provider: SocialLoginProvider, token: strin
     token,
   });
 
-  return response.data.token;
+  return response.data;
 }

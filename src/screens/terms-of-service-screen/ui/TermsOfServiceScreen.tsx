@@ -1,8 +1,9 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useUpdateMarketingConsent } from '@/src/features/update-marketing-consent';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BACK_ICON_IMAGE = require('@/src/shared/assets/images/coupon-registration/back-icon.png');
@@ -23,15 +24,36 @@ function formatMarketingConsentDate(date: Date) {
 
 export function TermsOfServiceScreen() {
   const insets = useSafeAreaInsets();
+  const { isLoading, updateMarketingConsent } =
+    useUpdateMarketingConsent();
   const [marketingConsentDate, setMarketingConsentDate] = useState<
     string | null
   >(null);
   const isMarketingConsentEnabled = marketingConsentDate !== null;
 
-  function handleMarketingConsentPress() {
-    setMarketingConsentDate((current) =>
-      current ? null : formatMarketingConsentDate(new Date()),
-    );
+  async function handleMarketingConsentPress() {
+    const nextMarketingConsentEnabled = !isMarketingConsentEnabled;
+
+    try {
+      const isUpdated = await updateMarketingConsent(
+        nextMarketingConsentEnabled,
+      );
+
+      if (!isUpdated) {
+        return;
+      }
+
+      setMarketingConsentDate(
+        nextMarketingConsentEnabled
+          ? formatMarketingConsentDate(new Date())
+          : null,
+      );
+    } catch {
+      Alert.alert(
+        '마케팅 수신 동의 변경 실패',
+        '잠시 후 다시 시도해 주세요.',
+      );
+    }
   }
 
   return (
@@ -93,7 +115,12 @@ export function TermsOfServiceScreen() {
           isMarketingConsentEnabled ? '수신 동의 상태' : '수신 거부 상태'
         }`}
         accessibilityRole="switch"
-        accessibilityState={{ checked: isMarketingConsentEnabled }}
+        accessibilityState={{
+          busy: isLoading,
+          checked: isMarketingConsentEnabled,
+          disabled: isLoading,
+        }}
+        disabled={isLoading}
         onPress={handleMarketingConsentPress}
         style={({ pressed }) => [
           styles.marketingConsentButton,

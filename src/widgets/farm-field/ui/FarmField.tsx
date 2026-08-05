@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import {
   Alert,
@@ -35,6 +35,8 @@ const ENVIRONMENT_ASSETS = {
 } as const;
 const REFERENCE_SCREEN_WIDTH = 360;
 const BASE_SLOT_SIZE = 58.4;
+const BASE_SLOT_GAP = 26.6;
+const SLOT_COUNT = 4;
 const CREATURE_NAMEPLATE_IMAGE = require('@/src/shared/assets/images/farm/creature-nameplate.png');
 const FARM_AREAS = [
   { areaNumber: 4, sourceCenterY: 700 },
@@ -47,6 +49,12 @@ type FarmFieldProps = {
   environment: 'sky' | 'land' | 'sea' | 'space';
   farmType: FarmType;
   floors: FarmFloor[];
+  isReordering?: boolean;
+  onMoveCreature?: (
+    animalId: number,
+    targetFloorNumber: number,
+    targetSlotNumber: number,
+  ) => void;
   onExpansionSuccess?: () => Promise<unknown>;
   onPressEmptySlot?: (floorNumber: number, slotNumber: number) => void;
   onPressCreature?: (
@@ -64,6 +72,8 @@ export function FarmField({
   environment,
   farmType,
   floors,
+  isReordering = false,
+  onMoveCreature,
   onExpansionSuccess,
   onPressEmptySlot,
   onPressCreature,
@@ -72,6 +82,15 @@ export function FarmField({
   selectedSlotImageSource,
   width,
 }: FarmFieldProps) {
+  const canvasRef = useRef<View>(null);
+  const canvasOriginRef = useRef({ x: 0, y: 0 });
+  const [draggedCreature, setDraggedCreature] = useState<{
+    animal: FarmAnimal;
+    floorNumber: number;
+    pageX: number;
+    pageY: number;
+    slotNumber: number;
+  } | null>(null);
   const [expansionFloorNumber, setExpansionFloorNumber] = useState<
     number | null
   >(null);
@@ -83,6 +102,35 @@ export function FarmField({
   const canvasHeight = width * farmImageRatio;
   const uiScale = width / REFERENCE_SCREEN_WIDTH;
   const slotSize = BASE_SLOT_SIZE * uiScale;
+  const slotGap = BASE_SLOT_GAP * uiScale;
+  const rowWidth = slotSize * SLOT_COUNT + slotGap * (SLOT_COUNT - 1);
+
+  const getDropTarget = (pageX: number, pageY: number) => {
+    const x = pageX - canvasOriginRef.current.x;
+    const y = pageY - canvasOriginRef.current.y;
+    const rowLeft = (width - rowWidth) / 2;
+
+    for (const { areaNumber, sourceCenterY } of FARM_AREAS) {
+      const floor = floors.find(({ floorNum }) => floorNum === areaNumber);
+      if (!floor?.unlocked) continue;
+
+      const rowTop = (sourceCenterY / 2983) * canvasHeight - slotSize / 2;
+      if (y < rowTop || y > rowTop + slotSize) continue;
+
+      for (
+        let slotNumber = 1;
+        slotNumber <= SLOT_COUNT;
+        slotNumber += 1
+      ) {
+        const slotLeft = rowLeft + (slotNumber - 1) * (slotSize + slotGap);
+        if (x >= slotLeft && x <= slotLeft + slotSize) {
+          return { floorNumber: areaNumber, slotNumber };
+        }
+      }
+    }
+
+    return null;
+  };
 
   const handleExpandFloor = async () => {
     try {
@@ -103,7 +151,10 @@ export function FarmField({
   };
 
   return (
-    <View style={[styles.canvas, { width, height: canvasHeight }]}>
+    <View
+      ref={canvasRef}
+      style={[styles.canvas, { width, height: canvasHeight }]}
+    >
       <Image
         resizeMode="contain"
         source={background}
@@ -149,13 +200,54 @@ export function FarmField({
                   slotNumber: slot.slotNum,
                 }];
               })}
+              draggingAnimalId={draggedCreature?.animal.animalId}
               isUnlockAvailable={
                 floor?.unlocked === false &&
                 (areaNumber === 1 || previousFloor?.unlocked === true)
               }
               isUnlocked={floor?.unlocked === true}
               onPressCreature={onPressCreature}
+              onCreatureDragEnd={(pageX, pageY) => {
+                if (!draggedCreature) return;
+
+                const target = getDropTarget(pageX, pageY);
+                setDraggedCreature(null);
+                if (
+                  target &&
+                  (target.floorNumber !== draggedCreature.floorNumber ||
+                    target.slotNumber !== draggedCreature.slotNumber)
+                ) {
+                  onMoveCreature?.(
+                    draggedCreature.animal.animalId,
+                    target.floorNumber,
+                    target.slotNumber,
+                  );
+                }
+              }}
+              onCreatureDragMove={(pageX, pageY) => {
+                setDraggedCreature((current) =>
+                  current ? { ...current, pageX, pageY } : null,
+                );
+              }}
+              onCreatureDragStart={
+                isReordering
+                  ? (animal, floorNumber, slotNumber, pageX, pageY) => {
+                      canvasRef.current?.measureInWindow((x, y) => {
+                        canvasOriginRef.current = { x, y };
+                        setDraggedCreature({
+                          animal,
+                          floorNumber,
+                          pageX,
+                          pageY,
+                          slotNumber,
+                        });
+                      });
+                    }
+                  : undefined
+              }
               onPressSlot={(slotNumber) => {
+                if (isReordering) return;
+
                 if (onPressEmptySlot) {
                   onPressEmptySlot(areaNumber, slotNumber);
                   return;
@@ -163,7 +255,9 @@ export function FarmField({
 
                 router.push('/(tabs)/capture');
               }}
-              onPressUnlock={() => setExpansionFloorNumber(areaNumber)}
+              onPressUnlock={() => {
+                if (!isReordering) setExpansionFloorNumber(areaNumber);
+              }}
               scale={uiScale}
               selectedSlotNumber={
                 selectedSlot?.floorNumber === areaNumber
@@ -177,6 +271,32 @@ export function FarmField({
           </View>
         );
       })}
+      {isReordering && draggedCreature?.animal.animalImageUrl && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.draggedCreature,
+            {
+              left:
+                draggedCreature.pageX -
+                canvasOriginRef.current.x -
+                40 * uiScale,
+              top:
+                draggedCreature.pageY -
+                canvasOriginRef.current.y -
+                36.5 * uiScale,
+              width: 80 * uiScale,
+              height: 73 * uiScale,
+            },
+          ]}
+        >
+          <Image
+            resizeMode="contain"
+            source={{ uri: draggedCreature.animal.animalImageUrl }}
+            style={styles.draggedCreatureImage}
+          />
+        </View>
+      )}
       <FarmExpansionModal
         floorNumber={expansionFloorNumber}
         isConfirming={isExpanding}
@@ -194,5 +314,15 @@ const styles = StyleSheet.create({
   areaRow: {
     position: 'absolute',
     alignSelf: 'center',
+  },
+  draggedCreature: {
+    position: 'absolute',
+    zIndex: 10,
+    opacity: 0.9,
+    transform: [{ scale: 1.08 }],
+  },
+  draggedCreatureImage: {
+    width: '100%',
+    height: '100%',
   },
 });

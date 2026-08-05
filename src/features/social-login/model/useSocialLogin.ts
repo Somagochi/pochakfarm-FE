@@ -7,8 +7,6 @@ import {
 } from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
-import { getUserProfileApi } from '@/src/entities/user';
-
 import { socialLoginApi } from '../api/socialLoginApi';
 import { AuthCancelledError } from '../lib/authError';
 import { saveServiceToken } from '../lib/tokenStorage';
@@ -20,6 +18,16 @@ type AppleAuthError = {
 };
 
 const KAKAO_EMAIL_SCOPE = 'account_email';
+
+function maskEmail(email: string) {
+  const [localPart, domain] = email.split('@');
+
+  if (!localPart || !domain) {
+    return '(invalid email format)';
+  }
+
+  return `${localPart.slice(0, 2)}***@${domain}`;
+}
 
 async function getKakaoAccessToken() {
   let kakaoToken = await kakaoSdkLogin();
@@ -66,6 +74,18 @@ async function getNaverAccessToken() {
 
   if (!accessToken) {
     throw new Error('네이버 AccessToken이 없습니다.');
+  }
+
+  if (__DEV__) {
+    const profile = await NaverLogin.getProfile(accessToken);
+    const email = profile.response?.email;
+
+    console.info('[Naver profile diagnostic]', {
+      email: email ? maskEmail(email) : null,
+      hasEmail: Boolean(email),
+      message: profile.message,
+      resultCode: profile.resultcode,
+    });
   }
 
   return accessToken;
@@ -118,11 +138,14 @@ export function useSocialLogin() {
       setLoadingProvider(provider);
 
       const providerToken = await getProviderToken[provider]();
-      const serviceToken = await socialLoginApi(provider, providerToken);
+      const { isNew, token: serviceToken } = await socialLoginApi(
+        provider,
+        providerToken,
+      );
 
       await saveServiceToken(serviceToken);
 
-      return getUserProfileApi();
+      return { isNew };
     } finally {
       setLoadingProvider(null);
     }

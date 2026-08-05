@@ -6,7 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 
@@ -33,12 +33,22 @@ type FarmAreaRowProps = {
     nameplateImageSource: ImageSourcePropType;
     slotNumber: number;
   }[];
+  draggingAnimalId?: number;
   isUnlockAvailable: boolean;
   isUnlocked: boolean;
   onPressCreature?: (
     animal: FarmAnimal,
     floorNumber: number,
     slotNumber: number,
+  ) => void;
+  onCreatureDragEnd?: (pageX: number, pageY: number) => void;
+  onCreatureDragMove?: (pageX: number, pageY: number) => void;
+  onCreatureDragStart?: (
+    animal: FarmAnimal,
+    floorNumber: number,
+    slotNumber: number,
+    pageX: number,
+    pageY: number,
   ) => void;
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
@@ -52,9 +62,13 @@ type FarmAreaRowProps = {
 export function FarmAreaRow({
   areaNumber,
   creatureSlots,
+  draggingAnimalId,
   isUnlockAvailable,
   isUnlocked,
   onPressCreature,
+  onCreatureDragEnd,
+  onCreatureDragMove,
+  onCreatureDragStart,
   onPressSlot,
   onPressUnlock,
   scale,
@@ -63,6 +77,7 @@ export function FarmAreaRow({
   selectedSlotImageSource,
   unlockImageSource,
 }: FarmAreaRowProps) {
+  const draggingAnimalIdRef = useRef<number | null>(null);
   const [loadedAnimalImageIds, setLoadedAnimalImageIds] = useState<
     Set<number>
   >(() => new Set());
@@ -106,17 +121,46 @@ export function FarmAreaRow({
               <Pressable
                 accessibilityLabel={`${creatureSlot.name} 농장 슬롯`}
                 accessibilityRole="button"
+                delayLongPress={350}
                 key={slotNumber}
-                onPress={() =>
-                  onPressCreature?.(
+                onLongPress={(event) => {
+                  if (!onCreatureDragStart) return;
+
+                  draggingAnimalIdRef.current = creatureSlot.animalId;
+                  onCreatureDragStart(
                     creatureSlot.animal,
                     areaNumber,
                     slotNumber,
-                  )
+                    event.nativeEvent.pageX,
+                    event.nativeEvent.pageY,
+                  );
+                }}
+                onPress={() =>
+                  draggingAnimalIdRef.current === null &&
+                  onPressCreature?.(creatureSlot.animal, areaNumber, slotNumber)
                 }
+                onTouchEnd={(event) => {
+                  if (draggingAnimalIdRef.current === null) return;
+
+                  draggingAnimalIdRef.current = null;
+                  onCreatureDragEnd?.(
+                    event.nativeEvent.pageX,
+                    event.nativeEvent.pageY,
+                  );
+                }}
+                onTouchMove={(event) => {
+                  if (draggingAnimalIdRef.current !== null) {
+                    onCreatureDragMove?.(
+                      event.nativeEvent.pageX,
+                      event.nativeEvent.pageY,
+                    );
+                  }
+                }}
                 style={({ pressed }) => [
                   styles.creatureSlot,
                   { width: slotSize, height: slotSize },
+                  draggingAnimalId === creatureSlot.animalId &&
+                    styles.draggingSource,
                   pressed && styles.pressed,
                 ]}
               >
@@ -281,6 +325,9 @@ const styles = StyleSheet.create({
   },
   creatureImage: {
     position: 'absolute',
+  },
+  draggingSource: {
+    opacity: 0.25,
   },
   nameplate: {
     position: 'absolute',

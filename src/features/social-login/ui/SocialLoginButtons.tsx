@@ -10,11 +10,13 @@ import {
 
 import { env } from '@/src/shared/config/env';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-import type { UserProfile } from '@/src/entities/user';
 
 import { isAuthCancelledError } from '../lib/authError';
 import { useSocialLogin } from '../model/useSocialLogin';
-import type { SocialLoginProvider } from '../model/types';
+import type {
+  SocialLoginProvider,
+  SocialLoginResult,
+} from '../model/types';
 
 const APPLE_LOGIN_BUTTON_IMAGE = require('@/src/shared/assets/images/login/apple-login-button.png');
 const KAKAO_LOGIN_BUTTON_IMAGE = require('@/src/shared/assets/images/login/kakao-login-button.png');
@@ -45,7 +47,7 @@ const socialButtons: SocialButton[] = [
 ];
 
 type SocialLoginButtonsProps = {
-  onLoginSuccess?: (profile: UserProfile) => void;
+  onLoginSuccess?: (result: SocialLoginResult) => void;
 };
 
 export function SocialLoginButtons({
@@ -55,8 +57,8 @@ export function SocialLoginButtons({
 
   async function handlePress(provider: SocialLoginProvider) {
     try {
-      const profile = await login(provider);
-      onLoginSuccess?.(profile);
+      const result = await login(provider);
+      onLoginSuccess?.(result);
     } catch (error) {
       if (isAuthCancelledError(error)) {
         return;

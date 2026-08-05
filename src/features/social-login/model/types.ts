@@ -5,3 +5,6 @@ export type ServiceToken = {
   refreshToken: string;
 };
 
+export type SocialLoginResult = {
+  isNew: boolean;
+};
