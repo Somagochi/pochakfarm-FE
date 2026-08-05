@@ -12,12 +12,14 @@ const COUPON_ERROR_MESSAGES: Record<number, string> = {
 
 export function useRedeemCoupon() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isFarmFull, setIsFarmFull] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   async function redeemCoupon(couponCode: string) {
     try {
       setIsLoading(true);
       setErrorMessage(null);
+      setIsFarmFull(false);
 
       const response = await redeemCouponApi(couponCode);
 
@@ -28,6 +30,11 @@ export function useRedeemCoupon() {
       setErrorMessage('쿠폰 등록에 실패했습니다.');
       return null;
     } catch (error) {
+      if (error instanceof ApiError && error.status === 419) {
+        setIsFarmFull(true);
+        return null;
+      }
+
       const message =
         error instanceof ApiError
           ? COUPON_ERROR_MESSAGES[error.status]
@@ -42,7 +49,9 @@ export function useRedeemCoupon() {
 
   return {
     clearError: () => setErrorMessage(null),
+    closeFarmFullModal: () => setIsFarmFull(false),
     errorMessage,
+    isFarmFull,
     isLoading,
     redeemCoupon,
   };
