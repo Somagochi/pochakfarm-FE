@@ -2,9 +2,13 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 import { hasCompletedOnboarding } from '@/src/features/complete-onboarding';
+import {
+  resolveAuthenticatedRoute,
+  type AuthenticatedRoute,
+} from '@/src/features/restore-session';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
 
-type EntryRoute = '/login' | '/onboarding';
+type EntryRoute = AuthenticatedRoute | '/onboarding';
 
 export default function Page() {
   const [entryRoute, setEntryRoute] = useState<EntryRoute | null>(
@@ -14,10 +18,20 @@ export default function Page() {
   useEffect(() => {
     let isMounted = true;
 
-    hasCompletedOnboarding()
-      .then((isCompleted) => {
+    async function resolveEntryRoute() {
+      const isOnboardingCompleted = await hasCompletedOnboarding();
+
+      if (!isOnboardingCompleted) {
+        return '/onboarding' as const;
+      }
+
+      return resolveAuthenticatedRoute();
+    }
+
+    resolveEntryRoute()
+      .then((route) => {
         if (isMounted) {
-          setEntryRoute(isCompleted ? '/login' : '/onboarding');
+          setEntryRoute(route);
         }
       })
       .catch(() => {
@@ -35,9 +49,5 @@ export default function Page() {
     return <AppSplashScreen />;
   }
 
-  if (entryRoute === '/onboarding') {
-    return <Redirect href="./onboarding" />;
-  }
-
-  return <Redirect href="/login" />;
+  return <Redirect href={entryRoute} />;
 }
