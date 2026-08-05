@@ -60,7 +60,7 @@ export function TermsAgreementScreen() {
 
   function handleAgreementDetailPress(label: string) {
     if (label === '[필수] 이용약관') {
-      router.push('/terms-of-service');
+      router.push('/service-terms-detail');
       return;
     }
 
