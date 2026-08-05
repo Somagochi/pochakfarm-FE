@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
@@ -27,6 +27,7 @@ const FARM_TYPE_BY_ENVIRONMENT: Record<SelectableFarmEnvironment, FarmType> = {
 
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
+  const farmScrollRef = useRef<ScrollView>(null);
   const {
     clearError,
     errorMessage,
@@ -75,6 +76,10 @@ export function FarmScreen() {
           bounces={false}
           contentContainerStyle={styles.content}
           key={selectedEnvironment}
+          onContentSizeChange={() => {
+            farmScrollRef.current?.scrollToEnd({ animated: false });
+          }}
+          ref={farmScrollRef}
           showsVerticalScrollIndicator={false}
         >
           <FarmField

@@ -140,6 +140,7 @@ const styles = StyleSheet.create({
   },
   name: {
     color: '#8A6B42',
+    fontFamily: 'Pretendard-Regular',
   },
   warning: {
     width: WARNING_WIDTH,

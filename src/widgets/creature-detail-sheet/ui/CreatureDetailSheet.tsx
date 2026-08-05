@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
   },
   nameValueText: {
     color: '#745D40',
-    fontFamily: 'EliceDXNeolli-Medium',
+    fontFamily: 'Pretendard-Regular',
     fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
     textAlign: 'center',

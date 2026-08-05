@@ -3,18 +3,15 @@ import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
-const NOTIFICATION_BUTTON = require('@/src/shared/assets/images/farm-status/notification-button.png');
 const SEARCH_BUTTON = require('@/src/shared/assets/images/farm-status/search-button.png');
 const REFRESH_BUTTON_BACKGROUND = require('@/src/shared/assets/images/farm-status/refresh-button-background.png');
 
 type FarmUtilityButtonsProps = {
-  onPressNotification?: () => void;
   onPressRefresh?: () => void;
   onPressSearch?: () => void;
 };
 
 export function FarmUtilityButtons({
-  onPressNotification,
   onPressRefresh,
   onPressSearch,
 }: FarmUtilityButtonsProps) {
@@ -39,14 +36,6 @@ export function FarmUtilityButtons({
           size={scaleByDeviceWidth(21)}
           style={styles.refreshIcon}
         />
-      </Pressable>
-      <Pressable
-        accessibilityLabel="알림"
-        accessibilityRole="button"
-        onPress={() => onPressNotification?.()}
-        style={({ pressed }) => pressed && styles.pressed}
-      >
-        <Image source={NOTIFICATION_BUTTON} style={styles.buttonImage} />
       </Pressable>
       <Pressable
         accessibilityLabel="검색"
