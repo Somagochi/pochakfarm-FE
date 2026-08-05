@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { useIsBottomTabBarHidden } from '@/src/shared/lib/navigation/bottomTabBarVisibility';
 
 const TAB_BAR_CONTENT_HEIGHT = scaleByDeviceWidth(80);
 const TAB_BAR_BACKGROUND_WIDTH = scaleByDeviceWidth(368);
@@ -35,9 +36,10 @@ export function BottomTabBar({
   descriptors,
   navigation,
 }: BottomTabBarProps) {
+  const isHidden = useIsBottomTabBarHidden();
   const activeRoute = state.routes[state.index];
 
-  if (activeRoute?.name === 'capture') {
+  if (isHidden || activeRoute?.name === 'capture') {
     return null;
   }
 

@@ -1,41 +1,31 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const SEARCH_BUTTON = require('@/src/shared/assets/images/farm-status/search-button.png');
-const REFRESH_BUTTON_BACKGROUND = require('@/src/shared/assets/images/farm-status/refresh-button-background.png');
+const ANIMAL_SWITCH_BUTTON = require('@/src/shared/assets/images/farm-status/animal-switch-button.png');
 
 type FarmUtilityButtonsProps = {
-  onPressRefresh?: () => void;
+  onPressAnimalSwitch?: () => void;
   onPressSearch?: () => void;
 };
 
 export function FarmUtilityButtons({
-  onPressRefresh,
+  onPressAnimalSwitch,
   onPressSearch,
 }: FarmUtilityButtonsProps) {
   return (
     <View style={styles.container}>
       <Pressable
-        accessibilityLabel="농장 새로고침"
+        accessibilityLabel="농장 동물 교체"
         accessibilityRole="button"
-        onPress={() => onPressRefresh?.()}
+        onPress={() => onPressAnimalSwitch?.()}
         style={({ pressed }) => [
-          styles.refreshButton,
+          styles.animalSwitchButton,
           pressed && styles.pressed,
         ]}
       >
-        <Image
-          source={REFRESH_BUTTON_BACKGROUND}
-          style={styles.buttonImage}
-        />
-        <Ionicons
-          color="#000000"
-          name="refresh"
-          size={scaleByDeviceWidth(21)}
-          style={styles.refreshIcon}
-        />
+        <Image source={ANIMAL_SWITCH_BUTTON} style={styles.buttonImage} />
       </Pressable>
       <Pressable
         accessibilityLabel="검색"
@@ -58,14 +48,11 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(30.68),
     height: scaleByDeviceWidth(29.07),
   },
-  refreshButton: {
+  animalSwitchButton: {
     width: scaleByDeviceWidth(30.68),
     height: scaleByDeviceWidth(29.07),
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  refreshIcon: {
-    position: 'absolute',
   },
   pressed: {
     opacity: 0.8,
