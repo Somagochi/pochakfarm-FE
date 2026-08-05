@@ -242,6 +242,20 @@ export const apiClient = {
       headers: options.headers,
     });
   },
+  deleteWithBody<TResponse, TBody extends object>(
+    path: string,
+    body: TBody,
+    options: RequestOptions = {},
+  ) {
+    return request<TResponse>(path, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+      body: JSON.stringify(body),
+    });
+  },
   get<TResponse>(path: string, options: RequestOptions = {}) {
     return request<TResponse>(path, {
       method: 'GET',
