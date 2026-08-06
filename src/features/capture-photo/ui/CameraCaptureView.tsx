@@ -10,6 +10,7 @@ import {
   Image,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -123,6 +124,8 @@ export function CameraCaptureView() {
   const [progressionBeforeGame, setProgressionBeforeGame] =
     useState<CaptureProgression | null>(null);
   const [isNameConfirmModalVisible, setIsNameConfirmModalVisible] =
+    useState(false);
+  const [shouldStartGameAfterModalDismiss, setShouldStartGameAfterModalDismiss] =
     useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
   const [remainingCaptureCount, setRemainingCaptureCount] =
@@ -413,6 +416,7 @@ export function CameraCaptureView() {
         setCapturedWithCoinPayment(false);
         setIsNameInputFocused(false);
         setIsNameConfirmModalVisible(false);
+        setShouldStartGameAfterModalDismiss(false);
         setHasConfirmedName(false);
       }),
     [],
@@ -567,6 +571,7 @@ export function CameraCaptureView() {
     setCapturedWithCoinPayment(false);
     setIsNameInputFocused(false);
     setIsNameConfirmModalVisible(false);
+    setShouldStartGameAfterModalDismiss(false);
     setHasConfirmedName(false);
     setProgressionBeforeGame(null);
   };
@@ -1034,18 +1039,37 @@ export function CameraCaptureView() {
         creatureName={creatureName.trim()}
         isConfirming={isCreatingCapture}
         onClose={() => setIsNameConfirmModalVisible(false)}
-        onConfirm={() => {
-          if (!capturedPhotoUri) {
+        onConfirm={async () => {
+          if (!capturedPhotoUri || isCreatingCapture) {
             return;
           }
 
-          void createCapture({
+          const isCreated = await createCapture({
             contentType: capturedPhotoContentType,
             animalName: creatureName.trim(),
             allowCoinPayment: capturedWithCoinPayment,
             photoUri: capturedPhotoUri,
           });
+
+          if (!isCreated) {
+            setIsNameConfirmModalVisible(false);
+            return;
+          }
+
+          setShouldStartGameAfterModalDismiss(true);
           setIsNameConfirmModalVisible(false);
+
+          if (Platform.OS !== 'ios') {
+            setShouldStartGameAfterModalDismiss(false);
+            setHasConfirmedName(true);
+          }
+        }}
+        onDismiss={() => {
+          if (!shouldStartGameAfterModalDismiss) {
+            return;
+          }
+
+          setShouldStartGameAfterModalDismiss(false);
           setHasConfirmedName(true);
         }}
         visible={isNameConfirmModalVisible}

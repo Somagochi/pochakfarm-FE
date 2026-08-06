@@ -19,6 +19,7 @@ type CreatureNameConfirmModalProps = {
   isConfirming: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onDismiss?: () => void;
   visible: boolean;
 };
 
@@ -27,11 +28,13 @@ export function CreatureNameConfirmModal({
   isConfirming,
   onClose,
   onConfirm,
+  onDismiss,
   visible,
 }: CreatureNameConfirmModalProps) {
   return (
     <Modal
       animationType="fade"
+      onDismiss={onDismiss}
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
