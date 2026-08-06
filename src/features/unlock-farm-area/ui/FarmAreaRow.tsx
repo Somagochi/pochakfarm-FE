@@ -29,6 +29,7 @@ type FarmAreaRowProps = {
     animal: FarmAnimal;
     animalId: number;
     animalImageSource?: ImageSourcePropType;
+    animalImageUri?: string;
     name: string;
     nameplateImageSource: ImageSourcePropType;
     slotNumber: number;
@@ -78,8 +79,8 @@ export function FarmAreaRow({
   unlockImageSource,
 }: FarmAreaRowProps) {
   const draggingAnimalIdRef = useRef<number | null>(null);
-  const [loadedAnimalImageIds, setLoadedAnimalImageIds] = useState<
-    Set<number>
+  const [failedAnimalImageKeys, setFailedAnimalImageKeys] = useState<
+    Set<string>
   >(() => new Set());
   const slotSize = BASE_SLOT_SIZE * scale;
   const slotGap = BASE_SLOT_GAP * scale;
@@ -109,8 +110,10 @@ export function FarmAreaRow({
           );
 
           if (creatureSlot) {
-            const isAnimalImageLoaded = loadedAnimalImageIds.has(
-              creatureSlot.animalId,
+            const animalImageKey =
+              `${creatureSlot.animalId}:${creatureSlot.animalImageUri ?? ''}`;
+            const hasAnimalImageFailed = failedAnimalImageKeys.has(
+              animalImageKey,
             );
             const nameplateWidth = BASE_NAMEPLATE_WIDTH * scale;
             const nameplateHeight = BASE_NAMEPLATE_HEIGHT * scale;
@@ -164,7 +167,8 @@ export function FarmAreaRow({
                   pressed && styles.pressed,
                 ]}
               >
-                {!isAnimalImageLoaded && (
+                {(!creatureSlot.animalImageSource ||
+                  hasAnimalImageFailed) && (
                   <Image
                     resizeMode="contain"
                     source={ANIMAL_IMAGE_PLACEHOLDER}
@@ -181,27 +185,15 @@ export function FarmAreaRow({
                     ]}
                   />
                 )}
-                {creatureSlot.animalImageSource && (
+                {creatureSlot.animalImageSource &&
+                  !hasAnimalImageFailed && (
                   <Image
+                    defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
                     onError={() => {
-                      setLoadedAnimalImageIds((currentIds) => {
-                        const nextIds = new Set(currentIds);
-                        nextIds.delete(creatureSlot.animalId);
-                        return nextIds;
-                      });
-                    }}
-                    onLoad={() => {
-                      setLoadedAnimalImageIds((currentIds) => {
-                        const nextIds = new Set(currentIds);
-                        nextIds.add(creatureSlot.animalId);
-                        return nextIds;
-                      });
-                    }}
-                    onLoadStart={() => {
-                      setLoadedAnimalImageIds((currentIds) => {
-                        const nextIds = new Set(currentIds);
-                        nextIds.delete(creatureSlot.animalId);
-                        return nextIds;
+                      setFailedAnimalImageKeys((currentKeys) => {
+                        const nextKeys = new Set(currentKeys);
+                        nextKeys.add(animalImageKey);
+                        return nextKeys;
                       });
                     }}
                     resizeMode="contain"
@@ -215,7 +207,6 @@ export function FarmAreaRow({
                         left: (slotSize - animalWidth) / 2,
                         width: animalWidth,
                         height: animalHeight,
-                        opacity: isAnimalImageLoaded ? 1 : 0,
                       },
                     ]}
                   />
@@ -340,7 +331,7 @@ const styles = StyleSheet.create({
   },
   creatureName: {
     color: '#6B4B27',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',

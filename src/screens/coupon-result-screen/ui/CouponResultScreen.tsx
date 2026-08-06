@@ -161,6 +161,7 @@ export function CouponResultScreen() {
           {!isRewardClaimed && !isCoinRewardVisible ? (
             <Image
               accessibilityLabel={`${rewardTier}등급 카드`}
+              defaultSource={CARD_FRONT_PLACEHOLDER_IMAGE}
               onError={() => setHasCardImageError(true)}
               resizeMode="stretch"
               source={cardFrontImageSource}

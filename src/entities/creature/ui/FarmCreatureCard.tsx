@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Text,
 } from 'react-native';
+import { useState } from 'react';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
@@ -15,6 +16,7 @@ import type {
 
 const CARD_BACKGROUND = require('@/src/shared/assets/images/farm-search/creature-search-card-background.png');
 const CARD_DIVIDER = require('@/src/shared/assets/images/farm-search/creature-card-divider.png');
+const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 const TYPE_BADGES: Record<CreatureEnvironment, number> = {
   land: require('@/src/shared/assets/images/farm-search/land-badge.png'),
   sea: require('@/src/shared/assets/images/farm-search/sea-badge.png'),
@@ -39,6 +41,12 @@ export function FarmCreatureCard({
   creature,
   onPress,
 }: FarmCreatureCardProps) {
+  const [failedCreatureImageUri, setFailedCreatureImageUri] =
+    useState<string | null>(null);
+  const hasCreatureImageFailed =
+    creature.creatureImageUri !== undefined &&
+    failedCreatureImageUri === creature.creatureImageUri;
+
   return (
     <Pressable
       accessibilityLabel={`${creature.name}, ${creature.tier} 티어`}
@@ -54,13 +62,21 @@ export function FarmCreatureCard({
         source={CARD_BACKGROUND}
         style={styles.cardImage}
       />
-      {creature.creatureImageSource && (
-        <Image
-          resizeMode="contain"
-          source={creature.creatureImageSource}
-          style={styles.creatureImage}
-        />
-      )}
+      <Image
+        defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
+        onError={() => {
+          if (creature.creatureImageUri) {
+            setFailedCreatureImageUri(creature.creatureImageUri);
+          }
+        }}
+        resizeMode="contain"
+        source={
+          creature.creatureImageSource && !hasCreatureImageFailed
+            ? creature.creatureImageSource
+            : ANIMAL_IMAGE_PLACEHOLDER
+        }
+        style={styles.creatureImage}
+      />
       <Image
         resizeMode="contain"
         source={TIER_BADGES[creature.tier]}
@@ -127,7 +143,7 @@ const styles = StyleSheet.create({
     left: scaleByDeviceWidth(4),
     width: scaleByDeviceWidth(92),
     color: '#302F2A',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(21),
     textAlign: 'center',
