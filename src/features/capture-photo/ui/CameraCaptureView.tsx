@@ -720,7 +720,11 @@ export function CameraCaptureView() {
             accessibilityLabel="카메라 닫기"
             accessibilityRole="button"
             onPress={() => {
-              resetCaptureFlow();
+              if (isNamingCreature) {
+                resetCaptureFlow();
+                return;
+              }
+
               router.replace('/(tabs)/farm');
             }}
             style={({ pressed }) => pressed && styles.buttonPressed}
