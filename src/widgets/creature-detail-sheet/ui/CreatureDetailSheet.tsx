@@ -11,6 +11,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import {
+  Gesture,
+  GestureDetector,
+  GestureHandlerRootView,
+} from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -231,44 +236,43 @@ export function CreatureDetailSheet({
       }
     });
   }, [onClose, sheetHeight, translateY]);
-  const sheetPanResponder = useMemo(
+  const restoreSheetPosition = useCallback(() => {
+    Animated.spring(translateY, {
+      toValue: 0,
+      damping: 22,
+      stiffness: 180,
+      mass: 0.9,
+      useNativeDriver: true,
+    }).start();
+  }, [translateY]);
+  const sheetPanGesture = useMemo(
     () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          gestureState.dy > SHEET_GESTURE_THRESHOLD &&
-          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
-        onPanResponderMove: (_, gestureState) => {
-          translateY.setValue(Math.max(0, gestureState.dy));
-        },
-        onPanResponderRelease: (_, gestureState) => {
+      Gesture.Pan()
+        .activeOffsetY(SHEET_GESTURE_THRESHOLD)
+        .failOffsetX([
+          -SHEET_GESTURE_THRESHOLD,
+          SHEET_GESTURE_THRESHOLD,
+        ])
+        .onBegin(() => {
+          translateY.stopAnimation();
+        })
+        .onUpdate((event) => {
+          translateY.setValue(Math.max(0, event.translationY));
+        })
+        .onEnd((event) => {
           const shouldClose =
-            gestureState.dy >= SHEET_DISMISS_DISTANCE ||
-            gestureState.vy >= SHEET_DISMISS_VELOCITY;
+            event.translationY >= SHEET_DISMISS_DISTANCE ||
+            event.velocityY >= SHEET_DISMISS_VELOCITY * 1000;
 
           if (shouldClose) {
             closeSheet();
             return;
           }
 
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 22,
-            stiffness: 180,
-            mass: 0.9,
-            useNativeDriver: true,
-          }).start();
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(translateY, {
-            toValue: 0,
-            damping: 22,
-            stiffness: 180,
-            mass: 0.9,
-            useNativeDriver: true,
-          }).start();
-        },
-      }),
-    [closeSheet, translateY],
+          restoreSheetPosition();
+        })
+        .runOnJS(true),
+    [closeSheet, restoreSheetPosition, translateY],
   );
   const cardRotation = useRef(new Animated.Value(0)).current;
   const cardRotationStartRef = useRef(0);
@@ -283,8 +287,6 @@ export function CreatureDetailSheet({
   };
   const cardPanResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: () => {
         cardRotation.stopAnimation((currentRotation) => {
           cardRotationStartRef.current = currentRotation;
@@ -308,7 +310,7 @@ export function CreatureDetailSheet({
         finishCardRotation(gestureState.dx),
       onPanResponderTerminate: (_, gestureState) =>
         finishCardRotation(gestureState.dx),
-      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminationRequest: () => true,
     }),
   ).current;
   const cardFrontRotateY = cardRotation.interpolate({
@@ -359,24 +361,24 @@ export function CreatureDetailSheet({
       statusBarTranslucent
       transparent
     >
-      <View style={styles.overlay}>
+      <GestureHandlerRootView style={styles.overlay}>
         <Pressable
           accessibilityLabel="동물 상세 닫기"
           onPress={onClose}
           style={styles.backdrop}
         />
-        <Animated.View
-          {...sheetPanResponder.panHandlers}
-          style={[
-            styles.sheet,
-            {
-              width: sheetWidth,
-              height: sheetHeight,
-              marginBottom: insets.bottom,
-              transform: [{ translateY }],
-            },
-          ]}
-        >
+        <GestureDetector gesture={sheetPanGesture}>
+          <Animated.View
+            style={[
+              styles.sheet,
+              {
+                width: sheetWidth,
+                height: sheetHeight,
+                marginBottom: insets.bottom,
+                transform: [{ translateY }],
+              },
+            ]}
+          >
           <Image
             resizeMode="contain"
             source={BOTTOM_SHEET_IMAGE}
@@ -802,7 +804,8 @@ export function CreatureDetailSheet({
               </Pressable>
             </View>
           )}
-        </Animated.View>
+          </Animated.View>
+        </GestureDetector>
         {isReleaseAlertVisible && (
           <ReleaseCreatureAlert
             isConfirming={isReleasing}
@@ -814,7 +817,7 @@ export function CreatureDetailSheet({
             }
           />
         )}
-      </View>
+      </GestureHandlerRootView>
     </Modal>
   );
 }
