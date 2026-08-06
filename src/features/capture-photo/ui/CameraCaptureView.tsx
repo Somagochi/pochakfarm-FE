@@ -763,7 +763,7 @@ export function CameraCaptureView() {
             <View style={styles.cameraViewport}>
               <Image
                 accessibilityLabel="출력 중인 촬영 사진"
-                resizeMode="cover"
+                resizeMode="contain"
                 source={{ uri: developingPhotoUri }}
                 style={StyleSheet.absoluteFill}
               />
@@ -851,7 +851,7 @@ export function CameraCaptureView() {
               <>
                 <Image
                   accessibilityLabel="이름을 정할 동물 사진"
-                  resizeMode="cover"
+                  resizeMode="contain"
                   source={{ uri: capturedPhotoUri ?? '' }}
                   style={StyleSheet.absoluteFill}
                 />
