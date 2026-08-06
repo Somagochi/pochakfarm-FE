@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { removePhotoBackground } from './subjectSegmentation';
+import { removePhotoBackground } from '@/src/shared/lib/image/subjectSegmentation';
 
 type RemoveBackgroundState = 'idle' | 'processing' | 'success' | 'error';
 

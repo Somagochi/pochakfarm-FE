@@ -1,20 +1,20 @@
 import { ApiError } from '@/src/shared/api/client';
 
-type UploadCaptureImageParams = {
+type UploadImageToPresignedUrlParams = {
   contentType: string;
-  photoUri: string;
+  imageUri: string;
   uploadUrl: string;
 };
 
-export async function uploadCaptureImageApi({
+export async function uploadImageToPresignedUrl({
   contentType,
-  photoUri,
+  imageUri,
   uploadUrl,
-}: UploadCaptureImageParams) {
-  const fileResponse = await fetch(photoUri);
+}: UploadImageToPresignedUrlParams) {
+  const fileResponse = await fetch(imageUri);
 
   if (!fileResponse.ok) {
-    throw new Error('업로드할 사진 파일을 불러오지 못했습니다.');
+    throw new Error('업로드할 이미지 파일을 불러오지 못했습니다.');
   }
 
   const file = await fileResponse.blob();
@@ -30,7 +30,7 @@ export async function uploadCaptureImageApi({
     const responseMessage = await uploadResponse.text().catch(() => '');
 
     throw new ApiError(
-      responseMessage || '사진을 업로드하지 못했습니다.',
+      responseMessage || '이미지를 업로드하지 못했습니다.',
       uploadResponse.status,
     );
   }
