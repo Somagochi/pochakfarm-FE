@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
   },
   accountValue: {
     color: '#302F2B',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(14),
     lineHeight: scaleByDeviceWidth(20),
   },

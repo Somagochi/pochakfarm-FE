@@ -935,7 +935,7 @@ const styles = StyleSheet.create({
   },
   nameValueText: {
     color: '#745D40',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(16),
     includeFontPadding: false,
     textAlign: 'center',

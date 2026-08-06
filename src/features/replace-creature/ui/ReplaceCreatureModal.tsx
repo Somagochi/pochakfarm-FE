@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useState } from 'react';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
@@ -53,6 +54,17 @@ export function ReplaceCreatureModal({
   onClose,
   onConfirm,
 }: ReplaceCreatureModalProps) {
+  const [failedExistingCardUri, setFailedExistingCardUri] =
+    useState<string | null>(null);
+  const [failedCapturedCardUri, setFailedCapturedCardUri] =
+    useState<string | null>(null);
+  const existingCardUri = animal?.cardImageUrl ?? null;
+  const hasExistingCardFailed =
+    existingCardUri !== null && failedExistingCardUri === existingCardUri;
+  const hasCapturedCardFailed =
+    capturedCardImageUrl !== undefined &&
+    failedCapturedCardUri === capturedCardImageUrl;
+
   return (
     <Modal
       animationType="fade"
@@ -87,11 +99,13 @@ export function ReplaceCreatureModal({
                   source={CARD_PLACEHOLDER_IMAGE}
                   style={styles.cardImage}
                 />
-                {animal?.cardImageUrl && (
+                {existingCardUri && !hasExistingCardFailed && (
                   <Image
-                    accessibilityLabel={`${animal.animalName} 카드`}
+                    accessibilityLabel={`${animal?.animalName ?? '기존 동물'} 카드`}
+                    defaultSource={CARD_PLACEHOLDER_IMAGE}
+                    onError={() => setFailedExistingCardUri(existingCardUri)}
                     resizeMode="contain"
-                    source={{ uri: animal.cardImageUrl }}
+                    source={{ uri: existingCardUri }}
                     style={styles.cardImageOverlay}
                   />
                 )}
@@ -106,9 +120,15 @@ export function ReplaceCreatureModal({
             <View style={styles.cardColumn}>
               <Image
                 accessibilityLabel="새로 포착한 동물 카드"
+                defaultSource={CAPTURED_CARD_IMAGE}
+                onError={() => {
+                  if (capturedCardImageUrl) {
+                    setFailedCapturedCardUri(capturedCardImageUrl);
+                  }
+                }}
                 resizeMode="contain"
                 source={
-                  capturedCardImageUrl
+                  capturedCardImageUrl && !hasCapturedCardFailed
                     ? { uri: capturedCardImageUrl }
                     : CAPTURED_CARD_IMAGE
                 }

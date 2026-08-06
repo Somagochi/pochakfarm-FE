@@ -11,7 +11,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { CreatureTier } from '@/src/entities/creature';
+import { useCompleteCoupon } from '@/src/features/complete-coupon';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const REWARD_GUIDE_IMAGE = require('@/src/shared/assets/images/coupon-result/reward-guide.png');
 const REWARD_CARD_IMAGE = require('@/src/shared/assets/images/coupon-result/reward-card.png');
@@ -32,17 +34,41 @@ function isCreatureTier(value: string | undefined): value is CreatureTier {
 
 export function CouponResultScreen() {
   const insets = useSafeAreaInsets();
+  const { completeCoupon, isLoading } = useCompleteCoupon();
   const [isRewardResultVisible, setIsRewardResultVisible] = useState(false);
   const [hasCardImageError, setHasCardImageError] = useState(false);
   const [isRewardClaimed, setIsRewardClaimed] = useState(false);
   const [isCoinRewardVisible, setIsCoinRewardVisible] = useState(false);
-  const { cardImageUrl, tier } = useLocalSearchParams<{
-    cardImageUrl?: string;
-    tier?: string;
-  }>();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const { animalImageKey, cardImageUrl, couponCode, tier } =
+    useLocalSearchParams<{
+      animalImageKey?: string;
+      cardImageUrl?: string;
+      couponCode?: string;
+      tier?: string;
+    }>();
   const rewardTier = isCreatureTier(tier) ? tier : 'S';
 
-  function handleCompletePress() {
+  async function handleCompletePress() {
+    if (isLoading) {
+      return;
+    }
+
+    if (!couponCode || !animalImageKey) {
+      setErrorMessage('쿠폰 보상 정보가 올바르지 않습니다.');
+      return;
+    }
+
+    const completeErrorMessage = await completeCoupon(
+      couponCode,
+      animalImageKey,
+    );
+
+    if (completeErrorMessage) {
+      setErrorMessage(completeErrorMessage);
+      return;
+    }
+
     setIsRewardResultVisible(true);
   }
 
@@ -106,7 +132,9 @@ export function CouponResultScreen() {
       <Pressable
         accessibilityLabel="수령하기"
         accessibilityRole="button"
-        onPress={handleCompletePress}
+        accessibilityState={{ disabled: isLoading }}
+        disabled={isLoading}
+        onPress={() => void handleCompletePress()}
         style={({ pressed }) => [
           styles.completeButtonContainer,
           { bottom: insets.bottom + scaleByDeviceWidth(47) },
@@ -133,6 +161,7 @@ export function CouponResultScreen() {
           {!isRewardClaimed && !isCoinRewardVisible ? (
             <Image
               accessibilityLabel={`${rewardTier}등급 카드`}
+              defaultSource={CARD_FRONT_PLACEHOLDER_IMAGE}
               onError={() => setHasCardImageError(true)}
               resizeMode="stretch"
               source={cardFrontImageSource}
@@ -204,6 +233,10 @@ export function CouponResultScreen() {
           </Pressable>
         </ScrollView>
       )}
+      <ErrorModal
+        message={errorMessage}
+        onClose={() => setErrorMessage(null)}
+      />
     </View>
   );
 }

@@ -38,6 +38,7 @@ const BASE_SLOT_SIZE = 58.4;
 const BASE_SLOT_GAP = 26.6;
 const SLOT_COUNT = 4;
 const CREATURE_NAMEPLATE_IMAGE = require('@/src/shared/assets/images/farm/creature-nameplate.png');
+const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 const FARM_AREAS = [
   { areaNumber: 4, sourceCenterY: 700 },
   { areaNumber: 3, sourceCenterY: 1312 },
@@ -91,6 +92,8 @@ export function FarmField({
     pageY: number;
     slotNumber: number;
   } | null>(null);
+  const [hasDraggedCreatureImageFailed, setHasDraggedCreatureImageFailed] =
+    useState(false);
   const [expansionFloorNumber, setExpansionFloorNumber] = useState<
     number | null
   >(null);
@@ -195,6 +198,7 @@ export function FarmField({
                   animalImageSource: animal.animalImageUrl
                     ? { uri: animal.animalImageUrl }
                     : undefined,
+                  animalImageUri: animal.animalImageUrl ?? undefined,
                   name: animal.animalName,
                   nameplateImageSource: CREATURE_NAMEPLATE_IMAGE,
                   slotNumber: slot.slotNum,
@@ -234,6 +238,7 @@ export function FarmField({
                   ? (animal, floorNumber, slotNumber, pageX, pageY) => {
                       canvasRef.current?.measureInWindow((x, y) => {
                         canvasOriginRef.current = { x, y };
+                        setHasDraggedCreatureImageFailed(false);
                         setDraggedCreature({
                           animal,
                           floorNumber,
@@ -271,7 +276,7 @@ export function FarmField({
           </View>
         );
       })}
-      {isReordering && draggedCreature?.animal.animalImageUrl && (
+      {isReordering && draggedCreature && (
         <View
           pointerEvents="none"
           style={[
@@ -291,8 +296,15 @@ export function FarmField({
           ]}
         >
           <Image
+            defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
+            onError={() => setHasDraggedCreatureImageFailed(true)}
             resizeMode="contain"
-            source={{ uri: draggedCreature.animal.animalImageUrl }}
+            source={
+              draggedCreature.animal.animalImageUrl &&
+              !hasDraggedCreatureImageFailed
+                ? { uri: draggedCreature.animal.animalImageUrl }
+                : ANIMAL_IMAGE_PLACEHOLDER
+            }
             style={styles.draggedCreatureImage}
           />
         </View>

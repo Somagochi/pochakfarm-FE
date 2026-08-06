@@ -5,6 +5,7 @@ export type CreatureTier = 'C' | 'B' | 'A' | 'S' | 'SS' | 'SSS';
 
 export type FarmCreatureListItem = {
   creatureImageSource?: ImageSourcePropType;
+  creatureImageUri?: string;
   environment: CreatureEnvironment;
   id: string;
   name: string;

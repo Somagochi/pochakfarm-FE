@@ -73,6 +73,7 @@ export function FarmCreatureSearchModal({
         creatureImageSource: animal.animalImageUrl
           ? { uri: animal.animalImageUrl }
           : undefined,
+        creatureImageUri: animal.animalImageUrl ?? undefined,
         environment: ENVIRONMENT_BY_CARD_TYPE[animal.cardType],
         id: String(animal.animalId),
         name: animal.animalName,
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
     paddingRight: scaleByDeviceWidth(12),
     paddingVertical: 0,
     color: '#332F27',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(14),
     lineHeight: scaleByDeviceWidth(18),
   },

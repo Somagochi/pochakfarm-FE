@@ -984,6 +984,10 @@ function ResultCard({
   onRelease: () => void;
   onSave: () => void;
 }) {
+  const [failedCardImageUrl, setFailedCardImageUrl] =
+    useState<string | null>(null);
+  const hasCardImageFailed =
+    cardImageUrl !== undefined && failedCardImageUrl === cardImageUrl;
   const cardRotation = useRef(new Animated.Value(180)).current;
   const cardRotationStartRef = useRef(0);
   const isRevealCompleteRef = useRef(false);
@@ -1084,9 +1088,17 @@ function ResultCard({
         style={styles.resultCard}
       >
         <Animated.Image
+          defaultSource={CARD_PLACEHOLDER_IMAGE}
+          onError={() => {
+            if (cardImageUrl) {
+              setFailedCardImageUrl(cardImageUrl);
+            }
+          }}
           resizeMode="contain"
           source={
-            cardImageUrl ? { uri: cardImageUrl } : CARD_PLACEHOLDER_IMAGE
+            cardImageUrl && !hasCardImageFailed
+              ? { uri: cardImageUrl }
+              : CARD_PLACEHOLDER_IMAGE
           }
           style={[
             styles.resultCardFace,
