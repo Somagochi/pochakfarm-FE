@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     borderWidth: scaleByDeviceWidth(1),
     backgroundColor: '#FFFFFF',
     color: '#332016',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(14),
     textAlignVertical: 'center',
   },
