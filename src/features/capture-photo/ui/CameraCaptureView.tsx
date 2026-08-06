@@ -10,6 +10,7 @@ import {
   Image,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -123,6 +124,8 @@ export function CameraCaptureView() {
   const [progressionBeforeGame, setProgressionBeforeGame] =
     useState<CaptureProgression | null>(null);
   const [isNameConfirmModalVisible, setIsNameConfirmModalVisible] =
+    useState(false);
+  const [shouldStartGameAfterModalDismiss, setShouldStartGameAfterModalDismiss] =
     useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
   const [remainingCaptureCount, setRemainingCaptureCount] =
@@ -320,7 +323,6 @@ export function CameraCaptureView() {
     }
 
     setRemainingCaptureCount(createCaptureResult.attempts.remaining);
-    setCoinBalance(createCaptureResult.payment.currentCoins);
     setIsPaidCaptureSessionActive(false);
   }, [createCaptureResult]);
 
@@ -413,6 +415,7 @@ export function CameraCaptureView() {
         setCapturedWithCoinPayment(false);
         setIsNameInputFocused(false);
         setIsNameConfirmModalVisible(false);
+        setShouldStartGameAfterModalDismiss(false);
         setHasConfirmedName(false);
       }),
     [],
@@ -567,6 +570,7 @@ export function CameraCaptureView() {
     setCapturedWithCoinPayment(false);
     setIsNameInputFocused(false);
     setIsNameConfirmModalVisible(false);
+    setShouldStartGameAfterModalDismiss(false);
     setHasConfirmedName(false);
     setProgressionBeforeGame(null);
   };
@@ -715,7 +719,14 @@ export function CameraCaptureView() {
           <Pressable
             accessibilityLabel="카메라 닫기"
             accessibilityRole="button"
-            onPress={() => router.replace('/(tabs)/farm')}
+            onPress={() => {
+              if (isNamingCreature) {
+                resetCaptureFlow();
+                return;
+              }
+
+              router.replace('/(tabs)/farm');
+            }}
             style={({ pressed }) => pressed && styles.buttonPressed}
           >
             <Image
@@ -752,7 +763,7 @@ export function CameraCaptureView() {
             <View style={styles.cameraViewport}>
               <Image
                 accessibilityLabel="출력 중인 촬영 사진"
-                resizeMode="cover"
+                resizeMode="contain"
                 source={{ uri: developingPhotoUri }}
                 style={StyleSheet.absoluteFill}
               />
@@ -840,7 +851,7 @@ export function CameraCaptureView() {
               <>
                 <Image
                   accessibilityLabel="이름을 정할 동물 사진"
-                  resizeMode="cover"
+                  resizeMode="contain"
                   source={{ uri: capturedPhotoUri ?? '' }}
                   style={StyleSheet.absoluteFill}
                 />
@@ -1034,18 +1045,37 @@ export function CameraCaptureView() {
         creatureName={creatureName.trim()}
         isConfirming={isCreatingCapture}
         onClose={() => setIsNameConfirmModalVisible(false)}
-        onConfirm={() => {
-          if (!capturedPhotoUri) {
+        onConfirm={async () => {
+          if (!capturedPhotoUri || isCreatingCapture) {
             return;
           }
 
-          void createCapture({
+          const isCreated = await createCapture({
             contentType: capturedPhotoContentType,
             animalName: creatureName.trim(),
             allowCoinPayment: capturedWithCoinPayment,
             photoUri: capturedPhotoUri,
           });
+
+          if (!isCreated) {
+            setIsNameConfirmModalVisible(false);
+            return;
+          }
+
+          setShouldStartGameAfterModalDismiss(true);
           setIsNameConfirmModalVisible(false);
+
+          if (Platform.OS !== 'ios') {
+            setShouldStartGameAfterModalDismiss(false);
+            setHasConfirmedName(true);
+          }
+        }}
+        onDismiss={() => {
+          if (!shouldStartGameAfterModalDismiss) {
+            return;
+          }
+
+          setShouldStartGameAfterModalDismiss(false);
           setHasConfirmedName(true);
         }}
         visible={isNameConfirmModalVisible}

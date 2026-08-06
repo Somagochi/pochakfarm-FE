@@ -173,13 +173,13 @@ const styles = StyleSheet.create({
   },
   nickname: {
     position: 'absolute',
-    top: scaleByDeviceWidth(25),
+    top: scaleByDeviceWidth(31),
     right: scaleByDeviceWidth(24),
     maxWidth: scaleByDeviceWidth(190),
   },
   loginMethod: {
     position: 'absolute',
-    top: scaleByDeviceWidth(73),
+    top: scaleByDeviceWidth(85),
     right: scaleByDeviceWidth(24),
     height: scaleByDeviceWidth(24),
     flexDirection: 'row',
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   },
   email: {
     position: 'absolute',
-    top: scaleByDeviceWidth(139),
+    top: scaleByDeviceWidth(144),
     right: scaleByDeviceWidth(24),
     maxWidth: scaleByDeviceWidth(190),
   },
