@@ -719,7 +719,10 @@ export function CameraCaptureView() {
           <Pressable
             accessibilityLabel="카메라 닫기"
             accessibilityRole="button"
-            onPress={() => router.replace('/(tabs)/farm')}
+            onPress={() => {
+              resetCaptureFlow();
+              router.replace('/(tabs)/farm');
+            }}
             style={({ pressed }) => pressed && styles.buttonPressed}
           >
             <Image
