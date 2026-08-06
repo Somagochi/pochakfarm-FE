@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   creatureName: {
     color: '#6B4B27',
-    fontFamily: 'MemomentKkukkukk',
+    fontFamily: 'Pretendard-Regular',
     includeFontPadding: false,
     textAlign: 'center',
     textAlignVertical: 'center',
