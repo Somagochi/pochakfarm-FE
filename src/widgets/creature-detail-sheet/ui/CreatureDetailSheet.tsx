@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -111,6 +111,9 @@ const CARD_NAME_FIELD_TOP_GAP = scaleByDeviceWidth(15.85);
 const CARD_NAME_FIELD_WIDTH = scaleByDeviceWidth(308);
 const CARD_NAME_FIELD_HEIGHT = scaleByDeviceWidth(40);
 const CARD_JOURNEY_BUTTON_TOP_GAP = scaleByDeviceWidth(8);
+const SHEET_DISMISS_DISTANCE = scaleByDeviceWidth(120);
+const SHEET_DISMISS_VELOCITY = 1.2;
+const SHEET_GESTURE_THRESHOLD = scaleByDeviceWidth(6);
 
 type CreatureDetailSheetProps = {
   animalId?: number;
@@ -217,6 +220,56 @@ export function CreatureDetailSheet({
     }
   };
   const translateY = useRef(new Animated.Value(sheetHeight)).current;
+  const closeSheet = useCallback(() => {
+    Animated.timing(translateY, {
+      toValue: sheetHeight,
+      duration: 220,
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished) {
+        onClose();
+      }
+    });
+  }, [onClose, sheetHeight, translateY]);
+  const sheetPanResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          gestureState.dy > SHEET_GESTURE_THRESHOLD &&
+          Math.abs(gestureState.dy) > Math.abs(gestureState.dx),
+        onPanResponderMove: (_, gestureState) => {
+          translateY.setValue(Math.max(0, gestureState.dy));
+        },
+        onPanResponderRelease: (_, gestureState) => {
+          const shouldClose =
+            gestureState.dy >= SHEET_DISMISS_DISTANCE ||
+            gestureState.vy >= SHEET_DISMISS_VELOCITY;
+
+          if (shouldClose) {
+            closeSheet();
+            return;
+          }
+
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 22,
+            stiffness: 180,
+            mass: 0.9,
+            useNativeDriver: true,
+          }).start();
+        },
+        onPanResponderTerminate: () => {
+          Animated.spring(translateY, {
+            toValue: 0,
+            damping: 22,
+            stiffness: 180,
+            mass: 0.9,
+            useNativeDriver: true,
+          }).start();
+        },
+      }),
+    [closeSheet, translateY],
+  );
   const cardRotation = useRef(new Animated.Value(0)).current;
   const cardRotationStartRef = useRef(0);
   const finishCardRotation = (dx: number) => {
@@ -313,6 +366,7 @@ export function CreatureDetailSheet({
           style={styles.backdrop}
         />
         <Animated.View
+          {...sheetPanResponder.panHandlers}
           style={[
             styles.sheet,
             {
