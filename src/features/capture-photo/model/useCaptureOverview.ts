@@ -12,13 +12,16 @@ export function useCaptureOverview(enabled: boolean) {
     try {
       setIsLoading(true);
       setErrorMessage(null);
-      setOverview(await getCaptureOverviewApi());
+      const nextOverview = await getCaptureOverviewApi();
+      setOverview(nextOverview);
+      return nextOverview;
     } catch (error) {
       setErrorMessage(
         error instanceof Error
           ? error.message
           : '포착 확률을 불러오지 못했습니다.',
       );
+      return null;
     } finally {
       setIsLoading(false);
     }

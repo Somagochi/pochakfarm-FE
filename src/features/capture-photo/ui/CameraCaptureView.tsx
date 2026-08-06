@@ -33,7 +33,11 @@ import { useCaptureOverview } from '../model/useCaptureOverview';
 import { useCreateCapture } from '../model/useCreateCapture';
 import { usePrepareSubjectSegmentationModel } from '../model/usePrepareSubjectSegmentationModel';
 import { usePurchaseCaptureAttempt } from '../model/usePurchaseCaptureAttempt';
-import type { CaptureCardType, CaptureTier } from '../model/types';
+import type {
+  CaptureCardType,
+  CaptureProgression,
+  CaptureTier,
+} from '../model/types';
 
 const CLOSE_IMAGE = require('@/src/shared/assets/images/capture/capture-close.png');
 const REMAINING_COUNT_IMAGE = require('@/src/shared/assets/images/capture/remaining-count.png');
@@ -116,6 +120,8 @@ export function CameraCaptureView() {
   const [isNameInputFocused, setIsNameInputFocused] = useState(false);
   const [keyboardTop, setKeyboardTop] = useState<number | null>(null);
   const [hasConfirmedName, setHasConfirmedName] = useState(false);
+  const [progressionBeforeGame, setProgressionBeforeGame] =
+    useState<CaptureProgression | null>(null);
   const [isNameConfirmModalVisible, setIsNameConfirmModalVisible] =
     useState(false);
   const [guideIndex, setGuideIndex] = useState(0);
@@ -157,7 +163,7 @@ export function CameraCaptureView() {
     isLoading: isCaptureOverviewLoading,
     overview: captureOverview,
     reload: reloadCaptureOverview,
-  } = useCaptureOverview(isHelpModalVisible);
+  } = useCaptureOverview(true);
   const [isPermissionToastVisible, setIsPermissionToastVisible] =
     useState(false);
   const [developingPhotoUri, setDevelopingPhotoUri] = useState<string | null>(
@@ -309,6 +315,16 @@ export function CameraCaptureView() {
   }, [captureAvailability]);
 
   useEffect(() => {
+    if (!createCaptureResult) {
+      return;
+    }
+
+    setRemainingCaptureCount(createCaptureResult.attempts.remaining);
+    setCoinBalance(createCaptureResult.payment.currentCoins);
+    setIsPaidCaptureSessionActive(false);
+  }, [createCaptureResult]);
+
+  useEffect(() => {
     const handleKeyboardShow = ({
       endCoordinates,
     }: {
@@ -410,12 +426,9 @@ export function CameraCaptureView() {
     }
   };
 
-  const consumeCaptureOpportunity = () => {
+  const selectCapturePaymentMethod = () => {
     if (remainingCaptureCount > 0) {
       setCapturedWithCoinPayment(false);
-      setRemainingCaptureCount((currentCount) =>
-        Math.max(0, currentCount - 1),
-      );
       return;
     }
 
@@ -456,7 +469,7 @@ export function CameraCaptureView() {
 
       if (photo?.uri) {
         setCapturedPhotoContentType('image/jpeg');
-        consumeCaptureOpportunity();
+        selectCapturePaymentMethod();
         developingPhotoTranslateY.setValue(-cameraCardHeight);
         setDevelopingPhotoUri(photo.uri);
 
@@ -497,7 +510,7 @@ export function CameraCaptureView() {
         setCapturedPhotoContentType(
           selectedPhoto.mimeType ?? 'image/jpeg',
         );
-        consumeCaptureOpportunity();
+        selectCapturePaymentMethod();
         setCapturedPhotoUri(selectedPhoto.uri);
       }
     } catch {
@@ -555,6 +568,7 @@ export function CameraCaptureView() {
     setIsNameInputFocused(false);
     setIsNameConfirmModalVisible(false);
     setHasConfirmedName(false);
+    setProgressionBeforeGame(null);
   };
 
   if (!permission.granted) {
@@ -593,6 +607,7 @@ export function CameraCaptureView() {
         apiErrorMessage={createCaptureError}
         captureDetail={captureDetail}
         gameResult={gameResult}
+        initialProgression={progressionBeforeGame}
         cardType={createCaptureResult?.cardType}
         onCloseApiError={() => {
           clearCreateCaptureError();
@@ -603,10 +618,22 @@ export function CameraCaptureView() {
           router.replace('/(tabs)/farm');
         }}
         onGameResult={(throws) => {
-          void submitGameResult(throws);
-        }}
-        onRetry={() => {
-          resetCaptureFlow();
+          void (async () => {
+            const overviewBeforeGameResult =
+              (await reloadCaptureOverview()) ?? captureOverview;
+
+            if (overviewBeforeGameResult) {
+              setProgressionBeforeGame({
+                level: overviewBeforeGameResult.level.currentLevel,
+                experience:
+                  overviewBeforeGameResult.level.currentExperience,
+                requiredExperienceForNextLevel:
+                  overviewBeforeGameResult.level.requiredExperience,
+              });
+            }
+
+            await submitGameResult(throws);
+          })();
         }}
         photoUri={capturedPhotoUri}
         ringShrinkDurationMs={
