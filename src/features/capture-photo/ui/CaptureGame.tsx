@@ -22,6 +22,7 @@ import { CardOpeningSequence } from './CardOpeningSequence';
 import type {
   CaptureCardType,
   CaptureDetail,
+  CaptureGameResult,
   CaptureTier,
   CaptureThrowResult,
 } from '../model/types';
@@ -61,11 +62,7 @@ const POLAROID_EXIT_IMAGE = require('@/src/shared/assets/images/capture/polaroid
 const TARGET_FRAME_IMAGE = require('@/src/shared/assets/images/capture/pochak-circle.png');
 const TARGET_CONTRACTING_RING_IMAGE = require('@/src/shared/assets/images/capture/pochak-contracting-circle.png');
 const CAPTURE_RESULT_CARD_IMAGE = require('@/src/shared/assets/images/capture/capture-result-card.png');
-const CAPTURE_SUCCESS_RESULT_IMAGE = require('@/src/shared/assets/images/capture/capture-success-result.png');
-const CAPTURE_SUCCESS_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-success-title.png');
 const CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-success-open-button.png');
-const CAPTURE_FAILURE_RESULT_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-result.png');
-const CAPTURE_FAILURE_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-title.png');
 const CAPTURE_RETRY_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-retry-button.png');
 const CAPTURE_SUCCESS_LOTTIE = require('@/src/shared/assets/images/capture/pochak-success.json');
 const CAPTURE_FAILURE_LOTTIE = require('@/src/shared/assets/images/capture/pochak-fail.json');
@@ -80,6 +77,8 @@ const CAPTURE_TIER_IMAGES = {
 const POLAROID_EXIT_WIDTH = scaleByDeviceWidth(360);
 const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
 const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
+const EXPERIENCE_BAR_WIDTH = scaleByDeviceWidth(280);
+const EXPERIENCE_ANIMATION_DURATION_MS = 1400;
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
@@ -103,6 +102,7 @@ type CaptureGameProps = {
   apiErrorMessage: string | null;
   cardType?: CaptureCardType;
   captureDetail: CaptureDetail | null;
+  gameResult: CaptureGameResult | null;
   photoUri: string;
   onCloseApiError: () => void;
   onClose: () => void;
@@ -117,6 +117,7 @@ export function CaptureGame({
   apiErrorMessage,
   cardType,
   captureDetail,
+  gameResult,
   photoUri,
   onCloseApiError,
   onClose,
@@ -135,6 +136,7 @@ export function CaptureGame({
   const [isTargetPaused, setIsTargetPaused] = useState(false);
   const [isTimingMiss, setIsTimingMiss] = useState(false);
   const [showResultActions, setShowResultActions] = useState(false);
+  const [showExperienceAction, setShowExperienceAction] = useState(false);
   const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
   const throwRotation = useRef(new Animated.Value(0)).current;
@@ -145,6 +147,7 @@ export function CaptureGame({
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
+  const experienceProgress = useRef(new Animated.Value(0)).current;
   const resolvedRingShrinkDurationMs =
     ringShrinkDurationMs > 0
       ? ringShrinkDurationMs
@@ -284,7 +287,39 @@ export function CaptureGame({
     }
 
     setShowResultActions(false);
-  }, [result]);
+    setShowExperienceAction(false);
+    experienceProgress.setValue(0);
+  }, [experienceProgress, result]);
+
+  useEffect(() => {
+    if (!showResultActions || !gameResult) {
+      return;
+    }
+
+    const { before, after } = gameResult.progression;
+    const beforeProgress = before?.requiredExperienceForNextLevel
+      ? Math.min(1, before.experience / before.requiredExperienceForNextLevel)
+      : 0;
+    const afterProgress = after.requiredExperienceForNextLevel
+      ? Math.min(1, after.experience / after.requiredExperienceForNextLevel)
+      : 1;
+
+    experienceProgress.setValue(beforeProgress);
+    const animation = Animated.timing(experienceProgress, {
+      toValue: afterProgress,
+      duration: EXPERIENCE_ANIMATION_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        setShowExperienceAction(true);
+      }
+    });
+
+    return () => animation.stop();
+  }, [experienceProgress, gameResult, showResultActions]);
 
   const resetFrame = useCallback(() => {
     Animated.parallel([
@@ -609,6 +644,24 @@ export function CaptureGame({
     ],
   });
   const targetRingTextureScale = Animated.multiply(pulseScale, 0.95);
+  const progressionBefore = gameResult?.progression.before;
+  const progressionAfter = gameResult?.progression.after;
+  const earnedExperience = progressionAfter
+    ? progressionBefore
+      ? progressionBefore.level === progressionAfter.level
+        ? Math.max(0, progressionAfter.experience - progressionBefore.experience)
+        : Math.max(
+            0,
+            progressionBefore.requiredExperienceForNextLevel -
+              progressionBefore.experience +
+              progressionAfter.experience,
+          )
+      : Math.max(0, progressionAfter.experience)
+    : 0;
+  const animatedExperienceWidth = experienceProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, EXPERIENCE_BAR_WIDTH],
+  });
 
   return (
     <View style={styles.container}>
@@ -872,69 +925,62 @@ export function CaptureGame({
             />
           )}
 
-          {result === 'success' && showResultActions && (
-            <View style={styles.successResultContent}>
-              <View style={styles.successVisualGroup}>
-                <Image
-                  accessibilityLabel="포착 성공 카드"
-                  resizeMode="contain"
-                  source={CAPTURE_SUCCESS_RESULT_IMAGE}
-                  style={styles.successResultImage}
-                />
-                <Image
-                  accessibilityLabel="포착 성공"
-                  resizeMode="contain"
-                  source={CAPTURE_SUCCESS_TITLE_IMAGE}
-                  style={styles.successTitleImage}
+          {showResultActions && gameResult && progressionAfter && (
+            <View style={styles.experienceModal}>
+              <View
+                accessibilityLabel={`레벨 ${progressionAfter.level}`}
+                style={styles.levelBadge}
+              >
+                <Text style={styles.levelLabel}>Lv</Text>
+                <Text style={styles.levelValue}>{progressionAfter.level}</Text>
+                <Text style={styles.levelPaw}>♣</Text>
+              </View>
+
+              <Text style={styles.experienceTitle}>EXP를 획득했어요</Text>
+              <Text style={styles.experienceAmount}>
+                +{earnedExperience.toLocaleString('ko-KR')} EXP
+              </Text>
+
+              <View style={styles.experienceTrack}>
+                <Animated.View
+                  style={[
+                    styles.experienceFill,
+                    { width: animatedExperienceWidth },
+                  ]}
                 />
               </View>
-              <Pressable
-                accessibilityLabel="카드 오픈하기"
-                accessibilityRole="button"
-                onPress={() => setHasOpenedSuccess(true)}
-                style={({ pressed }) => [
-                  styles.successOpenButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Image
-                  resizeMode="contain"
-                  source={CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE}
-                  style={styles.resultButtonImage}
-                />
-              </Pressable>
-            </View>
-          )}
 
-          {showResultActions && result === 'failure' && (
-            <View style={styles.failureResultContent}>
-              <Image
-                accessibilityLabel="포착 실패 카드"
-                resizeMode="contain"
-                source={CAPTURE_FAILURE_RESULT_IMAGE}
-                style={styles.failureResultImage}
-              />
-              <Image
-                accessibilityLabel="포착 실패"
-                resizeMode="contain"
-                source={CAPTURE_FAILURE_TITLE_IMAGE}
-                style={styles.failureTitleImage}
-              />
-              <Pressable
-                accessibilityLabel="다시 도전하기"
-                accessibilityRole="button"
-                onPress={onRetry}
-                style={({ pressed }) => [
-                  styles.retryButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Image
-                  resizeMode="contain"
-                  source={CAPTURE_RETRY_BUTTON_IMAGE}
-                  style={styles.resultButtonImage}
-                />
-              </Pressable>
+              <View style={styles.experienceActionSlot}>
+                {showExperienceAction && (
+                  <Pressable
+                    accessibilityLabel={
+                      result === 'success'
+                        ? '카드 오픈하기'
+                        : '다시 도전하기'
+                    }
+                    accessibilityRole="button"
+                    onPress={
+                      result === 'success'
+                        ? () => setHasOpenedSuccess(true)
+                        : onRetry
+                    }
+                    style={({ pressed }) => [
+                      styles.experienceActionButton,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <Image
+                      resizeMode="contain"
+                      source={
+                        result === 'success'
+                          ? CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE
+                          : CAPTURE_RETRY_BUTTON_IMAGE
+                      }
+                      style={styles.resultButtonImage}
+                    />
+                  </Pressable>
+                )}
+              </View>
             </View>
           )}
         </View>
@@ -1149,49 +1195,97 @@ const styles = StyleSheet.create({
   resultLottie: {
     ...StyleSheet.absoluteFillObject,
   },
-  successResultImage: {
-    width: scaleByDeviceWidth(323),
-    height: scaleByDeviceWidth(323),
-  },
-  successResultContent: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(181.56),
+  experienceModal: {
+    width: scaleByDeviceWidth(340),
+    minHeight: scaleByDeviceWidth(398),
+    paddingTop: scaleByDeviceWidth(42),
+    paddingHorizontal: scaleByDeviceWidth(24),
+    paddingBottom: scaleByDeviceWidth(24),
     alignItems: 'center',
+    borderWidth: scaleByDeviceWidth(3),
+    borderColor: '#8D7652',
+    borderRadius: scaleByDeviceWidth(8),
+    backgroundColor: '#FFFCF6',
+    shadowColor: '#2B2116',
+    shadowOffset: {
+      width: 0,
+      height: scaleByDeviceWidth(4),
+    },
+    shadowOpacity: 0.35,
+    shadowRadius: scaleByDeviceWidth(3),
+    elevation: 8,
   },
-  successVisualGroup: {
-    width: scaleByDeviceWidth(323),
-    height: scaleByDeviceWidth(323),
+  levelBadge: {
+    width: scaleByDeviceWidth(82),
+    height: scaleByDeviceWidth(94),
     alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: scaleByDeviceWidth(4),
+    borderColor: '#F5D36D',
+    borderRadius: scaleByDeviceWidth(18),
+    backgroundColor: '#9C8260',
   },
-  successTitleImage: {
-    position: 'absolute',
-    bottom: 0,
-    width: scaleByDeviceWidth(171),
-    height: scaleByDeviceWidth(52),
+  levelLabel: {
+    color: '#E9DDCC',
+    fontFamily: 'Galmuri11-Bold',
+    fontSize: scaleByDeviceWidth(18),
+    lineHeight: scaleByDeviceWidth(21),
   },
-  successOpenButton: {
+  levelValue: {
+    color: '#FFFFFF',
+    fontFamily: 'Galmuri11-Bold',
+    fontSize: scaleByDeviceWidth(31),
+    lineHeight: scaleByDeviceWidth(35),
+    textShadowColor: 'rgba(68, 50, 30, 0.45)',
+    textShadowOffset: {
+      width: scaleByDeviceWidth(1),
+      height: scaleByDeviceWidth(2),
+    },
+    textShadowRadius: scaleByDeviceWidth(1),
+  },
+  levelPaw: {
+    color: '#F8D76D',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(16),
+  },
+  experienceTitle: {
+    marginTop: scaleByDeviceWidth(18),
+    color: '#735D43',
+    fontFamily: 'Galmuri11-Bold',
+    fontSize: scaleByDeviceWidth(17),
+    lineHeight: scaleByDeviceWidth(23),
+  },
+  experienceAmount: {
+    marginTop: scaleByDeviceWidth(4),
+    color: '#F9C23E',
+    fontFamily: 'Galmuri11-Bold',
+    fontSize: scaleByDeviceWidth(30),
+    lineHeight: scaleByDeviceWidth(38),
+  },
+  experienceTrack: {
+    width: EXPERIENCE_BAR_WIDTH,
+    height: scaleByDeviceWidth(18),
+    marginTop: scaleByDeviceWidth(20),
+    overflow: 'hidden',
+    borderWidth: scaleByDeviceWidth(1),
+    borderColor: '#D7C3A2',
+    borderRadius: scaleByDeviceWidth(9),
+    backgroundColor: '#EEE7DC',
+  },
+  experienceFill: {
+    height: '100%',
+    borderRadius: scaleByDeviceWidth(9),
+    backgroundColor: '#F4C23F',
+  },
+  experienceActionSlot: {
+    height: scaleByDeviceWidth(70),
+    marginTop: scaleByDeviceWidth(30),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  experienceActionButton: {
     width: scaleByDeviceWidth(280),
     height: scaleByDeviceWidth(60),
-    marginTop: scaleByDeviceWidth(43.92),
-  },
-  failureResultContent: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(272.58),
-    alignItems: 'center',
-  },
-  failureResultImage: {
-    width: scaleByDeviceWidth(120),
-    height: scaleByDeviceWidth(128.31),
-  },
-  failureTitleImage: {
-    width: scaleByDeviceWidth(184),
-    height: scaleByDeviceWidth(52),
-    marginTop: scaleByDeviceWidth(32.19),
-  },
-  retryButton: {
-    width: scaleByDeviceWidth(280),
-    height: scaleByDeviceWidth(60),
-    marginTop: scaleByDeviceWidth(63.69),
   },
   resultButtonImage: {
     width: '100%',

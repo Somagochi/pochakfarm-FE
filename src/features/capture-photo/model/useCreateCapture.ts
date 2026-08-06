@@ -16,6 +16,7 @@ import { downloadCaptureCardImage } from '../lib/downloadCaptureCardImage';
 import { removePhotoBackground } from './subjectSegmentation';
 import type {
   CaptureDetail,
+  CaptureGameResult,
   CaptureThrowResult,
   CreateCaptureResult,
 } from './types';
@@ -43,6 +44,7 @@ export function useCreateCapture() {
     useState<AnimalImagePresignResult | null>(null);
   const [captureDetail, setCaptureDetail] =
     useState<CaptureDetail | null>(null);
+  const [gameResult, setGameResult] = useState<CaptureGameResult | null>(null);
   const capturePipelineRef = useRef<Promise<CreateCaptureResult> | null>(null);
   const pollingRunIdRef = useRef(0);
 
@@ -63,6 +65,7 @@ export function useCreateCapture() {
     setResult(null);
     setAnimalImagePresign(null);
     setCaptureDetail(null);
+    setGameResult(null);
     const { photoUri, ...request } = params;
     const capturePipeline = (async () => {
       const capture = await runRequestStep('POST /api/captures', () =>
@@ -110,10 +113,15 @@ export function useCreateCapture() {
         throw new Error('포착 정보를 찾지 못했습니다.');
       }
 
-      await runRequestStep(
+      const submittedGameResult = await runRequestStep(
         `POST /api/captures/${capture.captureId}/game-result`,
         () => submitCaptureGameResultApi(capture.captureId, throws),
       );
+      setGameResult(submittedGameResult);
+
+      if (!throws.some(({ succeeded }) => succeeded)) {
+        return true;
+      }
 
       const pollingRunId = ++pollingRunIdRef.current;
 
@@ -177,6 +185,7 @@ export function useCreateCapture() {
     createCapture,
     errorMessage,
     isLoading,
+    gameResult,
     result,
     submitGameResult,
   };

@@ -11,6 +11,7 @@ import {
   useClaimAchievement,
 } from '@/src/features/claim-achievement';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { useRefreshOnFocus } from '@/src/shared/lib/navigation/useRefreshOnFocus';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 export function AchievementCardList() {
@@ -31,6 +32,7 @@ export function AchievementCardList() {
     clearError: clearClaimError,
     errorMessage: claimErrorMessage,
   } = useClaimAchievement();
+  useRefreshOnFocus(reload);
   const claimedBadgeReward = claimedAchievement?.rewards?.find(
     (reward) => reward.type === 'BADGE',
   );
@@ -79,7 +81,10 @@ export function AchievementCardList() {
       <AchievementClaimRewardModal
         badgeImageUrl={claimedAchievement?.imageUrl}
         coinAmount={claimedCoinReward?.amount ?? 300}
-        onClose={() => setClaimedAchievement(null)}
+        onClose={() => {
+          setClaimedAchievement(null);
+          void reload();
+        }}
         title={claimedBadgeReward?.badgeName ?? '첫 보금자리'}
         visible={claimedAchievement !== null}
       />
