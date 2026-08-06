@@ -59,6 +59,7 @@ export function CouponRegistrationScreen() {
           cardImageUrl: reward.cardImageUrl,
           cardType: reward.cardType,
           couponCode: trimmedCouponNumber,
+          tier: reward.tier,
         },
       });
     }
