@@ -2,6 +2,9 @@ export type AchievementCategory = 'EVENT' | 'COLLECTION' | 'FARM';
 
 export type Achievement = {
   achieved: boolean;
+  achievedInfo?: {
+    rewardClaimed?: boolean;
+  };
   code: string;
   hidden: boolean;
   imageUrl?: string;
