@@ -16,7 +16,6 @@ import {
   GestureDetector,
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   useAnimalDetail,
@@ -137,7 +136,6 @@ export function CreatureDetailSheet({
   onReleaseSuccess,
   width,
 }: CreatureDetailSheetProps) {
-  const insets = useSafeAreaInsets();
   const { animal, errorMessage, isLoading, reload } =
     useAnimalDetail(animalId);
   const { isReleasing, releaseAnimal } = useReleaseAnimal();
@@ -371,7 +369,6 @@ export function CreatureDetailSheet({
               {
                 width: sheetWidth,
                 height: sheetHeight,
-                marginBottom: insets.bottom,
                 transform: [{ translateY }],
               },
             ]}
