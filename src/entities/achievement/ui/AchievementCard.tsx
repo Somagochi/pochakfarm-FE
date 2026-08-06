@@ -41,10 +41,7 @@ export function AchievementCard({
     : hasProgress
       ? getAchievementProgressPercent(current ?? 0, target ?? 0)
       : 0;
-  const canClaim =
-    !achievement.achieved &&
-    hasProgress &&
-    (current ?? 0) >= (target ?? 0);
+  const canClaim = achievement.achievedInfo?.rewardClaimed === false;
   const badgeSource: ImageSourcePropType = achievement.hidden
     ? HIDDEN_ACHIEVEMENT_BADGE
     : achievement.imageUrl
@@ -88,7 +85,7 @@ export function AchievementCard({
           )}
         </View>
       )}
-      {(hasProgress || achievement.achieved) && (
+      {(hasProgress || achievement.achieved || canClaim) && (
         <View style={styles.progressRow}>
           <View
             style={[
@@ -122,14 +119,7 @@ export function AchievementCard({
               />
             )}
           </View>
-          {achievement.achieved ? (
-            <Image
-              accessible={false}
-              resizeMode="contain"
-              source={ACHIEVEMENT_COMPLETE}
-              style={styles.completeIcon}
-            />
-          ) : canClaim ? (
+          {canClaim ? (
             <Pressable
               accessibilityLabel="업적 보상 받기"
               accessibilityRole="button"
@@ -148,6 +138,13 @@ export function AchievementCard({
                 style={styles.claimButtonImage}
               />
             </Pressable>
+          ) : achievement.achieved ? (
+            <Image
+              accessible={false}
+              resizeMode="contain"
+              source={ACHIEVEMENT_COMPLETE}
+              style={styles.completeIcon}
+            />
           ) : (
             <Text style={styles.progressText}>{progressPercent}%</Text>
           )}
