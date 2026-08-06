@@ -15,12 +15,32 @@ const TAB_BAR_BACKGROUND_WIDTH = scaleByDeviceWidth(368);
 const TAB_BAR_BACKGROUND = require('@/src/shared/assets/images/bottom-tab-bar/nav-bottom.png');
 const CAPTURE_LABEL_IMAGE = require('@/src/shared/assets/images/bottom-tab-bar/capture-label.png');
 
-const TAB_IMAGES: Record<string, ImageSourcePropType> = {
-  farm: require('@/src/shared/assets/images/bottom-tab-bar/farm-tab.png'),
-  collection: require('@/src/shared/assets/images/bottom-tab-bar/collection-tab.png'),
-  capture: require('@/src/shared/assets/images/bottom-tab-bar/capture-tab.png'),
-  battle: require('@/src/shared/assets/images/bottom-tab-bar/battle-tab.png'),
-  more: require('@/src/shared/assets/images/bottom-tab-bar/more-tab.png'),
+type TabImages = {
+  active: ImageSourcePropType;
+  inactive: ImageSourcePropType;
+};
+
+const TAB_IMAGES: Record<string, TabImages> = {
+  farm: {
+    active: require('@/src/shared/assets/images/bottom-tab-bar/farm-tab.png'),
+    inactive: require('@/src/shared/assets/images/bottom-tab-bar/farm-tab-inactive.png'),
+  },
+  collection: {
+    active: require('@/src/shared/assets/images/bottom-tab-bar/collection-tab-active.png'),
+    inactive: require('@/src/shared/assets/images/bottom-tab-bar/collection-tab.png'),
+  },
+  capture: {
+    active: require('@/src/shared/assets/images/bottom-tab-bar/capture-tab.png'),
+    inactive: require('@/src/shared/assets/images/bottom-tab-bar/capture-tab.png'),
+  },
+  battle: {
+    active: require('@/src/shared/assets/images/bottom-tab-bar/battle-tab-active.png'),
+    inactive: require('@/src/shared/assets/images/bottom-tab-bar/battle-tab.png'),
+  },
+  more: {
+    active: require('@/src/shared/assets/images/bottom-tab-bar/more-tab-active.png'),
+    inactive: require('@/src/shared/assets/images/bottom-tab-bar/more-tab.png'),
+  },
 };
 
 const TAB_LABELS: Record<string, string> = {
@@ -54,13 +74,16 @@ export function BottomTabBar({
       </View>
       <View style={styles.buttonGroup}>
         {state.routes.map((route, index) => {
-          const imageSource = TAB_IMAGES[route.name];
+          const tabImages = TAB_IMAGES[route.name];
 
-          if (!imageSource) {
+          if (!tabImages) {
             return null;
           }
 
           const isFocused = state.index === index;
+          const imageSource = isFocused
+            ? tabImages.active
+            : tabImages.inactive;
           const { options } = descriptors[route.key];
 
           const onPress = () => {
@@ -96,9 +119,6 @@ export function BottomTabBar({
                 route.name === 'capture'
                   ? styles.captureButton
                   : styles.tabButton,
-                route.name === 'capture' || isFocused
-                  ? styles.focused
-                  : styles.unfocused,
                 pressed && styles.pressed,
               ]}
             >
@@ -182,12 +202,6 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(19),
     height: scaleByDeviceWidth(10),
     marginTop: scaleByDeviceWidth(6),
-  },
-  focused: {
-    opacity: 1,
-  },
-  unfocused: {
-    opacity: 0.5,
   },
   pressed: {
     opacity: 0.7,
