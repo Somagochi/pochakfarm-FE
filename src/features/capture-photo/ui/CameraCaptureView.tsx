@@ -137,6 +137,7 @@ export function CameraCaptureView() {
     createCapture,
     errorMessage: createCaptureError,
     isLoading: isCreatingCapture,
+    gameResult,
     result: createCaptureResult,
     submitGameResult,
   } = useCreateCapture();
@@ -591,6 +592,7 @@ export function CameraCaptureView() {
         animalImageKey={animalImageKey}
         apiErrorMessage={createCaptureError}
         captureDetail={captureDetail}
+        gameResult={gameResult}
         cardType={createCaptureResult?.cardType}
         onCloseApiError={() => {
           clearCreateCaptureError();

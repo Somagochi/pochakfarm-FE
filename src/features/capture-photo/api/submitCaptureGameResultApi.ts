@@ -1,9 +1,17 @@
 import { ApiError, apiClient } from '@/src/shared/api/client';
 
-import type { CaptureThrowResult } from '../model/types';
+import type {
+  CaptureGameResult,
+  CaptureThrowResult,
+} from '../model/types';
 
 type SubmitCaptureGameResultRequest = {
   throws: CaptureThrowResult[];
+};
+
+type SubmitCaptureGameResultResponse = {
+  data: CaptureGameResult;
+  datetime: string;
 };
 
 function getResponseMessage(data: unknown) {
@@ -33,7 +41,7 @@ export async function submitCaptureGameResultApi(
   throws: CaptureThrowResult[],
 ) {
   const response = await apiClient.postWithResponse<
-    unknown,
+    SubmitCaptureGameResultResponse,
     SubmitCaptureGameResultRequest
   >(
     `/api/captures/${captureId}/game-result`,
@@ -47,4 +55,10 @@ export async function submitCaptureGameResultApi(
       response.status,
     );
   }
+
+  if (!response.data.data?.progression?.after) {
+    throw new Error('미니게임 결과 응답이 올바르지 않습니다.');
+  }
+
+  return response.data.data;
 }

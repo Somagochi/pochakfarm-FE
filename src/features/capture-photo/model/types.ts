@@ -57,6 +57,22 @@ export type CaptureThrowResult = {
   succeeded: boolean;
 };
 
+export type CaptureProgression = {
+  level: number;
+  experience: number;
+  requiredExperienceForNextLevel: number;
+};
+
+export type CaptureGameResult = {
+  captureId: number;
+  gameStatus: string;
+  reward: unknown | null;
+  progression: {
+    before: CaptureProgression | null;
+    after: CaptureProgression;
+  };
+};
+
 export type CaptureDetail = {
   captureId: number;
   tier: CaptureTier;
