@@ -1,8 +1,20 @@
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 
+import { useUserProfile } from '@/src/entities/user';
+import { AppSplashScreen } from '@/src/screens/splash-screen';
 import { BottomTabBar } from '@/src/widgets/bottom-tab-bar';
 
 export default function TabLayout() {
+  const { isLoading, profile } = useUserProfile();
+
+  if (isLoading) {
+    return <AppSplashScreen />;
+  }
+
+  if (profile?.nickname === null) {
+    return <Redirect href="/nickname" />;
+  }
+
   return (
     <Tabs
       tabBar={(props) => <BottomTabBar {...props} />}
