@@ -40,14 +40,7 @@ export type CreateCaptureResult = {
     expiresAt: string;
   };
   attempts: {
-    dailyLimit: number;
-    used: number;
     remaining: number;
-  };
-  payment: {
-    type: 'FREE' | 'COIN';
-    chargedCoins: number;
-    currentCoins: number;
   };
   gameResultExpiresAt: string;
 };

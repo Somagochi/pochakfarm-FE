@@ -11,6 +11,7 @@ export type CreateCaptureRequest = {
 
 type CreateCaptureResponse = {
   data: CreateCaptureResult;
+  datetime: string;
 };
 
 export async function createCaptureApi(body: CreateCaptureRequest) {

@@ -323,7 +323,6 @@ export function CameraCaptureView() {
     }
 
     setRemainingCaptureCount(createCaptureResult.attempts.remaining);
-    setCoinBalance(createCaptureResult.payment.currentCoins);
     setIsPaidCaptureSessionActive(false);
   }, [createCaptureResult]);
 
