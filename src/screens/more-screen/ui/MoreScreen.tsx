@@ -1,24 +1,30 @@
 import { router } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
   ImageBackground,
+  Keyboard,
   Linking,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useUserProfile } from '@/src/entities/user';
 import { buildSupportEmailUrl } from '@/src/features/contact-support';
+import { isUsableNickname, useSetNickname } from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useRefreshOnFocus } from '@/src/shared/lib/navigation/useRefreshOnFocus';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const PROFILE_CARD_IMAGE = require('@/src/shared/assets/images/more/profile-card.png');
 const EXP_ICON_IMAGE = require('@/src/shared/assets/images/more/exp-icon.png');
+const EDIT_NICKNAME_BUTTON_IMAGE = require('@/src/shared/assets/images/more/edit-nickname-button.png');
 const COUPON_REGISTRATION_BUTTON_IMAGE = require('@/src/shared/assets/images/more/coupon-registration-button.png');
 const SETTINGS_CARD_IMAGE = require('@/src/shared/assets/images/more/settings-card.png');
 const ACCOUNT_MANAGEMENT_ROW_IMAGE = require('@/src/shared/assets/images/more/account-management-row.png');
@@ -33,8 +39,32 @@ const NOTICE_INSTAGRAM_URL =
 export function MoreScreen() {
   const insets = useSafeAreaInsets();
   const { profile, reload: reloadProfile } = useUserProfile();
+  const {
+    clearError: clearNicknameError,
+    errorMessage: nicknameErrorMessage,
+    isLoading: isNicknameSaving,
+    setNickname,
+  } = useSetNickname();
+  const [isNicknameEditing, setIsNicknameEditing] = useState(false);
+  const [nicknameInput, setNicknameInput] = useState('');
+  const [modalErrorMessage, setModalErrorMessage] = useState<string | null>(
+    null,
+  );
 
   useRefreshOnFocus(reloadProfile);
+  useEffect(() => {
+    const keyboardHideSubscription = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        setIsNicknameEditing(false);
+        setNicknameInput('');
+        setModalErrorMessage(null);
+        clearNicknameError();
+      },
+    );
+
+    return () => keyboardHideSubscription.remove();
+  }, [clearNicknameError]);
 
   const currentExperience = profile?.currentExperience ?? 0;
   const requiredExperience = profile?.requiredExperience ?? 0;
@@ -43,6 +73,45 @@ export function MoreScreen() {
     requiredExperience > 0
       ? Math.min(Math.max(currentExperience / requiredExperience, 0), 1)
       : 0;
+  const trimmedNickname = nicknameInput.trim();
+  const isNicknameConfirmEnabled =
+    isUsableNickname(trimmedNickname) &&
+    trimmedNickname !== profile?.nickname &&
+    !isNicknameSaving;
+
+  function handleNicknameEditPress() {
+    clearNicknameError();
+    setNicknameInput(profile?.nickname ?? '');
+    setIsNicknameEditing(true);
+  }
+
+  async function handleNicknameConfirmPress() {
+    if (!isNicknameConfirmEnabled) {
+      return;
+    }
+
+    try {
+      const isUpdated = await setNickname(trimmedNickname);
+
+      if (!isUpdated) {
+        return;
+      }
+
+      await reloadProfile();
+      setIsNicknameEditing(false);
+    } catch (error) {
+      setModalErrorMessage(
+        error instanceof Error
+          ? error.message
+          : '닉네임을 변경하지 못했습니다.',
+      );
+    }
+  }
+
+  function closeNicknameErrorModal() {
+    clearNicknameError();
+    setModalErrorMessage(null);
+  }
 
   async function handleNoticePress() {
     try {
@@ -69,6 +138,7 @@ export function MoreScreen() {
         styles.content,
         { paddingTop: insets.top + scaleByDeviceWidth(10) },
       ]}
+      keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
       style={styles.screen}
     >
@@ -82,7 +152,61 @@ export function MoreScreen() {
           source={PROFILE_CARD_IMAGE}
           style={styles.profileCardImage}
         />
-        <Text style={styles.nickname}>{profile?.nickname ?? ''}</Text>
+        {isNicknameEditing ? (
+          <View style={styles.nicknameEditor}>
+            <TextInput
+              accessibilityLabel="변경할 닉네임 입력"
+              autoFocus
+              maxLength={6}
+              onChangeText={(value) => {
+                setNicknameInput(value);
+                clearNicknameError();
+              }}
+              onSubmitEditing={() => void handleNicknameConfirmPress()}
+              placeholder="이름을 입력해주세요"
+              placeholderTextColor="#B7B6AE"
+              returnKeyType="done"
+              style={styles.nicknameInput}
+              value={nicknameInput}
+            />
+            <Pressable
+              accessibilityLabel="닉네임 변경 확인"
+              accessibilityRole="button"
+              accessibilityState={{
+                busy: isNicknameSaving,
+                disabled: !isNicknameConfirmEnabled,
+              }}
+              disabled={!isNicknameConfirmEnabled}
+              onPress={() => void handleNicknameConfirmPress()}
+              style={({ pressed }) => [
+                styles.nicknameConfirmButton,
+                !isNicknameConfirmEnabled && styles.disabledButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={styles.nicknameConfirmButtonText}>확인</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <Text style={styles.nickname}>{profile?.nickname ?? ''}</Text>
+            <Pressable
+              accessibilityLabel="닉네임 변경"
+              accessibilityRole="button"
+              onPress={handleNicknameEditPress}
+              style={({ pressed }) => [
+                styles.editNicknameButton,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Image
+                resizeMode="contain"
+                source={EDIT_NICKNAME_BUTTON_IMAGE}
+                style={styles.editNicknameButtonImage}
+              />
+            </Pressable>
+          </>
+        )}
         <Text style={styles.coinBalance}>
           {profile?.coins.toLocaleString('ko-KR') ?? ''}
         </Text>
@@ -137,6 +261,10 @@ export function MoreScreen() {
           style={styles.couponRegistrationButtonImage}
         />
       </Pressable>
+      <ErrorModal
+        message={nicknameErrorMessage ?? modalErrorMessage}
+        onClose={closeNicknameErrorModal}
+      />
       <ImageBackground
         accessibilityLabel="설정"
         resizeMode="contain"
@@ -262,6 +390,56 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(20),
     lineHeight: scaleByDeviceWidth(25),
+  },
+  editNicknameButton: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(28),
+    right: scaleByDeviceWidth(18),
+    width: scaleByDeviceWidth(24),
+    height: scaleByDeviceWidth(24),
+  },
+  editNicknameButtonImage: {
+    width: '100%',
+    height: '100%',
+  },
+  nicknameEditor: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(18),
+    left: scaleByDeviceWidth(16),
+    right: scaleByDeviceWidth(16),
+    height: scaleByDeviceWidth(44),
+    flexDirection: 'row',
+    gap: scaleByDeviceWidth(8),
+  },
+  nicknameInput: {
+    flex: 1,
+    height: scaleByDeviceWidth(44),
+    paddingHorizontal: scaleByDeviceWidth(14),
+    paddingVertical: 0,
+    borderColor: '#E7DCC2',
+    borderRadius: scaleByDeviceWidth(12),
+    borderWidth: scaleByDeviceWidth(1.2),
+    backgroundColor: '#FFFFFF',
+    color: '#332016',
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: scaleByDeviceWidth(14),
+  },
+  nicknameConfirmButton: {
+    width: scaleByDeviceWidth(60),
+    height: scaleByDeviceWidth(44),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: scaleByDeviceWidth(12),
+    backgroundColor: '#365D20',
+  },
+  nicknameConfirmButtonText: {
+    color: '#FFF9F0',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(20),
+  },
+  disabledButton: {
+    opacity: 0.45,
   },
   coinBalance: {
     position: 'absolute',
