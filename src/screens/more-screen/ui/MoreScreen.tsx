@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserProfile } from '@/src/entities/user';
 import { buildSupportEmailUrl } from '@/src/features/contact-support';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { useRefreshOnFocus } from '@/src/shared/lib/navigation/useRefreshOnFocus';
 
 const PROFILE_CARD_IMAGE = require('@/src/shared/assets/images/more/profile-card.png');
 const EXP_ICON_IMAGE = require('@/src/shared/assets/images/more/exp-icon.png');
@@ -31,7 +32,10 @@ const NOTICE_INSTAGRAM_URL =
 
 export function MoreScreen() {
   const insets = useSafeAreaInsets();
-  const { profile } = useUserProfile();
+  const { profile, reload: reloadProfile } = useUserProfile();
+
+  useRefreshOnFocus(reloadProfile);
+
   const currentExperience = profile?.currentExperience ?? 0;
   const requiredExperience = profile?.requiredExperience ?? 0;
   const remainingExperience = profile?.remainingExperience ?? 0;
@@ -255,7 +259,7 @@ const styles = StyleSheet.create({
     top: scaleByDeviceWidth(28),
     left: scaleByDeviceWidth(20),
     color: '#302F2B',
-    fontFamily: 'Pretendard-Regular',
+    fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(20),
     lineHeight: scaleByDeviceWidth(25),
   },

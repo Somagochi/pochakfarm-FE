@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { setBottomTabBarHidden } from '@/src/shared/lib/navigation/bottomTabBarVisibility';
+import { useRefreshOnFocus } from '@/src/shared/lib/navigation/useRefreshOnFocus';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FarmCreatureSearchModal } from '@/src/features/find-farm-creature';
@@ -63,6 +64,10 @@ export function FarmScreen() {
   const [contentSize, setContentSize] = useState({
     height: 0,
     width: 0,
+  });
+
+  useRefreshOnFocus(async () => {
+    await Promise.all([reloadFarm(), reloadProfile()]);
   });
 
   useEffect(() => {
