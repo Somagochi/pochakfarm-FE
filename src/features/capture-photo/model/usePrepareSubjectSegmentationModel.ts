@@ -4,7 +4,7 @@ import { Platform } from 'react-native';
 import {
   downloadSubjectSegmentationModel,
   isSubjectSegmentationModelAvailable,
-} from './subjectSegmentation';
+} from '@/src/shared/lib/image/subjectSegmentation';
 
 type PreparationState = 'checking' | 'downloading' | 'ready' | 'error';
 

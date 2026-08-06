@@ -2,6 +2,9 @@ import * as Crypto from 'expo-crypto';
 import { useEffect, useRef, useState } from 'react';
 
 import { runRequestStep } from '@/src/shared/api/formatRequestError';
+import { uploadImageToPresignedUrl } from '@/src/shared/api/uploadImageToPresignedUrl';
+import { downloadRemoteImage } from '@/src/shared/lib/image/downloadRemoteImage';
+import { removePhotoBackground } from '@/src/shared/lib/image/subjectSegmentation';
 
 import { createCaptureApi } from '../api/createCaptureApi';
 import { completeOriginalImageUploadApi } from '../api/completeOriginalImageUploadApi';
@@ -11,9 +14,6 @@ import {
   type AnimalImagePresignResult,
 } from '../api/presignAnimalImageApi';
 import { submitCaptureGameResultApi } from '../api/submitCaptureGameResultApi';
-import { uploadCaptureImageApi } from '../api/uploadCaptureImageApi';
-import { downloadCaptureCardImage } from '../lib/downloadCaptureCardImage';
-import { removePhotoBackground } from './subjectSegmentation';
 import type {
   CaptureDetail,
   CaptureGameResult,
@@ -76,9 +76,9 @@ export function useCreateCapture() {
       );
       setResult(capture);
       await runRequestStep('PUT 원본 이미지 Presigned URL', () =>
-        uploadCaptureImageApi({
+        uploadImageToPresignedUrl({
           contentType: request.contentType,
-          photoUri,
+          imageUri: photoUri,
           uploadUrl: capture.upload.url,
         }),
       );
@@ -146,7 +146,7 @@ export function useCreateCapture() {
           const cardImageUrl = generation.cardImageUrl;
           const cardImageUri = await runRequestStep(
             'GET cardImageUrl 이미지 다운로드',
-            () => downloadCaptureCardImage(cardImageUrl),
+            () => downloadRemoteImage(cardImageUrl),
           );
           const animalImageUri = await runRequestStep('누끼 제거 SDK', () =>
             removePhotoBackground(cardImageUri),
@@ -156,9 +156,9 @@ export function useCreateCapture() {
             () => presignAnimalImageApi(capture.captureId),
           );
           await runRequestStep('PUT 누끼 이미지 Presigned URL', () =>
-            uploadCaptureImageApi({
+            uploadImageToPresignedUrl({
               contentType: 'image/png',
-              photoUri: animalImageUri,
+              imageUri: animalImageUri,
               uploadUrl: presign.uploadUrl,
             }),
           );

@@ -66,7 +66,10 @@ export type CaptureProgression = {
 export type CaptureGameResult = {
   captureId: number;
   gameStatus: string;
-  reward: unknown | null;
+  reward: {
+    experienceReward: number;
+    levelUpCoinReward: number;
+  } | null;
   progression: {
     before: CaptureProgression | null;
     after: CaptureProgression;

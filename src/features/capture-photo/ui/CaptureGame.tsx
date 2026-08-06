@@ -23,6 +23,7 @@ import type {
   CaptureCardType,
   CaptureDetail,
   CaptureGameResult,
+  CaptureProgression,
   CaptureTier,
   CaptureThrowResult,
 } from '../model/types';
@@ -63,9 +64,17 @@ const TARGET_FRAME_IMAGE = require('@/src/shared/assets/images/capture/pochak-ci
 const TARGET_CONTRACTING_RING_IMAGE = require('@/src/shared/assets/images/capture/pochak-contracting-circle.png');
 const CAPTURE_RESULT_CARD_IMAGE = require('@/src/shared/assets/images/capture/capture-result-card.png');
 const CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-success-open-button.png');
-const CAPTURE_RETRY_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-retry-button.png');
+const CAPTURE_FAILURE_MAIN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-main-button.png');
 const CAPTURE_SUCCESS_LOTTIE = require('@/src/shared/assets/images/capture/pochak-success.json');
 const CAPTURE_FAILURE_LOTTIE = require('@/src/shared/assets/images/capture/pochak-fail.json');
+const CAPTURE_SUCCESS_RESULT_IMAGE = require('@/src/shared/assets/images/capture/capture-success-result.png');
+const CAPTURE_SUCCESS_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-success-title.png');
+const CAPTURE_FAILURE_TITLE_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-title.png');
+const EXPERIENCE_MODAL_CARD_IMAGE = require('@/src/shared/assets/images/capture/experience-modal-card.png');
+const EXPERIENCE_LEVEL_BADGE_IMAGE = require('@/src/shared/assets/images/capture/experience-level-badge.png');
+const EXPERIENCE_TITLE_IMAGE = require('@/src/shared/assets/images/capture/experience-title.png');
+const EXPERIENCE_LEVEL_UP_IMAGE = require('@/src/shared/assets/images/capture/experience-level-up.png');
+const COIN_IMAGE = require('@/src/shared/assets/images/farm-status/coin.png');
 const CAPTURE_TIER_IMAGES = {
   A: require('@/src/shared/assets/images/capture/capture-tier-a.png'),
   B: require('@/src/shared/assets/images/capture/capture-tier-b.png'),
@@ -77,8 +86,9 @@ const CAPTURE_TIER_IMAGES = {
 const POLAROID_EXIT_WIDTH = scaleByDeviceWidth(360);
 const POLAROID_EXIT_HEIGHT = scaleByDeviceWidth(20.96);
 const POLAROID_EXIT_TOP_OFFSET = scaleByDeviceWidth(3);
-const EXPERIENCE_BAR_WIDTH = scaleByDeviceWidth(280);
+const EXPERIENCE_BAR_WIDTH = scaleByDeviceWidth(210.38);
 const EXPERIENCE_ANIMATION_DURATION_MS = 1400;
+const RESULT_NOTICE_DURATION_MS = 2000;
 
 type CaptureResult = 'success' | 'failure' | null;
 type FailureReason = 'timeout' | 'attempts' | null;
@@ -103,11 +113,11 @@ type CaptureGameProps = {
   cardType?: CaptureCardType;
   captureDetail: CaptureDetail | null;
   gameResult: CaptureGameResult | null;
+  initialProgression?: CaptureProgression | null;
   photoUri: string;
   onCloseApiError: () => void;
   onClose: () => void;
   onGameResult: (throws: CaptureThrowResult[]) => void;
-  onRetry: () => void;
   ringShrinkDurationMs?: number;
   tier?: CaptureTier;
 };
@@ -118,11 +128,11 @@ export function CaptureGame({
   cardType,
   captureDetail,
   gameResult,
+  initialProgression = null,
   photoUri,
   onCloseApiError,
   onClose,
   onGameResult,
-  onRetry,
   ringShrinkDurationMs = DEFAULT_RING_SHRINK_DURATION_MS,
   tier,
 }: CaptureGameProps) {
@@ -136,7 +146,10 @@ export function CaptureGame({
   const [isTargetPaused, setIsTargetPaused] = useState(false);
   const [isTimingMiss, setIsTimingMiss] = useState(false);
   const [showResultActions, setShowResultActions] = useState(false);
+  const [showResultNotice, setShowResultNotice] = useState(false);
   const [showExperienceAction, setShowExperienceAction] = useState(false);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const [displayedLevel, setDisplayedLevel] = useState<number | null>(null);
   const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
   const throwPosition = useRef(new Animated.ValueXY()).current;
   const throwRotation = useRef(new Animated.Value(0)).current;
@@ -148,6 +161,12 @@ export function CaptureGame({
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
   const experienceProgress = useRef(new Animated.Value(0)).current;
+  const levelUpOpacity = useRef(new Animated.Value(0)).current;
+  const levelUpScale = useRef(new Animated.Value(0.6)).current;
+  const levelUpTranslateY = useRef(
+    new Animated.Value(scaleByDeviceWidth(8)),
+  ).current;
+  const levelUpAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
   const resolvedRingShrinkDurationMs =
     ringShrinkDurationMs > 0
       ? ringShrinkDurationMs
@@ -156,14 +175,11 @@ export function CaptureGame({
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
       'hardwareBackPress',
-      () => {
-        onRetry();
-        return true;
-      },
+      () => true,
     );
 
     return () => subscription.remove();
-  }, [onRetry]);
+  }, []);
 
   const targetCenter = useMemo(
     () => ({
@@ -287,9 +303,35 @@ export function CaptureGame({
     }
 
     setShowResultActions(false);
+    setShowResultNotice(false);
     setShowExperienceAction(false);
+    setShowLevelUp(false);
+    setDisplayedLevel(null);
+    levelUpAnimationRef.current?.stop();
+    levelUpOpacity.setValue(0);
+    levelUpScale.setValue(0.6);
+    levelUpTranslateY.setValue(scaleByDeviceWidth(8));
     experienceProgress.setValue(0);
-  }, [experienceProgress, result]);
+  }, [
+    experienceProgress,
+    levelUpOpacity,
+    levelUpScale,
+    levelUpTranslateY,
+    result,
+  ]);
+
+  useEffect(() => {
+    if (!showResultNotice) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setShowResultNotice(false);
+      setShowResultActions(true);
+    }, RESULT_NOTICE_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [showResultNotice]);
 
   useEffect(() => {
     if (!showResultActions || !gameResult) {
@@ -297,29 +339,121 @@ export function CaptureGame({
     }
 
     const { before, after } = gameResult.progression;
-    const beforeProgress = before?.requiredExperienceForNextLevel
-      ? Math.min(1, before.experience / before.requiredExperienceForNextLevel)
+    const resolvedBefore = before ?? initialProgression;
+    const beforeProgress = resolvedBefore?.requiredExperienceForNextLevel
+      ? Math.min(
+          1,
+          resolvedBefore.experience /
+            resolvedBefore.requiredExperienceForNextLevel,
+        )
       : 0;
     const afterProgress = after.requiredExperienceForNextLevel
       ? Math.min(1, after.experience / after.requiredExperienceForNextLevel)
       : 1;
+    const isLevelUp =
+      resolvedBefore !== null && after.level > resolvedBefore.level;
 
+    setDisplayedLevel(resolvedBefore?.level ?? after.level);
+    setShowLevelUp(false);
     experienceProgress.setValue(beforeProgress);
-    const animation = Animated.timing(experienceProgress, {
-      toValue: afterProgress,
-      duration: EXPERIENCE_ANIMATION_DURATION_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    });
+    let isCancelled = false;
+    let activeAnimation: Animated.CompositeAnimation;
 
-    animation.start(({ finished }) => {
-      if (finished) {
+    const finishExperienceAnimation = () => {
+      if (!isCancelled) {
         setShowExperienceAction(true);
       }
-    });
+    };
 
-    return () => animation.stop();
-  }, [experienceProgress, gameResult, showResultActions]);
+    if (!isLevelUp) {
+      activeAnimation = Animated.timing(experienceProgress, {
+        toValue: afterProgress,
+        duration: EXPERIENCE_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      });
+      activeAnimation.start(({ finished }) => {
+        if (finished) {
+          setDisplayedLevel(after.level);
+          finishExperienceAnimation();
+        }
+      });
+    } else {
+      activeAnimation = Animated.timing(experienceProgress, {
+        toValue: 1,
+        duration: EXPERIENCE_ANIMATION_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: false,
+      });
+      activeAnimation.start(({ finished }) => {
+        if (!finished || isCancelled) {
+          return;
+        }
+
+        experienceProgress.setValue(0);
+        setDisplayedLevel(after.level);
+        setShowLevelUp(true);
+        levelUpOpacity.setValue(0);
+        levelUpScale.setValue(0.6);
+        levelUpTranslateY.setValue(scaleByDeviceWidth(8));
+        levelUpAnimationRef.current = Animated.parallel([
+          Animated.timing(levelUpOpacity, {
+            toValue: 1,
+            duration: 220,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(levelUpTranslateY, {
+            toValue: 0,
+            duration: 360,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+          Animated.sequence([
+            Animated.timing(levelUpScale, {
+              toValue: 1.15,
+              duration: 260,
+              easing: Easing.out(Easing.back(1.8)),
+              useNativeDriver: true,
+            }),
+            Animated.spring(levelUpScale, {
+              toValue: 1,
+              speed: 18,
+              bounciness: 7,
+              useNativeDriver: true,
+            }),
+          ]),
+        ]);
+        levelUpAnimationRef.current.start();
+
+        activeAnimation = Animated.timing(experienceProgress, {
+          toValue: afterProgress,
+          duration: EXPERIENCE_ANIMATION_DURATION_MS,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        });
+        activeAnimation.start(({ finished: didFinish }) => {
+          if (didFinish) {
+            finishExperienceAnimation();
+          }
+        });
+      });
+    }
+
+    return () => {
+      isCancelled = true;
+      activeAnimation.stop();
+      levelUpAnimationRef.current?.stop();
+    };
+  }, [
+    experienceProgress,
+    gameResult,
+    initialProgression,
+    levelUpOpacity,
+    levelUpScale,
+    levelUpTranslateY,
+    showResultActions,
+  ]);
 
   const resetFrame = useCallback(() => {
     Animated.parallel([
@@ -644,9 +778,10 @@ export function CaptureGame({
     ],
   });
   const targetRingTextureScale = Animated.multiply(pulseScale, 0.95);
-  const progressionBefore = gameResult?.progression.before;
+  const progressionBefore =
+    gameResult?.progression.before ?? initialProgression;
   const progressionAfter = gameResult?.progression.after;
-  const earnedExperience = progressionAfter
+  const calculatedExperience = progressionAfter
     ? progressionBefore
       ? progressionBefore.level === progressionAfter.level
         ? Math.max(0, progressionAfter.experience - progressionBefore.experience)
@@ -658,6 +793,9 @@ export function CaptureGame({
           )
       : Math.max(0, progressionAfter.experience)
     : 0;
+  const earnedExperience =
+    gameResult?.reward?.experienceReward ?? calculatedExperience;
+  const levelUpCoinReward = gameResult?.reward?.levelUpCoinReward ?? 0;
   const animatedExperienceWidth = experienceProgress.interpolate({
     inputRange: [0, 1],
     outputRange: [0, EXPERIENCE_BAR_WIDTH],
@@ -906,13 +1044,13 @@ export function CaptureGame({
 
       {result && !(result === 'success' && hasOpenedSuccess) && (
         <View accessibilityViewIsModal style={styles.resultOverlay}>
-          {!showResultActions && (
+          {!showResultActions && !showResultNotice && (
             <LottieView
               autoPlay
               loop={false}
               onAnimationFinish={(isCancelled) => {
                 if (!isCancelled) {
-                  setShowResultActions(true);
+                  setShowResultNotice(true);
                 }
               }}
               resizeMode="contain"
@@ -925,18 +1063,86 @@ export function CaptureGame({
             />
           )}
 
+          {showResultNotice && (
+            <View
+              accessibilityLabel={
+                result === 'success'
+                  ? '포착 성공! 경험치를 지급해드릴게요!'
+                  : '포착 실패. 실패했어도 경험치는 지급돼요!'
+              }
+              style={styles.resultNotice}
+            >
+              <Image
+                resizeMode="contain"
+                source={CAPTURE_SUCCESS_RESULT_IMAGE}
+                style={styles.resultNoticeCard}
+              />
+              <Image
+                resizeMode="contain"
+                source={
+                  result === 'success'
+                    ? CAPTURE_SUCCESS_TITLE_IMAGE
+                    : CAPTURE_FAILURE_TITLE_IMAGE
+                }
+                style={
+                  result === 'success'
+                    ? styles.resultNoticeSuccessTitle
+                    : styles.resultNoticeFailureTitle
+                }
+              />
+              <Text style={styles.resultNoticeDescription}>
+                {result === 'success'
+                  ? '경험치를 지급해드릴게요!'
+                  : '실패했어도 경험치는 지급돼요!'}
+              </Text>
+            </View>
+          )}
+
           {showResultActions && gameResult && progressionAfter && (
             <View style={styles.experienceModal}>
+              <Image
+                resizeMode="stretch"
+                source={EXPERIENCE_MODAL_CARD_IMAGE}
+                style={styles.experienceModalBackground}
+              />
               <View
-                accessibilityLabel={`레벨 ${progressionAfter.level}`}
+                accessibilityLabel={`레벨 ${displayedLevel ?? progressionAfter.level}`}
                 style={styles.levelBadge}
               >
-                <Text style={styles.levelLabel}>Lv</Text>
-                <Text style={styles.levelValue}>{progressionAfter.level}</Text>
-                <Text style={styles.levelPaw}>♣</Text>
+                <Image
+                  resizeMode="contain"
+                  source={EXPERIENCE_LEVEL_BADGE_IMAGE}
+                  style={styles.levelBadgeBackground}
+                />
+                <Text style={styles.levelLabel}>LV.</Text>
+                <Text style={styles.levelValue}>
+                  {displayedLevel ?? progressionAfter.level}
+                </Text>
               </View>
+              {showLevelUp && (
+                <Animated.Image
+                  accessibilityLabel="레벨 업"
+                  resizeMode="contain"
+                  source={EXPERIENCE_LEVEL_UP_IMAGE}
+                  style={[
+                    styles.levelUpImage,
+                    {
+                      opacity: levelUpOpacity,
+                      transform: [
+                        { translateY: levelUpTranslateY },
+                        { scale: levelUpScale },
+                      ],
+                    },
+                  ]}
+                />
+              )}
 
-              <Text style={styles.experienceTitle}>EXP를 획득했어요</Text>
+              <Image
+                accessibilityLabel="EXP를 획득했어요"
+                resizeMode="contain"
+                source={EXPERIENCE_TITLE_IMAGE}
+                style={styles.experienceTitle}
+              />
               <Text style={styles.experienceAmount}>
                 +{earnedExperience.toLocaleString('ko-KR')} EXP
               </Text>
@@ -950,19 +1156,42 @@ export function CaptureGame({
                 />
               </View>
 
-              <View style={styles.experienceActionSlot}>
+              {showLevelUp && levelUpCoinReward > 0 && (
+                <View
+                  accessibilityLabel={`코인 ${levelUpCoinReward}개 지급`}
+                  style={styles.levelUpCoinReward}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={COIN_IMAGE}
+                    style={styles.levelUpCoinImage}
+                  />
+                  <Text style={styles.levelUpCoinText}>
+                    코인 {levelUpCoinReward.toLocaleString('ko-KR')}개 지급!
+                  </Text>
+                </View>
+              )}
+
+              <View
+                style={[
+                  styles.experienceActionSlot,
+                  showLevelUp &&
+                    levelUpCoinReward > 0 &&
+                    styles.experienceActionSlotWithCoinReward,
+                ]}
+              >
                 {showExperienceAction && (
                   <Pressable
                     accessibilityLabel={
                       result === 'success'
                         ? '카드 오픈하기'
-                        : '다시 도전하기'
+                        : '메인 농장으로 이동하기'
                     }
                     accessibilityRole="button"
                     onPress={
                       result === 'success'
                         ? () => setHasOpenedSuccess(true)
-                        : onRetry
+                        : onClose
                     }
                     style={({ pressed }) => [
                       styles.experienceActionButton,
@@ -974,7 +1203,7 @@ export function CaptureGame({
                       source={
                         result === 'success'
                           ? CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE
-                          : CAPTURE_RETRY_BUTTON_IMAGE
+                          : CAPTURE_FAILURE_MAIN_BUTTON_IMAGE
                       }
                       style={styles.resultButtonImage}
                     />
@@ -1195,47 +1424,81 @@ const styles = StyleSheet.create({
   resultLottie: {
     ...StyleSheet.absoluteFillObject,
   },
-  experienceModal: {
-    width: scaleByDeviceWidth(340),
-    minHeight: scaleByDeviceWidth(398),
-    paddingTop: scaleByDeviceWidth(42),
-    paddingHorizontal: scaleByDeviceWidth(24),
-    paddingBottom: scaleByDeviceWidth(24),
+  resultNotice: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(194.78),
+    width: scaleByDeviceWidth(328),
+    height: scaleByDeviceWidth(422),
     alignItems: 'center',
-    borderWidth: scaleByDeviceWidth(3),
-    borderColor: '#8D7652',
-    borderRadius: scaleByDeviceWidth(8),
-    backgroundColor: '#FFFCF6',
-    shadowColor: '#2B2116',
-    shadowOffset: {
-      width: 0,
-      height: scaleByDeviceWidth(4),
-    },
-    shadowOpacity: 0.35,
-    shadowRadius: scaleByDeviceWidth(3),
-    elevation: 8,
+  },
+  resultNoticeCard: {
+    position: 'absolute',
+    top: 0,
+    width: scaleByDeviceWidth(328),
+    height: scaleByDeviceWidth(328),
+  },
+  resultNoticeSuccessTitle: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(331),
+    width: scaleByDeviceWidth(169.75),
+    height: scaleByDeviceWidth(42.5),
+  },
+  resultNoticeFailureTitle: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(331),
+    width: scaleByDeviceWidth(183.25),
+    height: scaleByDeviceWidth(41.75),
+  },
+  resultNoticeDescription: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(386),
+    color: '#B5B3AA',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(15),
+    lineHeight: scaleByDeviceWidth(20),
+    textAlign: 'center',
+  },
+  experienceModal: {
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(327),
+    alignItems: 'center',
+  },
+  experienceModalBackground: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(280),
+    height: scaleByDeviceWidth(327),
   },
   levelBadge: {
-    width: scaleByDeviceWidth(82),
-    height: scaleByDeviceWidth(94),
+    position: 'absolute',
+    top: scaleByDeviceWidth(76),
+    width: scaleByDeviceWidth(65.47),
+    height: scaleByDeviceWidth(80),
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: scaleByDeviceWidth(4),
-    borderColor: '#F5D36D',
-    borderRadius: scaleByDeviceWidth(18),
-    backgroundColor: '#9C8260',
+  },
+  levelBadgeBackground: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(65.47),
+    height: scaleByDeviceWidth(80),
+  },
+  levelUpImage: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(55.29),
+    width: scaleByDeviceWidth(68.18),
+    height: scaleByDeviceWidth(22.71),
   },
   levelLabel: {
-    color: '#E9DDCC',
+    marginTop: scaleByDeviceWidth(-10),
+    color: '#F8E8C0',
     fontFamily: 'Galmuri11-Bold',
-    fontSize: scaleByDeviceWidth(18),
-    lineHeight: scaleByDeviceWidth(21),
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(15),
   },
   levelValue: {
     color: '#FFFFFF',
     fontFamily: 'Galmuri11-Bold',
-    fontSize: scaleByDeviceWidth(31),
-    lineHeight: scaleByDeviceWidth(35),
+    fontSize: scaleByDeviceWidth(25),
+    lineHeight: scaleByDeviceWidth(29),
     textShadowColor: 'rgba(68, 50, 30, 0.45)',
     textShadowOffset: {
       width: scaleByDeviceWidth(1),
@@ -1243,49 +1506,73 @@ const styles = StyleSheet.create({
     },
     textShadowRadius: scaleByDeviceWidth(1),
   },
-  levelPaw: {
-    color: '#F8D76D',
-    fontSize: scaleByDeviceWidth(14),
-    lineHeight: scaleByDeviceWidth(16),
-  },
   experienceTitle: {
-    marginTop: scaleByDeviceWidth(18),
-    color: '#735D43',
-    fontFamily: 'Galmuri11-Bold',
-    fontSize: scaleByDeviceWidth(17),
-    lineHeight: scaleByDeviceWidth(23),
+    position: 'absolute',
+    top: scaleByDeviceWidth(164),
+    width: scaleByDeviceWidth(86),
+    height: scaleByDeviceWidth(14),
   },
   experienceAmount: {
-    marginTop: scaleByDeviceWidth(4),
+    position: 'absolute',
+    top: scaleByDeviceWidth(180),
     color: '#F9C23E',
-    fontFamily: 'Galmuri11-Bold',
-    fontSize: scaleByDeviceWidth(30),
-    lineHeight: scaleByDeviceWidth(38),
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(20),
+    lineHeight: scaleByDeviceWidth(24),
   },
   experienceTrack: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(212),
     width: EXPERIENCE_BAR_WIDTH,
-    height: scaleByDeviceWidth(18),
-    marginTop: scaleByDeviceWidth(20),
+    height: scaleByDeviceWidth(12),
     overflow: 'hidden',
     borderWidth: scaleByDeviceWidth(1),
-    borderColor: '#D7C3A2',
-    borderRadius: scaleByDeviceWidth(9),
-    backgroundColor: '#EEE7DC',
+    borderColor: '#D8CDBD',
+    borderRadius: scaleByDeviceWidth(6),
+    backgroundColor: '#F2ECE3',
   },
   experienceFill: {
     height: '100%',
-    borderRadius: scaleByDeviceWidth(9),
-    backgroundColor: '#F4C23F',
+    borderRadius: scaleByDeviceWidth(6),
+    backgroundColor: '#F7C948',
+  },
+  levelUpCoinReward: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(230),
+    width: scaleByDeviceWidth(130.22),
+    height: scaleByDeviceWidth(34.22),
+    paddingHorizontal: scaleByDeviceWidth(7),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    columnGap: scaleByDeviceWidth(4),
+    borderRadius: scaleByDeviceWidth(8),
+    backgroundColor: '#FBF6ED',
+  },
+  levelUpCoinImage: {
+    width: scaleByDeviceWidth(22),
+    height: scaleByDeviceWidth(22),
+  },
+  levelUpCoinText: {
+    color: '#927A56',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(10.5),
+    lineHeight: scaleByDeviceWidth(14),
   },
   experienceActionSlot: {
-    height: scaleByDeviceWidth(70),
-    marginTop: scaleByDeviceWidth(30),
+    position: 'absolute',
+    top: scaleByDeviceWidth(240.39),
+    width: scaleByDeviceWidth(168),
+    height: scaleByDeviceWidth(42),
     alignItems: 'center',
     justifyContent: 'center',
   },
+  experienceActionSlotWithCoinReward: {
+    top: scaleByDeviceWidth(272.22),
+  },
   experienceActionButton: {
-    width: scaleByDeviceWidth(280),
-    height: scaleByDeviceWidth(60),
+    width: scaleByDeviceWidth(168),
+    height: scaleByDeviceWidth(42),
   },
   resultButtonImage: {
     width: '100%',
