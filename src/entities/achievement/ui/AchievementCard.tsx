@@ -18,6 +18,7 @@ const ACHIEVEMENT_CLAIM_BUTTON = require('@/src/shared/assets/images/collection/
 const ACHIEVEMENT_COMPLETE = require('@/src/shared/assets/images/collection/achievement-complete.png');
 const ACHIEVEMENT_PROGRESS_FULL = require('@/src/shared/assets/images/collection/achievement-progress-full.png');
 const HIDDEN_ACHIEVEMENT_BADGE = require('@/src/shared/assets/images/collection/hidden-achievement-badge.png');
+const HIDDEN_ACHIEVEMENT_PROGRESS = require('@/src/shared/assets/images/collection/hidden-achievement-progress.png');
 const HIDDEN_LABEL = require('@/src/shared/assets/images/collection/hidden-label.png');
 const UNREGISTERED_ACHIEVEMENT_BADGE = require('@/src/shared/assets/images/collection/unregistered-achievement-badge.png');
 
@@ -41,8 +42,11 @@ export function AchievementCard({
     : hasProgress
       ? getAchievementProgressPercent(current ?? 0, target ?? 0)
       : 0;
-  const canClaim = achievement.achievedInfo?.rewardClaimed === false;
-  const badgeSource: ImageSourcePropType = achievement.hidden
+  const isUnachievedHidden = achievement.hidden && !achievement.achieved;
+  const canClaim =
+    achievement.achieved &&
+    achievement.achievedInfo?.rewardClaimed === false;
+  const badgeSource: ImageSourcePropType = isUnachievedHidden
     ? HIDDEN_ACHIEVEMENT_BADGE
     : achievement.imageUrl
       ? { uri: achievement.imageUrl }
@@ -85,68 +89,71 @@ export function AchievementCard({
           )}
         </View>
       )}
-      {(hasProgress || achievement.achieved || canClaim) && (
+      {(isUnachievedHidden || hasProgress || achievement.achieved) && (
         <View style={styles.progressRow}>
-          <View
-            style={[
-              styles.progressBar,
-              canClaim && styles.claimableProgressBar,
-            ]}
-          >
-            <Image
-              accessible={false}
-              resizeMode="stretch"
-              source={ACHIEVEMENT_PROGRESS_FULL}
-              style={[
-                styles.progressBarImage,
-                canClaim && styles.claimableProgressBar,
-              ]}
-            />
-            {progressPercent < 100 && (
-              <View
-                style={[
-                  styles.emptyProgress,
-                  {
-                    left: scaleByDeviceWidth(
-                      4 + 172 * (progressPercent / 100),
-                    ),
-                    width: scaleByDeviceWidth(
-                      172 * (1 - progressPercent / 100),
-                    ),
-                  },
-                  progressPercent === 0 && styles.emptyProgressAtStart,
-                ]}
-              />
-            )}
-          </View>
-          {canClaim ? (
-            <Pressable
-              accessibilityLabel="업적 보상 받기"
-              accessibilityRole="button"
-              accessibilityState={{ disabled: isClaiming }}
-              disabled={isClaiming || !onClaim}
-              hitSlop={scaleByDeviceWidth(4)}
-              onPress={() => onClaim?.(achievement.code)}
-              style={({ pressed }) => [
-                styles.claimButton,
-                pressed && styles.claimButtonPressed,
-              ]}
-            >
-              <Image
-                resizeMode="contain"
-                source={ACHIEVEMENT_CLAIM_BUTTON}
-                style={styles.claimButtonImage}
-              />
-            </Pressable>
-          ) : achievement.achieved ? (
+          {isUnachievedHidden ? (
             <Image
               accessible={false}
               resizeMode="contain"
-              source={ACHIEVEMENT_COMPLETE}
-              style={styles.completeIcon}
+              source={HIDDEN_ACHIEVEMENT_PROGRESS}
+              style={styles.hiddenProgress}
             />
           ) : (
-            <Text style={styles.progressText}>{progressPercent}%</Text>
+            <>
+              <View style={styles.progressBar}>
+                <Image
+                  accessible={false}
+                  resizeMode="stretch"
+                  source={ACHIEVEMENT_PROGRESS_FULL}
+                  style={styles.progressBarImage}
+                />
+                {progressPercent < 100 && (
+                  <View
+                    style={[
+                      styles.emptyProgress,
+                      {
+                        left: scaleByDeviceWidth(
+                          4 + 172 * (progressPercent / 100),
+                        ),
+                        width: scaleByDeviceWidth(
+                          172 * (1 - progressPercent / 100),
+                        ),
+                      },
+                      progressPercent === 0 && styles.emptyProgressAtStart,
+                    ]}
+                  />
+                )}
+              </View>
+              {canClaim ? (
+                <Pressable
+                  accessibilityLabel="업적 보상 받기"
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isClaiming }}
+                  disabled={isClaiming || !onClaim}
+                  hitSlop={scaleByDeviceWidth(4)}
+                  onPress={() => onClaim?.(achievement.code)}
+                  style={({ pressed }) => [
+                    styles.claimButton,
+                    pressed && styles.claimButtonPressed,
+                  ]}
+                >
+                  <Image
+                    resizeMode="contain"
+                    source={ACHIEVEMENT_CLAIM_BUTTON}
+                    style={styles.claimButtonImage}
+                  />
+                </Pressable>
+              ) : achievement.achieved ? (
+                <Image
+                  accessible={false}
+                  resizeMode="contain"
+                  source={ACHIEVEMENT_COMPLETE}
+                  style={styles.completeIcon}
+                />
+              ) : (
+                <Text style={styles.progressText}>{progressPercent}%</Text>
+              )}
+            </>
           )}
         </View>
       )}
@@ -215,8 +222,9 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(180),
     height: scaleByDeviceWidth(16),
   },
-  claimableProgressBar: {
-    width: scaleByDeviceWidth(157),
+  hiddenProgress: {
+    width: scaleByDeviceWidth(207),
+    height: scaleByDeviceWidth(16.5),
   },
   emptyProgress: {
     position: 'absolute',
