@@ -108,6 +108,7 @@ const CARD_FRAME_WIDTH = scaleByDeviceWidth(298);
 const CARD_FRAME_HEIGHT = scaleByDeviceWidth(468);
 const CARD_IMAGE_WIDTH = scaleByDeviceWidth(226.92);
 const CARD_IMAGE_HEIGHT = scaleByDeviceWidth(324.07);
+const CARD_IMAGE_BORDER_RADIUS = scaleByDeviceWidth(8);
 const CARD_IMAGE_TOP_OFFSET = scaleByDeviceWidth(68);
 const CARD_ROTATION_DEGREES_PER_POINT = 0.9;
 const CARD_NAME_FIELD_TOP_GAP = scaleByDeviceWidth(15.85);
@@ -911,6 +912,7 @@ const styles = StyleSheet.create({
   creatureCardFace: {
     ...StyleSheet.absoluteFillObject,
     backfaceVisibility: 'hidden',
+    borderRadius: CARD_IMAGE_BORDER_RADIUS,
   },
   creature: {
     position: 'absolute',
