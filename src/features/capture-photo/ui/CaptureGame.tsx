@@ -913,7 +913,7 @@ export function CaptureGame({
       >
         <View style={styles.cameraViewport}>
             <Image
-              resizeMode="cover"
+              resizeMode="contain"
               source={{ uri: photoUri }}
               style={StyleSheet.absoluteFill}
             />

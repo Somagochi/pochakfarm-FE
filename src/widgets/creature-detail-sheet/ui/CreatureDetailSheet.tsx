@@ -5,7 +5,6 @@ import {
   Animated,
   Image,
   Modal,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -109,6 +108,7 @@ const CARD_FRAME_WIDTH = scaleByDeviceWidth(298);
 const CARD_FRAME_HEIGHT = scaleByDeviceWidth(468);
 const CARD_IMAGE_WIDTH = scaleByDeviceWidth(226.92);
 const CARD_IMAGE_HEIGHT = scaleByDeviceWidth(324.07);
+const CARD_IMAGE_BORDER_RADIUS = scaleByDeviceWidth(8);
 const CARD_IMAGE_TOP_OFFSET = scaleByDeviceWidth(68);
 const CARD_ROTATION_DEGREES_PER_POINT = 0.9;
 const CARD_NAME_FIELD_TOP_GAP = scaleByDeviceWidth(15.85);
@@ -279,43 +279,42 @@ export function CreatureDetailSheet({
   );
   const cardRotation = useRef(new Animated.Value(0)).current;
   const cardRotationStartRef = useRef(0);
-  const finishCardRotation = (dx: number) => {
-    const nextRotation =
-      cardRotationStartRef.current +
-      dx * CARD_ROTATION_DEGREES_PER_POINT;
-    const normalizedRotation = normalizeCardRotation(nextRotation);
-
-    cardRotation.setValue(normalizedRotation);
-    cardRotationStartRef.current = normalizedRotation;
-  };
-  const cardPanResponder = useRef(
-    PanResponder.create({
-      onPanResponderGrant: () => {
-        cardRotation.stopAnimation((currentRotation) => {
-          cardRotationStartRef.current = currentRotation;
-        });
-      },
-      onMoveShouldSetPanResponder: (_, gestureState) =>
-        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-      onMoveShouldSetPanResponderCapture: (_, gestureState) =>
-        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
-      onPanResponderMove: (_, gestureState) => {
-        cardRotation.setValue(
-          normalizeCardRotation(
+  const cardPanGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([
+          -SHEET_GESTURE_THRESHOLD,
+          SHEET_GESTURE_THRESHOLD,
+        ])
+        .failOffsetY([
+          -SHEET_GESTURE_THRESHOLD,
+          SHEET_GESTURE_THRESHOLD,
+        ])
+        .onBegin(() => {
+          cardRotation.stopAnimation((currentRotation) => {
+            cardRotationStartRef.current = currentRotation;
+          });
+        })
+        .onUpdate((event) => {
+          cardRotation.setValue(
+            normalizeCardRotation(
+              cardRotationStartRef.current +
+                event.translationX * CARD_ROTATION_DEGREES_PER_POINT,
+            ),
+          );
+        })
+        .onEnd((event) => {
+          const nextRotation = normalizeCardRotation(
             cardRotationStartRef.current +
-              gestureState.dx * CARD_ROTATION_DEGREES_PER_POINT,
-          ),
-        );
-      },
-      onPanResponderRelease: (_, gestureState) =>
-        finishCardRotation(gestureState.dx),
-      onPanResponderTerminate: (_, gestureState) =>
-        finishCardRotation(gestureState.dx),
-      onPanResponderTerminationRequest: () => true,
-    }),
-  ).current;
+              event.translationX * CARD_ROTATION_DEGREES_PER_POINT,
+          );
+
+          cardRotation.setValue(nextRotation);
+          cardRotationStartRef.current = nextRotation;
+        })
+        .runOnJS(true),
+    [cardRotation],
+  );
   const cardFrontRotateY = cardRotation.interpolate({
     inputRange: [-180, 180],
     outputRange: ['-180deg', '180deg'],
@@ -653,79 +652,80 @@ export function CreatureDetailSheet({
                 ]}
               />
 
-              <View
-                {...cardPanResponder.panHandlers}
-                accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
-                accessibilityLabel={`${creatureName} 카드`}
-                accessible
-                style={[
-                  styles.creatureCardContainer,
-                  {
-                    top: cardFrameTop + CARD_IMAGE_TOP_OFFSET,
-                    width: CARD_IMAGE_WIDTH,
-                    height: CARD_IMAGE_HEIGHT,
-                  },
-                ]}
-              >
-                {(!creatureCardSource || hasCreatureCardFailed) && (
-                  <Animated.Image
-                    resizeMode="contain"
-                    source={CARD_IMAGE_PLACEHOLDER}
-                    style={[
-                      styles.creatureCardFace,
-                      {
-                        width: CARD_IMAGE_WIDTH,
-                        height: CARD_IMAGE_HEIGHT,
-                        opacity: cardFrontOpacity,
-                        transform: [
-                          { perspective: scaleByDeviceWidth(800) },
-                          { rotateY: cardFrontRotateY },
-                        ],
-                      },
-                    ]}
-                  />
-                )}
-                {creatureCardSource && !hasCreatureCardFailed && (
-                  <Animated.Image
-                    defaultSource={CARD_IMAGE_PLACEHOLDER}
-                    onError={() => {
-                      if (creatureCardUri) {
-                        setFailedCreatureCardUri(creatureCardUri);
-                      }
-                    }}
-                    resizeMode="stretch"
-                    source={creatureCardSource}
-                    style={[
-                      styles.creatureCardFace,
-                      {
-                        width: CARD_IMAGE_WIDTH,
-                        height: CARD_IMAGE_HEIGHT,
-                        opacity: cardFrontOpacity,
-                        transform: [
-                          { perspective: scaleByDeviceWidth(800) },
-                          { rotateY: cardFrontRotateY },
-                        ],
-                      },
-                    ]}
-                  />
-                )}
-                <Animated.Image
-                  resizeMode="stretch"
-                  source={creatureCardBackSource}
+              <GestureDetector gesture={cardPanGesture}>
+                <View
+                  accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
+                  accessibilityLabel={`${creatureName} 카드`}
+                  accessible
                   style={[
-                    styles.creatureCardFace,
+                    styles.creatureCardContainer,
                     {
+                      top: cardFrameTop + CARD_IMAGE_TOP_OFFSET,
                       width: CARD_IMAGE_WIDTH,
                       height: CARD_IMAGE_HEIGHT,
-                      opacity: cardBackOpacity,
-                      transform: [
-                        { perspective: scaleByDeviceWidth(800) },
-                        { rotateY: cardBackRotateY },
-                      ],
                     },
                   ]}
-                />
-              </View>
+                >
+                  {(!creatureCardSource || hasCreatureCardFailed) && (
+                    <Animated.Image
+                      resizeMode="contain"
+                      source={CARD_IMAGE_PLACEHOLDER}
+                      style={[
+                        styles.creatureCardFace,
+                        {
+                          width: CARD_IMAGE_WIDTH,
+                          height: CARD_IMAGE_HEIGHT,
+                          opacity: cardFrontOpacity,
+                          transform: [
+                            { perspective: scaleByDeviceWidth(800) },
+                            { rotateY: cardFrontRotateY },
+                          ],
+                        },
+                      ]}
+                    />
+                  )}
+                  {creatureCardSource && !hasCreatureCardFailed && (
+                    <Animated.Image
+                      defaultSource={CARD_IMAGE_PLACEHOLDER}
+                      onError={() => {
+                        if (creatureCardUri) {
+                          setFailedCreatureCardUri(creatureCardUri);
+                        }
+                      }}
+                      resizeMode="stretch"
+                      source={creatureCardSource}
+                      style={[
+                        styles.creatureCardFace,
+                        {
+                          width: CARD_IMAGE_WIDTH,
+                          height: CARD_IMAGE_HEIGHT,
+                          opacity: cardFrontOpacity,
+                          transform: [
+                            { perspective: scaleByDeviceWidth(800) },
+                            { rotateY: cardFrontRotateY },
+                          ],
+                        },
+                      ]}
+                    />
+                  )}
+                  <Animated.Image
+                    resizeMode="stretch"
+                    source={creatureCardBackSource}
+                    style={[
+                      styles.creatureCardFace,
+                      {
+                        width: CARD_IMAGE_WIDTH,
+                        height: CARD_IMAGE_HEIGHT,
+                        opacity: cardBackOpacity,
+                        transform: [
+                          { perspective: scaleByDeviceWidth(800) },
+                          { rotateY: cardBackRotateY },
+                        ],
+                      },
+                    ]}
+                  />
+                </View>
+              </GestureDetector>
 
               <Image
                 accessibilityLabel="동물 카드 이름"
@@ -912,6 +912,7 @@ const styles = StyleSheet.create({
   creatureCardFace: {
     ...StyleSheet.absoluteFillObject,
     backfaceVisibility: 'hidden',
+    borderRadius: CARD_IMAGE_BORDER_RADIUS,
   },
   creature: {
     position: 'absolute',
