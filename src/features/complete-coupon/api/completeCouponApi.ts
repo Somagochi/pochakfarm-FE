@@ -2,7 +2,6 @@ import { apiClient } from '@/src/shared/api/client';
 
 type CompleteCouponRequest = {
   couponCode: string;
-  animalImageKey: string;
 };
 
 export function completeCouponApi(body: CompleteCouponRequest) {

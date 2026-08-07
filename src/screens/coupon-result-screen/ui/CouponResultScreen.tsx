@@ -40,9 +40,8 @@ export function CouponResultScreen() {
   const [isRewardClaimed, setIsRewardClaimed] = useState(false);
   const [isCoinRewardVisible, setIsCoinRewardVisible] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { animalImageKey, cardImageUrl, couponCode, tier } =
+  const { cardImageUrl, couponCode, tier } =
     useLocalSearchParams<{
-      animalImageKey?: string;
       cardImageUrl?: string;
       couponCode?: string;
       tier?: string;
@@ -54,15 +53,12 @@ export function CouponResultScreen() {
       return;
     }
 
-    if (!couponCode || !animalImageKey) {
+    if (!couponCode) {
       setErrorMessage('쿠폰 보상 정보가 올바르지 않습니다.');
       return;
     }
 
-    const completeErrorMessage = await completeCoupon(
-      couponCode,
-      animalImageKey,
-    );
+    const completeErrorMessage = await completeCoupon(couponCode);
 
     if (completeErrorMessage) {
       setErrorMessage(completeErrorMessage);

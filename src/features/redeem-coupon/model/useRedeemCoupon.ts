@@ -1,9 +1,6 @@
 import { useState } from 'react';
 
 import { ApiError } from '@/src/shared/api/client';
-import { uploadImageToPresignedUrl } from '@/src/shared/api/uploadImageToPresignedUrl';
-import { downloadRemoteImage } from '@/src/shared/lib/image/downloadRemoteImage';
-import { removePhotoBackground } from '@/src/shared/lib/image/subjectSegmentation';
 
 import { redeemCouponApi } from '../api/redeemCouponApi';
 
@@ -27,22 +24,7 @@ export function useRedeemCoupon() {
       const response = await redeemCouponApi(couponCode);
 
       if (response.status === 200) {
-        const reward = response.data.data;
-
-        try {
-          const cardImageUri = await downloadRemoteImage(reward.cardImageUrl);
-          const animalImageUri = await removePhotoBackground(cardImageUri);
-          await uploadImageToPresignedUrl({
-            contentType: 'image/png',
-            imageUri: animalImageUri,
-            uploadUrl: reward.animalImageUpload.uploadUrl,
-          });
-        } catch {
-          setErrorMessage('쿠폰 보상 이미지를 처리하지 못했습니다.');
-          return null;
-        }
-
-        return reward;
+        return response.data.data;
       }
 
       setErrorMessage('쿠폰 등록에 실패했습니다.');
