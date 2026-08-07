@@ -2,7 +2,6 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   Image,
-  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
@@ -18,8 +17,6 @@ const PAW_IMAGE = require('@/src/shared/assets/images/farm-status/paw.png');
 const LOGIN_REQUIRED_IMAGE = require('@/src/shared/assets/images/login/login-required.png');
 const LOGIN_DESCRIPTION_IMAGE = require('@/src/shared/assets/images/login/login-description.png');
 const LOGIN_DIVIDER_IMAGE = require('@/src/shared/assets/images/login/login-divider.png');
-const LOGIN_LATER_IMAGE = require('@/src/shared/assets/images/login/login-later.png');
-const SKIP_BUTTON_HIT_SLOP = scaleByDeviceWidth(12);
 const PAW_POSITIONS = [
   { left: '16%', top: '1%', size: 30, rotation: '-10deg' },
   { left: '48%', top: '8%', size: 24, rotation: '8deg' },
@@ -46,7 +43,6 @@ const PAW_POSITIONS = [
 ] as const;
 
 export function LoginScreen() {
-  const moveToFarm = () => router.replace('/(tabs)');
   const handleLoginSuccess = ({ isNew }: SocialLoginResult) => {
     router.replace(isNew ? '/nickname' : '/(tabs)');
   };
@@ -78,22 +74,6 @@ export function LoginScreen() {
           source={LOGIN_DIVIDER_IMAGE}
           style={styles.dividerImage}
         />
-        <Pressable
-          accessibilityLabel="로그인 나중에 하기"
-          accessibilityRole="button"
-          hitSlop={SKIP_BUTTON_HIT_SLOP}
-          onPress={moveToFarm}
-          style={({ pressed }) => [
-            styles.skipButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Image
-            resizeMode="contain"
-            source={LOGIN_LATER_IMAGE}
-            style={styles.skipImage}
-          />
-        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -150,18 +130,5 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(280),
     height: scaleByDeviceWidth(12),
     marginTop: scaleByDeviceWidth(4),
-  },
-  skipButton: {
-    width: scaleByDeviceWidth(81.15),
-    height: scaleByDeviceWidth(18),
-    marginTop: scaleByDeviceWidth(16),
-    alignSelf: 'center',
-  },
-  skipImage: {
-    width: '100%',
-    height: '100%',
-  },
-  pressed: {
-    opacity: 0.65,
   },
 });
