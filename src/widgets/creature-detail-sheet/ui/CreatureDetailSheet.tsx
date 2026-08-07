@@ -6,8 +6,10 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import {
@@ -118,6 +120,8 @@ const CARD_JOURNEY_BUTTON_TOP_GAP = scaleByDeviceWidth(8);
 const SHEET_DISMISS_DISTANCE = scaleByDeviceWidth(120);
 const SHEET_DISMISS_VELOCITY = 1.2;
 const SHEET_GESTURE_THRESHOLD = scaleByDeviceWidth(6);
+const MIN_SHEET_TOP_GAP = scaleByDeviceWidth(50);
+const SHEET_EDGE_GESTURE_WIDTH = scaleByDeviceWidth(20);
 
 type CreatureDetailSheetProps = {
   animalId?: number;
@@ -136,6 +140,7 @@ export function CreatureDetailSheet({
   onReleaseSuccess,
   width,
 }: CreatureDetailSheetProps) {
+  const { height: screenHeight } = useWindowDimensions();
   const { animal, errorMessage, isLoading, reload } =
     useAnimalDetail(animalId);
   const { isReleasing, releaseAnimal } = useReleaseAnimal();
@@ -184,9 +189,15 @@ export function CreatureDetailSheet({
   ];
   const sheetWidth = width;
   const sheetHeight = sheetWidth / SHEET_ASPECT_RATIO;
+  const visibleSheetHeight = Math.min(
+    sheetHeight,
+    screenHeight - MIN_SHEET_TOP_GAP,
+  );
+  const shouldScrollSheet = visibleSheetHeight < sheetHeight;
   const detailFrameTop = sheetHeight * IMAGE_BOX_TOP_RATIO;
   const detailToggleTop =
     detailFrameTop - DETAIL_TOGGLE_HEIGHT - DETAIL_TOGGLE_GAP;
+  const scrollContentTop = detailToggleTop + DETAIL_TOGGLE_HEIGHT;
   const nameFieldTop =
     detailFrameTop + DETAIL_FRAME_HEIGHT + NAME_FIELD_TOP_GAP;
   const detailFieldsRowTop =
@@ -227,10 +238,12 @@ export function CreatureDetailSheet({
       );
     }
   };
-  const translateY = useRef(new Animated.Value(sheetHeight)).current;
+  const translateY = useRef(
+    new Animated.Value(visibleSheetHeight),
+  ).current;
   const closeSheet = useCallback(() => {
     Animated.timing(translateY, {
-      toValue: sheetHeight,
+      toValue: visibleSheetHeight,
       duration: 220,
       useNativeDriver: true,
     }).start(({ finished }) => {
@@ -238,7 +251,7 @@ export function CreatureDetailSheet({
         onClose();
       }
     });
-  }, [onClose, sheetHeight, translateY]);
+  }, [onClose, translateY, visibleSheetHeight]);
   const restoreSheetPosition = useCallback(() => {
     Animated.spring(translateY, {
       toValue: 0,
@@ -248,8 +261,8 @@ export function CreatureDetailSheet({
       useNativeDriver: true,
     }).start();
   }, [translateY]);
-  const sheetPanGesture = useMemo(
-    () =>
+  const sheetPanGestures = useMemo(() => {
+    const createSheetPanGesture = () =>
       Gesture.Pan()
         .activeOffsetY(SHEET_GESTURE_THRESHOLD)
         .failOffsetX([
@@ -274,9 +287,15 @@ export function CreatureDetailSheet({
 
           restoreSheetPosition();
         })
-        .runOnJS(true),
-    [closeSheet, restoreSheetPosition, translateY],
-  );
+        .runOnJS(true);
+
+    return {
+      fullSheet: createSheetPanGesture().enabled(!shouldScrollSheet),
+      leftEdge: createSheetPanGesture(),
+      rightEdge: createSheetPanGesture(),
+      top: createSheetPanGesture(),
+    };
+  }, [closeSheet, restoreSheetPosition, shouldScrollSheet, translateY]);
   const cardRotation = useRef(new Animated.Value(0)).current;
   const cardRotationStartRef = useRef(0);
   const cardPanGesture = useMemo(
@@ -335,7 +354,7 @@ export function CreatureDetailSheet({
   });
 
   useEffect(() => {
-    translateY.setValue(sheetHeight);
+    translateY.setValue(visibleSheetHeight);
     Animated.spring(translateY, {
       toValue: 0,
       damping: 22,
@@ -343,7 +362,7 @@ export function CreatureDetailSheet({
       mass: 0.9,
       useNativeDriver: true,
     }).start();
-  }, [sheetHeight, translateY]);
+  }, [translateY, visibleSheetHeight]);
 
   return (
     <Modal
@@ -361,13 +380,13 @@ export function CreatureDetailSheet({
           onPress={onClose}
           style={styles.backdrop}
         />
-        <GestureDetector gesture={sheetPanGesture}>
+        <GestureDetector gesture={sheetPanGestures.fullSheet}>
           <Animated.View
             style={[
               styles.sheet,
               {
                 width: sheetWidth,
-                height: sheetHeight,
+                height: visibleSheetHeight,
                 transform: [{ translateY }],
               },
             ]}
@@ -442,6 +461,38 @@ export function CreatureDetailSheet({
               />
             </View>
           </View>
+
+          <ScrollView
+            bounces={false}
+            contentContainerStyle={{
+              height: shouldScrollSheet
+                ? sheetHeight - scrollContentTop
+                : sheetHeight,
+            }}
+            nestedScrollEnabled
+            scrollEnabled={shouldScrollSheet}
+            showsVerticalScrollIndicator={false}
+            style={[
+              styles.detailScroll,
+              {
+                top: shouldScrollSheet ? scrollContentTop : 0,
+                width: shouldScrollSheet ? NAME_FIELD_WIDTH : sheetWidth,
+                height: shouldScrollSheet
+                  ? visibleSheetHeight - scrollContentTop
+                  : sheetHeight,
+              },
+            ]}
+          >
+            <View
+              style={{
+                top: shouldScrollSheet ? -scrollContentTop : 0,
+                left: shouldScrollSheet
+                  ? -(sheetWidth - NAME_FIELD_WIDTH) / 2
+                  : 0,
+                width: sheetWidth,
+                height: sheetHeight,
+              }}
+            >
 
           {hasDetailContent && selectedView === 'profile' && (
             <>
@@ -801,6 +852,51 @@ export function CreatureDetailSheet({
               </Pressable>
             </View>
           )}
+            </View>
+          </ScrollView>
+          {shouldScrollSheet && (
+            <>
+              <GestureDetector gesture={sheetPanGestures.top}>
+                <View
+                  style={[
+                    styles.sheetGestureArea,
+                    {
+                      top: 0,
+                      left: 0,
+                      width: sheetWidth,
+                      height: detailToggleTop,
+                    },
+                  ]}
+                />
+              </GestureDetector>
+              <GestureDetector gesture={sheetPanGestures.leftEdge}>
+                <View
+                  style={[
+                    styles.sheetGestureArea,
+                    {
+                      top: detailToggleTop,
+                      left: 0,
+                      width: SHEET_EDGE_GESTURE_WIDTH,
+                      height: visibleSheetHeight - detailToggleTop,
+                    },
+                  ]}
+                />
+              </GestureDetector>
+              <GestureDetector gesture={sheetPanGestures.rightEdge}>
+                <View
+                  style={[
+                    styles.sheetGestureArea,
+                    {
+                      top: detailToggleTop,
+                      right: 0,
+                      width: SHEET_EDGE_GESTURE_WIDTH,
+                      height: visibleSheetHeight - detailToggleTop,
+                    },
+                  ]}
+                />
+              </GestureDetector>
+            </>
+          )}
           </Animated.View>
         </GestureDetector>
         {isReleaseAlertVisible && (
@@ -837,6 +933,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     left: 0,
+  },
+  detailScroll: {
+    position: 'absolute',
+    alignSelf: 'center',
+  },
+  sheetGestureArea: {
+    position: 'absolute',
+    zIndex: 10,
   },
   requestState: {
     position: 'absolute',
