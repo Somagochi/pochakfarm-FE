@@ -16,7 +16,6 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 const PAW_IMAGE = require('@/src/shared/assets/images/farm-status/paw.png');
 const LOGIN_REQUIRED_IMAGE = require('@/src/shared/assets/images/login/login-required.png');
 const LOGIN_DESCRIPTION_IMAGE = require('@/src/shared/assets/images/login/login-description.png');
-const LOGIN_DIVIDER_IMAGE = require('@/src/shared/assets/images/login/login-divider.png');
 const PAW_POSITIONS = [
   { left: '16%', top: '1%', size: 30, rotation: '-10deg' },
   { left: '48%', top: '8%', size: 24, rotation: '8deg' },
@@ -69,11 +68,6 @@ export function LoginScreen() {
 
       <View style={styles.loginArea}>
         <SocialLoginButtons onLoginSuccess={handleLoginSuccess} />
-        <Image
-          resizeMode="contain"
-          source={LOGIN_DIVIDER_IMAGE}
-          style={styles.dividerImage}
-        />
       </View>
     </SafeAreaView>
   );
@@ -125,10 +119,5 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(280),
     marginTop: scaleByDeviceWidth(272),
     alignSelf: 'center',
-  },
-  dividerImage: {
-    width: scaleByDeviceWidth(280),
-    height: scaleByDeviceWidth(12),
-    marginTop: scaleByDeviceWidth(4),
   },
 });
