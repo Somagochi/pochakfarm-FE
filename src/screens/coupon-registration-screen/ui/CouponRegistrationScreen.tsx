@@ -55,7 +55,6 @@ export function CouponRegistrationScreen() {
       router.push({
         pathname: '/coupon-result',
         params: {
-          animalImageKey: reward.animalImageUpload.key,
           cardImageUrl: reward.cardImageUrl,
           cardType: reward.cardType,
           couponCode: trimmedCouponNumber,

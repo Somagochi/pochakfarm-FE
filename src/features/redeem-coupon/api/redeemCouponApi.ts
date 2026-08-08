@@ -11,11 +11,6 @@ export type RedeemedCouponReward = {
   tier: string;
   cardNo: string;
   cardImageUrl: string;
-  animalImageUpload: {
-    uploadUrl: string;
-    key: string;
-    expiresAt: string;
-  };
 };
 
 type RedeemCouponResponse = {
