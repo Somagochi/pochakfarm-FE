@@ -18,6 +18,8 @@ const NICKNAME_HELPER_TEXT_IMAGE = require('@/src/shared/assets/images/nickname/
 const DUPLICATE_NICKNAME_HELPER_TEXT_IMAGE = require('@/src/shared/assets/images/nickname/duplicate-nickname-helper-text.png');
 const NEXT_BUTTON_ACTIVE_IMAGE = require('@/src/shared/assets/images/nickname/next-button-active.png');
 const NEXT_BUTTON_DISABLED_IMAGE = require('@/src/shared/assets/images/nickname/next-button.png');
+const MAX_NICKNAME_LENGTH = 6;
+const NICKNAME_COMPOSITION_MAX_LENGTH = MAX_NICKNAME_LENGTH + 1;
 
 export function NicknameScreen() {
   const insets = useSafeAreaInsets();
@@ -46,7 +48,7 @@ export function NicknameScreen() {
   }
 
   function handleNicknameChange(value: string) {
-    setNicknameValue(value);
+    setNicknameValue(value.slice(0, MAX_NICKNAME_LENGTH));
     setErrorMessage(null);
   }
 
@@ -115,7 +117,7 @@ export function NicknameScreen() {
 
         <TextInput
           accessibilityLabel="닉네임 입력"
-          maxLength={6}
+          maxLength={NICKNAME_COMPOSITION_MAX_LENGTH}
           onChangeText={handleNicknameChange}
           placeholder="이름을 입력해주세요"
           placeholderTextColor="#B7B6AE"
