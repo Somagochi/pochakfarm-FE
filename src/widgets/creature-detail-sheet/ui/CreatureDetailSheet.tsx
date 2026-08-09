@@ -895,6 +895,7 @@ export function CreatureDetailSheet({
                 ? undefined
                 : () => void handleReleaseAnimal()
             }
+            variant="journey"
           />
         )}
       </GestureHandlerRootView>
