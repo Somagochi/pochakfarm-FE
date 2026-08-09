@@ -174,7 +174,7 @@ export function AccountWithdrawalScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FAF5EB',
+    backgroundColor: '#FFFDF8',
   },
   content: {
     alignItems: 'center',
