@@ -34,6 +34,7 @@ export function useCaptureAvailability() {
 
   return {
     availability,
+    clearError: () => setErrorMessage(null),
     errorMessage,
     isLoading,
     reload: loadAvailability,

@@ -75,7 +75,6 @@ type OpeningStage =
   | 'result';
 
 type CardOpeningSequenceProps = {
-  animalImageKey: string | null;
   cardType?: CaptureCardType;
   captureDetail: CaptureDetail | null;
   onReturnToFarm: () => void;
@@ -87,7 +86,6 @@ function normalizeResultCardRotation(rotation: number) {
 }
 
 export function CardOpeningSequence({
-  animalImageKey,
   cardType,
   captureDetail,
   onReturnToFarm,
@@ -313,7 +311,6 @@ export function CardOpeningSequence({
                 pathname: '/save-to-farm',
                 params: {
                   farmType: captureDetail?.cardType ?? 'GROUND',
-                  ...(animalImageKey ? { animalImageKey } : {}),
                   ...(captureDetail
                     ? {
                         captureId: captureDetail.captureId,
@@ -321,7 +318,6 @@ export function CardOpeningSequence({
                         cardType: captureDetail.cardType,
                         generationStatus: captureDetail.generationStatus,
                         gameStatus: captureDetail.gameStatus,
-                        sceneImageUrl: captureDetail.sceneImageUrl,
                         cardImageUrl: captureDetail.cardImageUrl,
                         animalImageUrl: captureDetail.animalImageUrl,
                         elapsedMs: captureDetail.elapsedMs,

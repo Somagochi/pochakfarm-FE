@@ -4,7 +4,6 @@ import { router } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Easing,
   Image,
@@ -27,12 +26,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
 import { CreatureNameConfirmModal } from './CreatureNameConfirmModal';
-import { SubjectModelDownloadModal } from './SubjectModelDownloadModal';
 import { useCaptureAvailability } from '../model/useCaptureAvailability';
 import { subscribeCaptureFlowReset } from '../model/captureFlowReset';
 import { useCaptureOverview } from '../model/useCaptureOverview';
 import { useCreateCapture } from '../model/useCreateCapture';
-import { usePrepareSubjectSegmentationModel } from '../model/usePrepareSubjectSegmentationModel';
 import { usePurchaseCaptureAttempt } from '../model/usePurchaseCaptureAttempt';
 import type {
   CaptureCardType,
@@ -137,10 +134,12 @@ export function CameraCaptureView() {
   const [isCoinShopComingSoonVisible, setIsCoinShopComingSoonVisible] =
     useState(false);
   const [isHelpModalVisible, setIsHelpModalVisible] = useState(false);
-  const { availability: captureAvailability } =
-    useCaptureAvailability();
   const {
-    animalImageKey,
+    availability: captureAvailability,
+    clearError: clearCaptureAvailabilityError,
+    errorMessage: captureAvailabilityError,
+  } = useCaptureAvailability();
+  const {
     captureDetail,
     clearError: clearCreateCaptureError,
     createCapture,
@@ -151,17 +150,13 @@ export function CameraCaptureView() {
     submitGameResult,
   } = useCreateCapture();
   const {
-    errorMessage: subjectModelError,
-    prepare: prepareSubjectModel,
-    state: subjectModelState,
-  } = usePrepareSubjectSegmentationModel(permission?.granted === true);
-  const {
     clearError: clearPurchaseAttemptError,
     errorMessage: purchaseAttemptError,
     isLoading: isPurchasingAttempt,
     purchaseAttempt,
   } = usePurchaseCaptureAttempt();
   const {
+    clearError: clearCaptureOverviewError,
     errorMessage: captureOverviewError,
     isLoading: isCaptureOverviewLoading,
     overview: captureOverview,
@@ -169,6 +164,9 @@ export function CameraCaptureView() {
   } = useCaptureOverview(true);
   const [isPermissionToastVisible, setIsPermissionToastVisible] =
     useState(false);
+  const [localErrorMessage, setLocalErrorMessage] = useState<string | null>(
+    null,
+  );
   const [developingPhotoUri, setDevelopingPhotoUri] = useState<string | null>(
     null,
   );
@@ -489,7 +487,7 @@ export function CameraCaptureView() {
         setDevelopingPhotoUri(null);
       }
     } catch {
-      Alert.alert('촬영 실패', '사진을 촬영하지 못했습니다. 다시 시도해 주세요.');
+      setLocalErrorMessage('사진을 촬영하지 못했습니다. 다시 시도해 주세요.');
     } finally {
       setIsCapturing(false);
     }
@@ -517,8 +515,7 @@ export function CameraCaptureView() {
         setCapturedPhotoUri(selectedPhoto.uri);
       }
     } catch {
-      Alert.alert(
-        '사진 선택 실패',
+      setLocalErrorMessage(
         '앨범에서 사진을 불러오지 못했습니다. 다시 시도해 주세요.',
       );
     } finally {
@@ -536,8 +533,7 @@ export function CameraCaptureView() {
 
   const handleUseCoins = async () => {
     if (!captureAvailability) {
-      Alert.alert(
-        '포착 정보 확인 중',
+      setLocalErrorMessage(
         '포착 가능 정보를 불러온 뒤 다시 시도해 주세요.',
       );
       return;
@@ -545,8 +541,7 @@ export function CameraCaptureView() {
 
     if (coinBalance < extraCaptureCost) {
       setIsCoinDialogVisible(false);
-      Alert.alert(
-        '코인이 부족해요',
+      setLocalErrorMessage(
         `포착에는 ${extraCaptureCost.toLocaleString('ko-KR')}코인이 필요해요.`,
       );
       return;
@@ -607,7 +602,6 @@ export function CameraCaptureView() {
   if (capturedPhotoUri && hasConfirmedName) {
     return (
       <CaptureGame
-        animalImageKey={animalImageKey}
         apiErrorMessage={createCaptureError}
         captureDetail={captureDetail}
         gameResult={gameResult}
@@ -1094,19 +1088,20 @@ export function CameraCaptureView() {
         onClose={clearPurchaseAttemptError}
       />
 
+      <ErrorModal
+        message={captureAvailabilityError ?? captureOverviewError ?? localErrorMessage}
+        onClose={() => {
+          clearCaptureAvailabilityError();
+          clearCaptureOverviewError();
+          setLocalErrorMessage(null);
+        }}
+      />
+
       <CoinShopComingSoonModal
         onClose={() => setIsCoinShopComingSoonVisible(false)}
         visible={isCoinShopComingSoonVisible}
       />
 
-      <SubjectModelDownloadModal
-        errorMessage={subjectModelError}
-        onRetry={() => void prepareSubjectModel()}
-        visible={
-          subjectModelState === 'downloading' ||
-          subjectModelState === 'error'
-        }
-      />
 
       {isPermissionToastVisible && (
         <Animated.View
