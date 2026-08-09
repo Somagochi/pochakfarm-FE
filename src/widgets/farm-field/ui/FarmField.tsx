@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react';
 import { router } from 'expo-router';
 import {
-  Alert,
   Image,
   type ImageSourcePropType,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
   useExpandFarmFloor,
 } from '@/src/features/unlock-farm-area';
 import type { FarmAnimal, FarmFloor, FarmType } from '@/src/entities/farm';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const ENVIRONMENT_ASSETS = {
   sky: {
@@ -94,6 +94,7 @@ export function FarmField({
   } | null>(null);
   const [hasDraggedCreatureImageFailed, setHasDraggedCreatureImageFailed] =
     useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [expansionFloorNumber, setExpansionFloorNumber] = useState<
     number | null
   >(null);
@@ -144,8 +145,7 @@ export function FarmField({
         setExpansionFloorNumber(null);
       }
     } catch (error) {
-      Alert.alert(
-        '공간 확장 실패',
+      setErrorMessage(
         error instanceof Error
           ? error.message
           : '농장 공간을 확장하지 못했습니다.',
@@ -315,6 +315,7 @@ export function FarmField({
         onClose={() => setExpansionFloorNumber(null)}
         onConfirm={() => void handleExpandFloor()}
       />
+      <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
     </View>
   );
 }

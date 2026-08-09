@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -8,6 +8,7 @@ import {
   useCheckNickname,
 } from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const BACK_ICON = require('@/src/shared/assets/images/nickname/back-icon.png');
 const NICKNAME_DESCRIPTION_IMAGE = require('@/src/shared/assets/images/nickname/nickname-description.png');
@@ -29,7 +30,8 @@ export function NicknameScreen() {
     nicknameError?: string;
   }>();
   const [nickname, setNicknameValue] = useState(initialNickname);
-  const [errorMessage, setErrorMessage] = useState<string | null>(
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [requestErrorMessage, setRequestErrorMessage] = useState<string | null>(
     nicknameError === 'duplicate' ? '이미 있는 닉네임입니다.' : null,
   );
   const hasDuplicateNicknameError =
@@ -58,7 +60,7 @@ export function NicknameScreen() {
       const isAvailable = await checkNickname(nickname);
 
       if (!isAvailable) {
-        setErrorMessage('이미 있는 닉네임입니다.');
+        setRequestErrorMessage('이미 있는 닉네임입니다.');
         return;
       }
 
@@ -67,8 +69,7 @@ export function NicknameScreen() {
         params: { nickname },
       });
     } catch (error) {
-      Alert.alert(
-        '닉네임 확인 실패',
+      setRequestErrorMessage(
         error instanceof Error
           ? error.message
           : '닉네임을 확인하는 중 문제가 발생했습니다.',
@@ -163,6 +164,10 @@ export function NicknameScreen() {
           style={[styles.nextButton, !isNextEnabled && styles.disabledButton]}
         />
       </Pressable>
+      <ErrorModal
+        message={requestErrorMessage}
+        onClose={() => setRequestErrorMessage(null)}
+      />
     </SafeAreaView>
   );
 }

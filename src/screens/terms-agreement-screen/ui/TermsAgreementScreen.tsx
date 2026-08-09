@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAgreeToTerms } from '@/src/features/agree-to-terms';
@@ -45,6 +45,9 @@ export function TermsAgreementScreen() {
   const [checkedAgreements, setCheckedAgreements] = useState<boolean[]>(
     agreements.map(() => false),
   );
+  const [requestErrorMessage, setRequestErrorMessage] = useState<string | null>(
+    null,
+  );
   const isAllAgreed = checkedAgreements.every(Boolean);
   const isCompleteEnabled =
     checkedAgreements.slice(0, 3).every(Boolean) &&
@@ -81,7 +84,7 @@ export function TermsAgreementScreen() {
       return;
     }
 
-    Alert.alert(label, '약관 상세 내용은 준비 중입니다.');
+    setRequestErrorMessage(`${label}\n약관 상세 내용은 준비 중입니다.`);
   }
 
   async function handleCompletePress() {
@@ -108,8 +111,7 @@ export function TermsAgreementScreen() {
         },
       });
     } catch (error) {
-      Alert.alert(
-        '가입 실패',
+      setRequestErrorMessage(
         error instanceof Error
           ? error.message
           : '가입 처리 중 문제가 발생했습니다.',
@@ -240,7 +242,13 @@ export function TermsAgreementScreen() {
           style={styles.completeButton}
         />
       </Pressable>
-      <ErrorModal message={errorMessage} onClose={clearError} />
+      <ErrorModal
+        message={errorMessage ?? requestErrorMessage}
+        onClose={() => {
+          clearError();
+          setRequestErrorMessage(null);
+        }}
+      />
     </SafeAreaView>
   );
 }

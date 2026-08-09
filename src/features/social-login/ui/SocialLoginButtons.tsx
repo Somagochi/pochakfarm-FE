@@ -1,5 +1,4 @@
 import {
-  Alert,
   Image,
   ImageSourcePropType,
   Platform,
@@ -7,9 +6,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { useState } from 'react';
 
-import { env } from '@/src/shared/config/env';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 import { isAuthCancelledError } from '../lib/authError';
 import { useSocialLogin } from '../model/useSocialLogin';
@@ -54,6 +54,7 @@ export function SocialLoginButtons({
   onLoginSuccess,
 }: SocialLoginButtonsProps) {
   const { login, loadingProvider } = useSocialLogin();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handlePress(provider: SocialLoginProvider) {
     try {
@@ -65,11 +66,12 @@ export function SocialLoginButtons({
       }
 
       console.error(error);
-      Alert.alert('로그인 실패', getLoginErrorMessage(provider, error));
+      setErrorMessage(getLoginErrorMessage(provider, error));
     }
   }
 
   return (
+    <>
     <View style={styles.container}>
       {socialButtons.map((button) => {
         if (button.provider === 'apple' && Platform.OS !== 'ios') {
@@ -102,30 +104,20 @@ export function SocialLoginButtons({
         );
       })}
     </View>
+    <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
+    </>
   );
 }
 
-function getProviderName(provider: SocialLoginProvider) {
-  const providerName: Record<SocialLoginProvider, string> = {
-    kakao: '카카오',
-    apple: '애플',
-    naver: '네이버',
-  };
-
-  return providerName[provider];
-}
-
 function getLoginErrorMessage(
-  provider: SocialLoginProvider,
+  _provider: SocialLoginProvider,
   error: unknown,
 ) {
-  const apiBaseUrl = env.apiBaseUrl || '(empty)';
-
   if (error instanceof Error && error.message) {
-    return `${getProviderName(provider)} 로그인 중 문제가 발생했습니다.\n\n${error.message}\n\nAPI URL: ${apiBaseUrl}`;
+    return error.message;
   }
 
-  return `${getProviderName(provider)} 로그인 중 문제가 발생했습니다.\n\nAPI URL: ${apiBaseUrl}`;
+  return '로그인 중 문제가 발생했습니다.';
 }
 
 const styles = StyleSheet.create({

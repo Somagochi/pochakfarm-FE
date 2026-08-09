@@ -1,7 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Image,
   ImageBackground,
   Keyboard,
@@ -38,7 +37,12 @@ const NOTICE_INSTAGRAM_URL =
 
 export function MoreScreen() {
   const insets = useSafeAreaInsets();
-  const { profile, reload: reloadProfile } = useUserProfile();
+  const {
+    clearError: clearProfileError,
+    errorMessage: profileErrorMessage,
+    profile,
+    reload: reloadProfile,
+  } = useUserProfile();
   const {
     clearError: clearNicknameError,
     errorMessage: nicknameErrorMessage,
@@ -110,6 +114,7 @@ export function MoreScreen() {
 
   function closeNicknameErrorModal() {
     clearNicknameError();
+    clearProfileError();
     setModalErrorMessage(null);
   }
 
@@ -117,7 +122,7 @@ export function MoreScreen() {
     try {
       await Linking.openURL(NOTICE_INSTAGRAM_URL);
     } catch {
-      Alert.alert('링크 열기 실패', '공지사항 페이지를 열 수 없습니다.');
+      setModalErrorMessage('공지사항 페이지를 열 수 없습니다.');
     }
   }
 
@@ -125,8 +130,7 @@ export function MoreScreen() {
     try {
       await Linking.openURL(buildSupportEmailUrl(profile?.nickname));
     } catch {
-      Alert.alert(
-        '메일 앱 열기 실패',
+      setModalErrorMessage(
         '메일 앱이 설치되어 있고 메일 계정이 설정되어 있는지 확인해주세요.',
       );
     }
@@ -262,7 +266,7 @@ export function MoreScreen() {
         />
       </Pressable>
       <ErrorModal
-        message={nicknameErrorMessage ?? modalErrorMessage}
+        message={nicknameErrorMessage ?? profileErrorMessage ?? modalErrorMessage}
         onClose={closeNicknameErrorModal}
       />
       <ImageBackground

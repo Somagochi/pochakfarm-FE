@@ -3,9 +3,10 @@ import { Redirect, Tabs } from 'expo-router';
 import { useUserProfile } from '@/src/entities/user';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
 import { BottomTabBar } from '@/src/widgets/bottom-tab-bar';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 export default function TabLayout() {
-  const { isLoading, profile } = useUserProfile();
+  const { clearError, errorMessage, isLoading, profile } = useUserProfile();
 
   if (isLoading) {
     return <AppSplashScreen />;
@@ -16,6 +17,7 @@ export default function TabLayout() {
   }
 
   return (
+    <>
     <Tabs
       tabBar={(props) => <BottomTabBar {...props} />}
       screenOptions={{
@@ -59,5 +61,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+    <ErrorModal message={errorMessage} onClose={clearError} />
+    </>
   );
 }

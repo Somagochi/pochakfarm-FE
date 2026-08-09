@@ -23,7 +23,6 @@ export function ErrorModal({ message, onClose }: ErrorModalProps) {
     >
       <View accessibilityViewIsModal style={styles.overlay}>
         <View style={styles.modal}>
-          <Text style={styles.title}>오류</Text>
           <Text style={styles.message}>{message}</Text>
           <Pressable
             accessibilityLabel="오류 메시지 닫기"
@@ -58,14 +57,7 @@ const styles = StyleSheet.create({
     borderRadius: scaleByDeviceWidth(16),
     backgroundColor: '#FFF9F0',
   },
-  title: {
-    color: '#3D291C',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(20),
-    lineHeight: scaleByDeviceWidth(28),
-  },
   message: {
-    marginTop: scaleByDeviceWidth(12),
     color: '#685A48',
     fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(15),

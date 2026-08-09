@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useUserAccount, useUserProfile } from '@/src/entities/user';
 import { LogoutConfirmModal } from '@/src/features/logout';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const ACCOUNT_MANAGEMENT_TITLE_IMAGE = require('@/src/shared/assets/images/account-management/title.png');
 const ACCOUNT_INFO_BACKGROUND_IMAGE = require('@/src/shared/assets/images/account-management/account-info-background.png');
@@ -32,8 +33,16 @@ const PROVIDER_CONTENT = {
 export function AccountManagementScreen() {
   const insets = useSafeAreaInsets();
   const [isLogoutModalVisible, setIsLogoutModalVisible] = useState(false);
-  const { account } = useUserAccount();
-  const { profile } = useUserProfile();
+  const {
+    account,
+    clearError: clearAccountError,
+    errorMessage: accountErrorMessage,
+  } = useUserAccount();
+  const {
+    clearError: clearProfileError,
+    errorMessage: profileErrorMessage,
+    profile,
+  } = useUserProfile();
   const accountProvider = account?.provider?.toLowerCase();
   const provider =
     accountProvider === 'apple' ||
@@ -129,6 +138,13 @@ export function AccountManagementScreen() {
         onClose={() => setIsLogoutModalVisible(false)}
         onLoggedOut={() => router.replace('/login')}
         visible={isLogoutModalVisible}
+      />
+      <ErrorModal
+        message={accountErrorMessage ?? profileErrorMessage}
+        onClose={() => {
+          clearAccountError();
+          clearProfileError();
+        }}
       />
     </View>
   );

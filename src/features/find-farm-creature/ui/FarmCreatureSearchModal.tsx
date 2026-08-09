@@ -20,6 +20,7 @@ import {
   type FarmCreatureListItem,
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const SEARCH_PANEL = require('@/src/shared/assets/images/farm-search/animal-search-panel.png');
 const SEARCH_TITLE = require('@/src/shared/assets/images/farm-search/animal-search-title.png');
@@ -61,11 +62,11 @@ export function FarmCreatureSearchModal({
   >('all');
   const {
     animals,
+    clearError,
     errorMessage,
     hasNext,
     isLoading,
     loadNextPage,
-    reload,
   } = useAnimals({ enabled: visible });
   const creatures = useMemo<FarmCreatureListItem[]>(
     () =>
@@ -99,6 +100,7 @@ export function FarmCreatureSearchModal({
   }, [creatures, searchQuery, selectedAnimalType]);
 
   return (
+    <>
     <Modal
       animationType="fade"
       onRequestClose={onClose}
@@ -211,16 +213,6 @@ export function FarmCreatureSearchModal({
                   color="#BCA47E"
                   style={styles.loadingIndicator}
                 />
-              ) : errorMessage ? (
-                <Pressable
-                  accessibilityLabel="동물 목록 다시 불러오기"
-                  accessibilityRole="button"
-                  onPress={reload}
-                  style={styles.retryButton}
-                >
-                  <Text style={styles.retryText}>{errorMessage}</Text>
-                  <Text style={styles.retryText}>다시 시도</Text>
-                </Pressable>
               ) : null
             }
             numColumns={3}
@@ -238,6 +230,8 @@ export function FarmCreatureSearchModal({
         </ImageBackground>
       </View>
     </Modal>
+    <ErrorModal message={errorMessage} onClose={clearError} />
+    </>
   );
 }
 
