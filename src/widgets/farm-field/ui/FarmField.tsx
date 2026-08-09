@@ -209,6 +209,7 @@ export function FarmField({
                 floor?.unlocked === false &&
                 (areaNumber === 1 || previousFloor?.unlocked === true)
               }
+              isUnlockDisabled={isReordering}
               isUnlocked={floor?.unlocked === true}
               onPressCreature={onPressCreature}
               onCreatureDragEnd={(pageX, pageY) => {
