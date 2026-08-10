@@ -26,6 +26,7 @@ export function useUserAccount() {
 
   return {
     account,
+    clearError: () => setErrorMessage(null),
     errorMessage,
     reload: loadAccount,
   };

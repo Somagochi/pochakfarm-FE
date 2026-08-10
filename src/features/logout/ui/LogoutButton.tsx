@@ -1,23 +1,26 @@
-import { Alert, Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { useState } from 'react';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 import { useLogout } from '../model/useLogout';
 
 export function LogoutButton() {
   const { isLoading, logout } = useLogout();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handlePress() {
     try {
       await logout();
-      Alert.alert('로그아웃 완료', '다시 로그인할 수 있습니다.');
     } catch (error) {
       console.error(error);
-      Alert.alert('로그아웃 실패', getLogoutErrorMessage(error));
+      setErrorMessage(getLogoutErrorMessage(error));
     }
   }
 
   return (
+    <>
     <Pressable
       style={[styles.button, isLoading && styles.disabled]}
       onPress={handlePress}
@@ -25,6 +28,8 @@ export function LogoutButton() {
     >
       <Text style={styles.buttonText}>{isLoading ? '로그아웃 중...' : '로그아웃'}</Text>
     </Pressable>
+    <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
+    </>
   );
 }
 

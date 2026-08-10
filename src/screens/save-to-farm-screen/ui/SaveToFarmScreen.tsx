@@ -51,13 +51,13 @@ export function SaveToFarmScreen() {
   const insets = useSafeAreaInsets();
   const farmScrollRef = useRef<ScrollView>(null);
   const {
-    animalImageKey,
+    animalImageUrl,
     captureId: captureIdParam,
     cardImageUrl,
     cardType,
     farmType: farmTypeParam,
   } = useLocalSearchParams<{
-    animalImageKey?: string;
+    animalImageUrl?: string;
     captureId?: string;
     cardImageUrl?: string;
     cardType?: string;
@@ -102,13 +102,12 @@ export function SaveToFarmScreen() {
     slotNumber: number,
     replacedAnimalId: number | null,
   ) => {
-    if (!Number.isFinite(captureId) || !animalImageKey) {
+    if (!Number.isFinite(captureId) || !animalImageUrl) {
       setPlacementError('저장할 포착 정보를 찾지 못했습니다.');
       return;
     }
 
     const result = await placeAnimal(captureId, {
-      animalImageKey,
       floorNum: floorNumber,
       slotNum: slotNumber,
       replacedAnimalId,

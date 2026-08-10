@@ -39,7 +39,7 @@ const CUT_SCISSORS_IMAGE = require('@/src/shared/assets/images/capture/card-open
 const SAVE_TO_FARM_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/save-to-farm-button.png');
 const RETURN_TO_NATURE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/return-to-nature-button.png');
 const SCANNER_LOTTIE = require('@/src/shared/assets/images/capture/card-opening/scanner.json');
-const PACK_OPEN_GLOW_IMAGE = require('@/src/shared/assets/images/capture/card-opening/glow.svg');
+const PACK_OPEN_GLOW_IMAGE = require('@/src/shared/assets/images/capture/card-opening/glow-static.svg');
 const AnimatedExpoImage = Animated.createAnimatedComponent(ExpoImage);
 
 const ANALYZING_DURATION_MS = 8000;
@@ -75,7 +75,6 @@ type OpeningStage =
   | 'result';
 
 type CardOpeningSequenceProps = {
-  animalImageKey: string | null;
   cardType?: CaptureCardType;
   captureDetail: CaptureDetail | null;
   onReturnToFarm: () => void;
@@ -87,7 +86,6 @@ function normalizeResultCardRotation(rotation: number) {
 }
 
 export function CardOpeningSequence({
-  animalImageKey,
   cardType,
   captureDetail,
   onReturnToFarm,
@@ -174,7 +172,7 @@ export function CardOpeningSequence({
     Animated.timing(opening, {
       toValue: 1,
       duration: PACK_OPENING_DURATION_MS,
-      easing: Easing.inOut(Easing.cubic),
+      easing: Easing.linear,
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished) setStage('sky');
@@ -313,7 +311,6 @@ export function CardOpeningSequence({
                 pathname: '/save-to-farm',
                 params: {
                   farmType: captureDetail?.cardType ?? 'GROUND',
-                  ...(animalImageKey ? { animalImageKey } : {}),
                   ...(captureDetail
                     ? {
                         captureId: captureDetail.captureId,
@@ -321,7 +318,6 @@ export function CardOpeningSequence({
                         cardType: captureDetail.cardType,
                         generationStatus: captureDetail.generationStatus,
                         gameStatus: captureDetail.gameStatus,
-                        sceneImageUrl: captureDetail.sceneImageUrl,
                         cardImageUrl: captureDetail.cardImageUrl,
                         animalImageUrl: captureDetail.animalImageUrl,
                         elapsedMs: captureDetail.elapsedMs,
@@ -764,11 +760,56 @@ function OpeningAnimation({
 }) {
   const glowProgress = useRef(new Animated.Value(0)).current;
   const cardLaunches = [
-    { bumpX: 2, delay: 2902, endX: 2, rotation: '0deg', startX: 0 },
-    { bumpX: -7, delay: 3830, endX: -16, rotation: '-3.4deg', startX: -11 },
-    { bumpX: 4, delay: 4861, endX: -8, rotation: '3.4deg', startX: 8 },
-    { bumpX: 0, delay: 5853, endX: -8, rotation: '0deg', startX: 0 },
-    { bumpX: 0, delay: 6814, endX: -8, rotation: '0deg', startX: 0 },
+    {
+      node: '6570:779',
+      rotationTimes: [0, 1],
+      rotations: ['0deg', '0deg'],
+      scaleTimes: [0, 2901.569, 3258.211, 8000],
+      scalesY: [1, 1, 0.9, 0.9],
+      times: [0, 600, 2000, 2575, 3258.211, 8000],
+      x: [0.17, 0.17, 0.17, 0, 1.81, 1.81],
+      y: [15.5, 15.5, -29.88, 0, -822.77, -822.77],
+    },
+    {
+      node: '6570:778',
+      rotationTimes: [0, 2000, 2575, 8000],
+      rotations: ['-3.39deg', '-3.39deg', '0.11deg', '0.11deg'],
+      scaleTimes: [0, 3829.946, 4161.929, 8000],
+      scalesY: [1, 1, 0.9, 0.9],
+      times: [0, 600, 2000, 2575, 3033.984, 3535.236, 4161.929, 8000],
+      x: [-5.91, -5.91, -3.69, 0, 0, 0, -11.18, -11.18],
+      y: [10.47, 10.47, -32, 0, 5, -15.12, -805.35, -805.35],
+    },
+    {
+      node: '6570:777',
+      rotationTimes: [0, 1993, 2575, 8000],
+      rotations: ['3.39deg', '3.39deg', '-0.11deg', '-0.11deg'],
+      scaleTimes: [0, 4861.372, 5191.867, 8000],
+      scalesY: [1, 1, 0.9, 0.9],
+      times: [0, 600, 2000, 2575, 3535.236, 3986.798, 4495.472, 5191.867, 8000],
+      x: [8.12, 8.12, 8.12, 0, 12.03, 2.85, 0, -7.92, -7.92],
+      y: [10.48, 10.48, -31, 0, -4, 1.01, -15.11, -795.78, -795.78],
+    },
+    {
+      node: '6570:776',
+      rotationTimes: [0, 1],
+      rotations: ['-0.11deg', '-0.11deg'],
+      scaleTimes: [0, 5852.735, 6211.345, 8000],
+      scalesY: [1, 1, 0.9, 0.9],
+      times: [0, 5000, 5455.708, 6211.345, 8000],
+      x: [0.43, 0.43, 0, -7.92, -7.92],
+      y: [16.56, 16.56, 0, -780.66, -780.66],
+    },
+    {
+      node: '6570:775',
+      rotationTimes: [0, 1],
+      rotations: ['-0.11deg', '-0.11deg'],
+      scaleTimes: [0, 6814.151, 7173.826, 8000],
+      scalesY: [1, 1, 0.9, 0.9],
+      times: [0, 5960.236, 6415.944, 7173.826, 8000],
+      x: [0, 0, 0, -7.92, -7.92],
+      y: [16.11, 16.11, 0, -780.66, -780.66],
+    },
   ];
 
   useEffect(() => {
@@ -776,7 +817,7 @@ function OpeningAnimation({
     const glowAnimation = Animated.timing(glowProgress, {
       toValue: 1,
       duration: 2000,
-      easing: Easing.inOut(Easing.cubic),
+      easing: Easing.linear,
       useNativeDriver: true,
     });
 
@@ -794,7 +835,7 @@ function OpeningAnimation({
             styles.openingGlowImage,
             {
               opacity: glowProgress.interpolate({
-                inputRange: [0, 0.15, 0.8, 1],
+                inputRange: [0, 0.1, 0.85, 1],
                 outputRange: [0, 1, 1, 0],
               }),
               transform: [
@@ -806,8 +847,8 @@ function OpeningAnimation({
                 },
                 {
                   scale: glowProgress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.2, 1],
+                    inputRange: [0, 0.4, 0.6, 1],
+                    outputRange: [0.2, 1, 1, 0.2],
                   }),
                 },
               ],
@@ -817,74 +858,57 @@ function OpeningAnimation({
       </View>
 
       <View pointerEvents="none" style={styles.launchClip}>
-        {cardLaunches.map(
-          ({ bumpX, delay, endX, rotation, startX }, index) => {
-        const start = delay / PACK_OPENING_DURATION_MS;
-        const bump = (delay + 160) / PACK_OPENING_DURATION_MS;
-        const end = (delay + 800) / PACK_OPENING_DURATION_MS;
-        return (
-          <Animated.Image
-            key={delay}
-            resizeMode="contain"
-            source={cardBackImage}
-            style={[
-              styles.launchCard,
-              {
-                zIndex: 10 + index,
-                opacity: progress.interpolate({
-                  inputRange: [0, start, start + 0.001, 1],
-                  outputRange: [0, 0, 1, 1],
-                }),
-                transform: [
-                  {
-                    translateX: progress.interpolate({
-                      inputRange: [0, start, bump, end, 1],
-                      outputRange: [
-                        scaleByDeviceWidth(startX),
-                        scaleByDeviceWidth(startX),
-                        scaleByDeviceWidth(bumpX),
-                        scaleByDeviceWidth(endX),
-                        scaleByDeviceWidth(endX),
-                      ],
-                    }),
-                  },
-                  {
-                    translateY: progress.interpolate({
-                      inputRange: [0, start, bump, end, 1],
-                      outputRange: [
-                        scaleByDeviceWidth(35),
-                        scaleByDeviceWidth(35),
-                        scaleByDeviceWidth(18),
-                        scaleByDeviceWidth(-790),
-                        scaleByDeviceWidth(-790),
-                      ],
-                    }),
-                  },
-                  {
-                    rotate: progress.interpolate({
-                      inputRange: [0, start, bump, end, 1],
-                      outputRange: [
-                        rotation,
-                        rotation,
-                        '0deg',
-                        '0deg',
-                        '0deg',
-                      ],
-                    }),
-                  },
-                  {
-                    scaleY: progress.interpolate({
-                      inputRange: [0, start, end, 1],
-                      outputRange: [1, 1, 0.9, 0.9],
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        );
-          },
-        )}
+        {cardLaunches.map((cardLaunch, index) => {
+          const inputRange = cardLaunch.times.map(
+            (time) => time / PACK_OPENING_DURATION_MS,
+          );
+          const rotationInputRange = cardLaunch.rotationTimes.map(
+            (time) => time / PACK_OPENING_DURATION_MS,
+          );
+          const scaleInputRange = cardLaunch.scaleTimes.map(
+            (time) => time / PACK_OPENING_DURATION_MS,
+          );
+
+          return (
+            <Animated.Image
+              key={cardLaunch.node}
+              resizeMode="contain"
+              source={cardBackImage}
+              style={[
+                styles.launchCard,
+                {
+                  zIndex: 10 + index,
+                  transform: [
+                    {
+                      translateX: progress.interpolate({
+                        inputRange,
+                        outputRange: cardLaunch.x.map(scaleByDeviceWidth),
+                      }),
+                    },
+                    {
+                      translateY: progress.interpolate({
+                        inputRange,
+                        outputRange: cardLaunch.y.map(scaleByDeviceWidth),
+                      }),
+                    },
+                    {
+                      rotate: progress.interpolate({
+                        inputRange: rotationInputRange,
+                        outputRange: cardLaunch.rotations,
+                      }),
+                    },
+                    {
+                      scaleY: progress.interpolate({
+                        inputRange: scaleInputRange,
+                        outputRange: cardLaunch.scalesY,
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+          );
+        })}
       </View>
 
       <Animated.View
@@ -894,11 +918,12 @@ function OpeningAnimation({
             transform: [
               {
                 translateY: progress.interpolate({
-                  inputRange: [0, 0.96, 1],
+                  inputRange: [0, 7003 / 8000, 7402.468 / 8000, 1],
                   outputRange: [
                     0,
                     0,
-                    scaleByDeviceWidth(390),
+                    scaleByDeviceWidth(387.63),
+                    scaleByDeviceWidth(387.63),
                   ],
                 }),
               },
@@ -928,9 +953,9 @@ function OpeningAnimation({
                     outputRange: [
                       0,
                       0,
-                      scaleByDeviceWidth(-18),
-                      scaleByDeviceWidth(-140),
-                      scaleByDeviceWidth(-140),
+                      scaleByDeviceWidth(-7.43),
+                      scaleByDeviceWidth(-61.73),
+                      scaleByDeviceWidth(-61.73),
                     ],
                   }),
                 },
@@ -940,9 +965,9 @@ function OpeningAnimation({
                     outputRange: [
                       0,
                       0,
-                      scaleByDeviceWidth(4),
-                      scaleByDeviceWidth(34),
-                      scaleByDeviceWidth(34),
+                      scaleByDeviceWidth(1.31),
+                      scaleByDeviceWidth(10.89),
+                      scaleByDeviceWidth(10.89),
                     ],
                   }),
                 },

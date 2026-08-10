@@ -3,16 +3,10 @@ import { useEffect, useRef, useState } from 'react';
 
 import { runRequestStep } from '@/src/shared/api/formatRequestError';
 import { uploadImageToPresignedUrl } from '@/src/shared/api/uploadImageToPresignedUrl';
-import { downloadRemoteImage } from '@/src/shared/lib/image/downloadRemoteImage';
-import { removePhotoBackground } from '@/src/shared/lib/image/subjectSegmentation';
 
 import { createCaptureApi } from '../api/createCaptureApi';
 import { completeOriginalImageUploadApi } from '../api/completeOriginalImageUploadApi';
 import { getCaptureGenerationApi } from '../api/getCaptureGenerationApi';
-import {
-  presignAnimalImageApi,
-  type AnimalImagePresignResult,
-} from '../api/presignAnimalImageApi';
 import { submitCaptureGameResultApi } from '../api/submitCaptureGameResultApi';
 import type {
   CaptureDetail,
@@ -40,8 +34,6 @@ export function useCreateCapture() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<CreateCaptureResult | null>(null);
-  const [animalImagePresign, setAnimalImagePresign] =
-    useState<AnimalImagePresignResult | null>(null);
   const [captureDetail, setCaptureDetail] =
     useState<CaptureDetail | null>(null);
   const [gameResult, setGameResult] = useState<CaptureGameResult | null>(null);
@@ -63,7 +55,6 @@ export function useCreateCapture() {
     setIsLoading(true);
     setErrorMessage(null);
     setResult(null);
-    setAnimalImagePresign(null);
     setCaptureDetail(null);
     setGameResult(null);
     const { photoUri, ...request } = params;
@@ -143,26 +134,6 @@ export function useCreateCapture() {
           }
 
           setCaptureDetail(generation as CaptureDetail);
-          const cardImageUrl = generation.cardImageUrl;
-          const cardImageUri = await runRequestStep(
-            'GET cardImageUrl 이미지 다운로드',
-            () => downloadRemoteImage(cardImageUrl),
-          );
-          const animalImageUri = await runRequestStep('누끼 제거 SDK', () =>
-            removePhotoBackground(cardImageUri),
-          );
-          const presign = await runRequestStep(
-            `POST /api/captures/${capture.captureId}/animal-image/presign`,
-            () => presignAnimalImageApi(capture.captureId),
-          );
-          await runRequestStep('PUT 누끼 이미지 Presigned URL', () =>
-            uploadImageToPresignedUrl({
-              contentType: 'image/png',
-              imageUri: animalImageUri,
-              uploadUrl: presign.uploadUrl,
-            }),
-          );
-          setAnimalImagePresign(presign);
           return true;
         }
       }
@@ -180,7 +151,6 @@ export function useCreateCapture() {
 
   return {
     clearError: () => setErrorMessage(null),
-    animalImageKey: animalImagePresign?.key ?? null,
     captureDetail,
     createCapture,
     errorMessage,

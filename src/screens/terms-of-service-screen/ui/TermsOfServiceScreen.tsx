@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useUpdateMarketingConsent } from '@/src/features/update-marketing-consent';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const BACK_ICON_IMAGE = require('@/src/shared/assets/images/coupon-registration/back-icon.png');
 const TERMS_OF_SERVICE_TITLE_IMAGE = require('@/src/shared/assets/images/more/terms-of-service-title.png');
@@ -29,6 +30,7 @@ export function TermsOfServiceScreen() {
   const [marketingConsentDate, setMarketingConsentDate] = useState<
     string | null
   >(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isMarketingConsentEnabled = marketingConsentDate !== null;
 
   async function handleMarketingConsentPress() {
@@ -48,10 +50,11 @@ export function TermsOfServiceScreen() {
           ? formatMarketingConsentDate(new Date())
           : null,
       );
-    } catch {
-      Alert.alert(
-        '마케팅 수신 동의 변경 실패',
-        '잠시 후 다시 시도해 주세요.',
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error
+          ? error.message
+          : '잠시 후 다시 시도해 주세요.',
       );
     }
   }
@@ -149,6 +152,7 @@ export function TermsOfServiceScreen() {
           style={styles.marketingSwitch}
         />
       </Pressable>
+      <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
     </View>
   );
 }

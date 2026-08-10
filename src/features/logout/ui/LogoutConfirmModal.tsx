@@ -1,13 +1,14 @@
 import {
-  Alert,
   Image,
   Modal,
   Pressable,
   StyleSheet,
   View,
 } from 'react-native';
+import { useState } from 'react';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 import { useLogout } from '../model/useLogout';
 
@@ -27,6 +28,7 @@ export function LogoutConfirmModal({
   visible,
 }: LogoutConfirmModalProps) {
   const { isLoading, logout } = useLogout();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   async function handleConfirm() {
     try {
@@ -34,8 +36,7 @@ export function LogoutConfirmModal({
       onClose();
       onLoggedOut();
     } catch (error) {
-      Alert.alert(
-        '로그아웃 실패',
+      setErrorMessage(
         error instanceof Error && error.message
           ? error.message
           : '로그아웃 중 문제가 발생했습니다.',
@@ -44,6 +45,7 @@ export function LogoutConfirmModal({
   }
 
   return (
+    <>
     <Modal
       animationType="fade"
       onRequestClose={onClose}
@@ -111,6 +113,8 @@ export function LogoutConfirmModal({
         </View>
       </View>
     </Modal>
+    <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
+    </>
   );
 }
 

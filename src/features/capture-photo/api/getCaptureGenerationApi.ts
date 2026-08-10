@@ -31,11 +31,8 @@ export async function getCaptureGenerationApi(captureId: number) {
       typeof capture.tier === 'string' &&
       typeof capture.cardType === 'string' &&
       typeof capture.gameStatus === 'string' &&
-      (typeof capture.sceneImageUrl === 'string' ||
-        capture.sceneImageUrl === null) &&
       typeof capture.cardImageUrl === 'string' &&
-      (typeof capture.animalImageUrl === 'string' ||
-        capture.animalImageUrl === null) &&
+      typeof capture.animalImageUrl === 'string' &&
       typeof capture.elapsedMs === 'number' &&
       (typeof capture.failureReason === 'string' ||
         capture.failureReason === null);

@@ -36,6 +36,7 @@ type FarmAreaRowProps = {
   }[];
   draggingAnimalId?: number;
   isUnlockAvailable: boolean;
+  isUnlockDisabled?: boolean;
   isUnlocked: boolean;
   onPressCreature?: (
     animal: FarmAnimal,
@@ -65,6 +66,7 @@ export function FarmAreaRow({
   creatureSlots,
   draggingAnimalId,
   isUnlockAvailable,
+  isUnlockDisabled = false,
   isUnlocked,
   onPressCreature,
   onCreatureDragEnd,
@@ -283,6 +285,8 @@ export function FarmAreaRow({
         <Pressable
           accessibilityLabel={`${areaNumber}번째 농장 잠금 해제`}
           accessibilityRole="button"
+          accessibilityState={{ disabled: isUnlockDisabled }}
+          disabled={isUnlockDisabled}
           onPress={onPressUnlock}
           style={({ pressed }) => [
             styles.unlockButton,
@@ -292,6 +296,7 @@ export function FarmAreaRow({
               width: unlockImageWidth,
               height: unlockImageHeight,
             },
+            isUnlockDisabled && styles.unlockButtonDisabled,
             pressed && styles.pressed,
           ]}
         >
@@ -340,6 +345,9 @@ const styles = StyleSheet.create({
   unlockButton: {
     position: 'absolute',
     zIndex: 2,
+  },
+  unlockButtonDisabled: {
+    opacity: 0.3,
   },
   unlockImage: {
     width: '100%',

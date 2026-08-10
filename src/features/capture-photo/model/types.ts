@@ -75,9 +75,8 @@ export type CaptureDetail = {
   cardType: CaptureCardType;
   generationStatus: string;
   gameStatus: string;
-  sceneImageUrl: string | null;
   cardImageUrl: string;
-  animalImageUrl: string | null;
+  animalImageUrl: string;
   elapsedMs: number;
   failureReason: string | null;
 };

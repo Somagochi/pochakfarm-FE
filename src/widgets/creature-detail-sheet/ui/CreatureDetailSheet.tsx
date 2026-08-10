@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   Modal,
@@ -25,6 +24,7 @@ import {
 } from '@/src/entities/creature';
 import { useReleaseAnimal } from '@/src/features/release-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
 const BOTTOM_SHEET_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-bottom-sheet.png');
@@ -141,7 +141,7 @@ export function CreatureDetailSheet({
   width,
 }: CreatureDetailSheetProps) {
   const { height: screenHeight } = useWindowDimensions();
-  const { animal, errorMessage, isLoading, reload } =
+  const { animal, clearError, errorMessage, isLoading } =
     useAnimalDetail(animalId);
   const { isReleasing, releaseAnimal } = useReleaseAnimal();
   const [selectedView, setSelectedView] = useState<'profile' | 'card'>(
@@ -153,6 +153,9 @@ export function CreatureDetailSheet({
     useState<string | null>(null);
   const [isReleaseAlertVisible, setIsReleaseAlertVisible] =
     useState(false);
+  const [releaseErrorMessage, setReleaseErrorMessage] = useState<string | null>(
+    null,
+  );
   const hasDetailContent = animalId === undefined || animal !== null;
   const creatureName =
     animal?.animalName ?? (animalId === undefined ? '꼬미' : '');
@@ -230,8 +233,7 @@ export function CreatureDetailSheet({
         onClose();
       }
     } catch (error) {
-      Alert.alert(
-        '여정 보내기 실패',
+      setReleaseErrorMessage(
         error instanceof Error
           ? error.message
           : '동물을 여정 보내지 못했습니다.',
@@ -365,6 +367,7 @@ export function CreatureDetailSheet({
   }, [translateY, visibleSheetHeight]);
 
   return (
+    <>
     <Modal
       animationType="none"
       hardwareAccelerated
@@ -836,22 +839,6 @@ export function CreatureDetailSheet({
             </View>
           )}
 
-          {animalId !== undefined && errorMessage && !isLoading && (
-            <View style={styles.requestState}>
-              <Text style={styles.requestStateText}>{errorMessage}</Text>
-              <Pressable
-                accessibilityLabel="동물 상세 다시 불러오기"
-                accessibilityRole="button"
-                onPress={() => void reload()}
-                style={({ pressed }) => [
-                  styles.retryButton,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Text style={styles.retryButtonText}>다시 시도</Text>
-              </Pressable>
-            </View>
-          )}
             </View>
           </ScrollView>
           {shouldScrollSheet && (
@@ -908,10 +895,19 @@ export function CreatureDetailSheet({
                 ? undefined
                 : () => void handleReleaseAnimal()
             }
+            variant="journey"
           />
         )}
       </GestureHandlerRootView>
     </Modal>
+    <ErrorModal
+      message={releaseErrorMessage ?? errorMessage}
+      onClose={() => {
+        setReleaseErrorMessage(null);
+        clearError();
+      }}
+    />
+    </>
   );
 }
 

@@ -108,7 +108,6 @@ async function triggerFailedThrowHaptics() {
 }
 
 type CaptureGameProps = {
-  animalImageKey: string | null;
   apiErrorMessage: string | null;
   cardType?: CaptureCardType;
   captureDetail: CaptureDetail | null;
@@ -123,7 +122,6 @@ type CaptureGameProps = {
 };
 
 export function CaptureGame({
-  animalImageKey,
   apiErrorMessage,
   cardType,
   captureDetail,
@@ -1015,7 +1013,6 @@ export function CaptureGame({
 
       {result === 'success' && hasOpenedSuccess && (
         <CardOpeningSequence
-          animalImageKey={animalImageKey}
           cardType={cardType}
           captureDetail={captureDetail}
           onReturnToFarm={onClose}

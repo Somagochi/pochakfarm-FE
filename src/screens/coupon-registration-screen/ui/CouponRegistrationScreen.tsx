@@ -5,17 +5,14 @@ import {
   Keyboard,
   Pressable,
   StyleSheet,
-  Text,
   TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  CouponFarmFullModal,
-  useRedeemCoupon,
-} from '@/src/features/redeem-coupon';
+import { useRedeemCoupon } from '@/src/features/redeem-coupon';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const COUPON_REGISTRATION_TITLE_IMAGE = require('@/src/shared/assets/images/coupon-registration/title.png');
 const USAGE_WARNING_IMAGE = require('@/src/shared/assets/images/coupon-registration/usage-warning.png');
@@ -27,9 +24,7 @@ export function CouponRegistrationScreen() {
   const insets = useSafeAreaInsets();
   const {
     clearError,
-    closeFarmFullModal,
     errorMessage,
-    isFarmFull,
     isLoading,
     redeemCoupon,
   } = useRedeemCoupon();
@@ -106,16 +101,9 @@ export function CouponRegistrationScreen() {
         placeholder="쿠폰 번호 입력"
         placeholderTextColor="#AAA9A2"
         returnKeyType="done"
-        style={[styles.couponInput, errorMessage && styles.invalidInput]}
+        style={styles.couponInput}
         value={couponNumber}
       />
-      {errorMessage && (
-        <View style={styles.helperTextContainer}>
-          <Text accessibilityRole="alert" style={styles.helperText}>
-            {errorMessage}
-          </Text>
-        </View>
-      )}
       <Pressable
         accessibilityLabel="다음으로"
         accessibilityRole="button"
@@ -137,14 +125,7 @@ export function CouponRegistrationScreen() {
           style={[styles.nextButton, !isNextEnabled && styles.disabledButton]}
         />
       </Pressable>
-      <CouponFarmFullModal
-        onClose={closeFarmFullModal}
-        onOrganize={() => {
-          closeFarmFullModal();
-          router.replace('/(tabs)/farm');
-        }}
-        visible={isFarmFull}
-      />
+      <ErrorModal message={errorMessage} onClose={clearError} />
     </View>
   );
 }

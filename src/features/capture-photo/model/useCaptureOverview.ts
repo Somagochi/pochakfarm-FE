@@ -33,5 +33,11 @@ export function useCaptureOverview(enabled: boolean) {
     }
   }, [enabled, loadOverview]);
 
-  return { errorMessage, isLoading, overview, reload: loadOverview };
+  return {
+    clearError: () => setErrorMessage(null),
+    errorMessage,
+    isLoading,
+    overview,
+    reload: loadOverview,
+  };
 }

@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { router } from 'expo-router';
 import {
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -16,6 +15,7 @@ import {
   useWithdrawAccount,
 } from '@/src/features/withdraw-account';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const ACCOUNT_WITHDRAWAL_TITLE_IMAGE = require('@/src/shared/assets/images/account-withdrawal/title.png');
 const WITHDRAWAL_WARNING_IMAGE = require('@/src/shared/assets/images/account-withdrawal/withdrawal-warning.png');
@@ -40,6 +40,7 @@ export function AccountWithdrawalScreen() {
     null,
   );
   const { isLoading, withdrawAccount } = useWithdrawAccount();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const isWithdrawalEnabled = selectedReasonIndex !== null && !isLoading;
 
   async function handleWithdraw() {
@@ -58,8 +59,7 @@ export function AccountWithdrawalScreen() {
       }
     } catch (error) {
       console.error(error);
-      Alert.alert(
-        '회원 탈퇴 실패',
+      setErrorMessage(
         error instanceof Error
           ? error.message
           : '회원 탈퇴 중 문제가 발생했습니다.',
@@ -68,6 +68,7 @@ export function AccountWithdrawalScreen() {
   }
 
   return (
+    <>
     <ScrollView
       contentContainerStyle={[
         styles.content,
@@ -165,13 +166,15 @@ export function AccountWithdrawalScreen() {
         />
       </Pressable>
     </ScrollView>
+    <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FAF5EB',
+    backgroundColor: '#FFFDF8',
   },
   content: {
     alignItems: 'center',

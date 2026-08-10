@@ -36,6 +36,7 @@ export function useAnimalDetail(animalId?: number) {
 
   return {
     animal,
+    clearError: () => setErrorMessage(null),
     errorMessage,
     isLoading,
     reload: loadAnimal,
