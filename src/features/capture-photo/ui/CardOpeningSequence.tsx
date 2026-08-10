@@ -45,6 +45,7 @@ const AnimatedExpoImage = Animated.createAnimatedComponent(ExpoImage);
 const ANALYZING_DURATION_MS = 8000;
 const SELECTING_DURATION_MS = 10500;
 const PACK_OPENING_DURATION_MS = 8000;
+const CUT_DASH_COUNT = 18;
 const CARD_SELECT_FRONT_DELAYS = [
   0, 500, 1000, 1500, 1998.798, 2500, 2998.798, 3497.596,
   3998.798, 4497.596, 4996.394, 5493.988, 5996.394, 6750,
@@ -479,7 +480,11 @@ export function CardOpeningSequence({
             {...cutPanResponder.panHandlers}
             style={styles.cutTrack}
           >
-            <View style={styles.cutDashedLine} />
+            <View pointerEvents="none" style={styles.cutDashedLine}>
+              {Array.from({ length: CUT_DASH_COUNT }, (_, index) => (
+                <View key={index} style={styles.cutDash} />
+              ))}
+            </View>
             <View
               style={[
                 styles.cutCompletedLine,
@@ -1432,9 +1437,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cutDashedLine: {
-    borderTopWidth: scaleByDeviceWidth(2),
-    borderStyle: 'dashed',
-    borderColor: '#FFFFFF',
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cutDash: {
+    width: scaleByDeviceWidth(9),
+    height: scaleByDeviceWidth(2),
+    backgroundColor: '#FFFFFF',
   },
   cutCompletedLine: {
     position: 'absolute',
