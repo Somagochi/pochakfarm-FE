@@ -97,7 +97,6 @@ export function FarmScreen() {
         <ScrollView
           bounces={false}
           contentContainerStyle={styles.content}
-          key={selectedEnvironment}
           onContentSizeChange={() => {
             farmScrollRef.current?.scrollToEnd({ animated: false });
           }}

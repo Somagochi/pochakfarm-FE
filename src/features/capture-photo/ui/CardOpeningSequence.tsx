@@ -16,9 +16,17 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import {
+  CardSkiaReflection,
+  type CardReflectionVariant,
+} from '@/src/shared/ui/CardSkiaReflection';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
-import type { CaptureCardType, CaptureDetail } from '../model/types';
+import type {
+  CaptureCardType,
+  CaptureDetail,
+  CaptureTier,
+} from '../model/types';
 
 const CARD_PLACEHOLDER_IMAGE = require('@/src/shared/assets/images/farm/card-image-placeholder.png');
 const CARD_BACK_IMAGES: Record<CaptureCardType, ImageSourcePropType> = {
@@ -57,6 +65,22 @@ const CARD_SELECT_BACK_DELAYS = [
 ];
 const CARD_SELECT_FINAL_DELAY = 8993.739;
 const RESULT_CARD_ROTATION_DEGREES_PER_POINT = 0.9;
+const RESULT_CARD_DOUBLE_TAP_DELAY_MS = 300;
+const RESULT_CARD_RESET_DURATION_MS = 300;
+const CAPTURE_TIER_REFLECTION_VARIANTS: Partial<
+  Record<CaptureTier, CardReflectionVariant>
+> = {
+  A: 'tier-a',
+  S: 'tier-s',
+  SS: 'tier-ss',
+};
+
+function isResultCardFrontFacing(rotationX: number, rotationY: number) {
+  const xRadians = (rotationX * Math.PI) / 180;
+  const yRadians = (rotationY * Math.PI) / 180;
+
+  return Math.cos(xRadians) * Math.cos(yRadians) >= 0;
+}
 const SKY_CARD_POSITIONS = [
   { delay: 0, x: -111.06, y: -70 },
   { delay: 1367, x: 0, y: -70 },
@@ -81,10 +105,6 @@ type CardOpeningSequenceProps = {
   onReturnToFarm: () => void;
   photoUri: string;
 };
-
-function normalizeResultCardRotation(rotation: number) {
-  return ((rotation + 180) % 360 + 360) % 360 - 180;
-}
 
 export function CardOpeningSequence({
   cardType,
@@ -306,6 +326,7 @@ export function CardOpeningSequence({
             cardBackImage={cardBackImage}
             cardImageUrl={captureDetail?.cardImageUrl}
             onRelease={() => setIsReleaseAlertVisible(true)}
+            tier={captureDetail?.tier}
             onSave={() =>
               {
                 router.push({
@@ -1008,28 +1029,90 @@ function ResultCard({
   cardImageUrl,
   onRelease,
   onSave,
+  tier,
 }: {
   cardBackImage: ImageSourcePropType;
   cardImageUrl?: string;
   onRelease: () => void;
   onSave: () => void;
+  tier?: CaptureTier;
 }) {
   const [failedCardImageUrl, setFailedCardImageUrl] =
     useState<string | null>(null);
   const hasCardImageFailed =
     cardImageUrl !== undefined && failedCardImageUrl === cardImageUrl;
-  const cardRotation = useRef(new Animated.Value(180)).current;
-  const cardRotationStartRef = useRef(0);
+  const cardReflectionVariant = tier
+    ? CAPTURE_TIER_REFLECTION_VARIANTS[tier]
+    : undefined;
+  const cardRotationX = useRef(new Animated.Value(0)).current;
+  const cardRotationY = useRef(new Animated.Value(180)).current;
+  const cardFrontOpacity = useRef(new Animated.Value(0)).current;
+  const cardBackOpacity = useRef(new Animated.Value(1)).current;
+  const cardRotationXStartRef = useRef(0);
+  const cardRotationYStartRef = useRef(0);
+  const lastCardTapAtRef = useRef(0);
   const isRevealCompleteRef = useRef(false);
-  const finishCardRotation = (dx: number) => {
-    const nextRotation =
-      cardRotationStartRef.current +
+  const updateCardFace = (rotationX: number, rotationY: number) => {
+    const isFrontFacing = isResultCardFrontFacing(
+      rotationX,
+      rotationY,
+    );
+    cardFrontOpacity.setValue(isFrontFacing ? 1 : 0);
+    cardBackOpacity.setValue(isFrontFacing ? 0 : 1);
+  };
+  const finishCardRotation = (dx: number, dy: number) => {
+    const nextRotationX =
+      cardRotationXStartRef.current -
+      dy * RESULT_CARD_ROTATION_DEGREES_PER_POINT;
+    const nextRotationY =
+      cardRotationYStartRef.current +
       dx * RESULT_CARD_ROTATION_DEGREES_PER_POINT;
-    const normalizedRotation =
-      normalizeResultCardRotation(nextRotation);
 
-    cardRotation.setValue(normalizedRotation);
-    cardRotationStartRef.current = normalizedRotation;
+    cardRotationX.setValue(nextRotationX);
+    cardRotationY.setValue(nextRotationY);
+    cardRotationXStartRef.current = nextRotationX;
+    cardRotationYStartRef.current = nextRotationY;
+    updateCardFace(nextRotationX, nextRotationY);
+  };
+  const resetCardRotation = () => {
+    cardRotationXStartRef.current = 0;
+    cardRotationYStartRef.current = 0;
+
+    Animated.parallel([
+      Animated.timing(cardRotationX, {
+        toValue: 0,
+        duration: RESULT_CARD_RESET_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(cardRotationY, {
+        toValue: 0,
+        duration: RESULT_CARD_RESET_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start(() => updateCardFace(0, 0));
+  };
+  const handleCardGestureEnd = (dx: number, dy: number) => {
+    const isTap =
+      Math.hypot(dx, dy) <= scaleByDeviceWidth(3);
+
+    if (isTap) {
+      const now = Date.now();
+      if (
+        now - lastCardTapAtRef.current <=
+        RESULT_CARD_DOUBLE_TAP_DELAY_MS
+      ) {
+        lastCardTapAtRef.current = 0;
+        resetCardRotation();
+        return;
+      }
+      lastCardTapAtRef.current = now;
+    } else {
+      lastCardTapAtRef.current = 0;
+    }
+
+    finishCardRotation(dx, dy);
   };
   const cardPanResponder = useRef(
     PanResponder.create({
@@ -1039,40 +1122,55 @@ function ResultCard({
         isRevealCompleteRef.current,
       onMoveShouldSetPanResponder: (_, gestureState) =>
         isRevealCompleteRef.current &&
-        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        Math.hypot(gestureState.dx, gestureState.dy) >
+          scaleByDeviceWidth(3),
       onMoveShouldSetPanResponderCapture: (_, gestureState) =>
         isRevealCompleteRef.current &&
-        Math.abs(gestureState.dx) > scaleByDeviceWidth(3) &&
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy),
+        Math.hypot(gestureState.dx, gestureState.dy) >
+          scaleByDeviceWidth(3),
       onPanResponderGrant: () => {
-        cardRotation.stopAnimation((currentRotation) => {
-          cardRotationStartRef.current = currentRotation;
+        cardRotationX.stopAnimation((currentRotation) => {
+          cardRotationXStartRef.current = currentRotation;
+        });
+        cardRotationY.stopAnimation((currentRotation) => {
+          cardRotationYStartRef.current = currentRotation;
         });
       },
       onPanResponderMove: (_, gestureState) => {
-        cardRotation.setValue(
-          normalizeResultCardRotation(
-            cardRotationStartRef.current +
-              gestureState.dx *
-                RESULT_CARD_ROTATION_DEGREES_PER_POINT,
-          ),
-        );
+        const nextRotationX =
+          cardRotationXStartRef.current -
+          gestureState.dy * RESULT_CARD_ROTATION_DEGREES_PER_POINT;
+        const nextRotationY =
+          cardRotationYStartRef.current +
+          gestureState.dx * RESULT_CARD_ROTATION_DEGREES_PER_POINT;
+
+        cardRotationX.setValue(nextRotationX);
+        cardRotationY.setValue(nextRotationY);
+        updateCardFace(nextRotationX, nextRotationY);
       },
       onPanResponderRelease: (_, gestureState) =>
-        finishCardRotation(gestureState.dx),
+        handleCardGestureEnd(gestureState.dx, gestureState.dy),
       onPanResponderTerminate: (_, gestureState) =>
-        finishCardRotation(gestureState.dx),
+        finishCardRotation(gestureState.dx, gestureState.dy),
       onPanResponderTerminationRequest: () => false,
     }),
   ).current;
 
   useEffect(() => {
     isRevealCompleteRef.current = false;
-    cardRotation.setValue(180);
-    cardRotationStartRef.current = 180;
+    cardRotationX.setValue(0);
+    cardRotationY.setValue(180);
+    cardRotationXStartRef.current = 0;
+    cardRotationYStartRef.current = 180;
+    cardFrontOpacity.setValue(0);
+    cardBackOpacity.setValue(1);
 
-    const revealAnimation = Animated.timing(cardRotation, {
+    const faceSwapTimer = setTimeout(() => {
+      cardFrontOpacity.setValue(1);
+      cardBackOpacity.setValue(0);
+    }, 400);
+
+    const revealAnimation = Animated.timing(cardRotationY, {
       toValue: 0,
       duration: 800,
       easing: Easing.inOut(Easing.cubic),
@@ -1081,38 +1179,45 @@ function ResultCard({
 
     revealAnimation.start(({ finished }) => {
       if (finished) {
-        cardRotationStartRef.current = 0;
+        cardRotationYStartRef.current = 0;
         isRevealCompleteRef.current = true;
       }
     });
 
-    return () => revealAnimation.stop();
-  }, [cardRotation]);
+    return () => {
+      clearTimeout(faceSwapTimer);
+      revealAnimation.stop();
+    };
+  }, [
+    cardBackOpacity,
+    cardFrontOpacity,
+    cardRotationX,
+    cardRotationY,
+  ]);
 
-  const cardFrontRotateY = cardRotation.interpolate({
-    inputRange: [-180, 180],
-    outputRange: ['-180deg', '180deg'],
-  });
-  const cardBackRotateY = cardRotation.interpolate({
-    inputRange: [-180, 180],
+  const cardRotateX = cardRotationX.interpolate({
+    inputRange: [0, 360],
     outputRange: ['0deg', '360deg'],
+    extrapolate: 'extend',
   });
-  const cardFrontOpacity = cardRotation.interpolate({
-    inputRange: [-180, -90, -89, 89, 90, 180],
-    outputRange: [0, 0, 1, 1, 0, 0],
-    extrapolate: 'clamp',
+  const cardRotateY = cardRotationY.interpolate({
+    inputRange: [0, 360],
+    outputRange: ['0deg', '360deg'],
+    extrapolate: 'extend',
   });
-  const cardBackOpacity = cardRotation.interpolate({
-    inputRange: [-180, -90, -89, 89, 90, 180],
-    outputRange: [1, 1, 0, 0, 1, 1],
-    extrapolate: 'clamp',
+  const cardBackRotateY = cardRotationY.interpolate({
+    inputRange: [0, 360],
+    outputRange: ['180deg', '540deg'],
+    extrapolate: 'extend',
   });
+  const resultCardWidth = scaleByDeviceWidth(283.66);
+  const resultCardHeight = scaleByDeviceWidth(408.52);
 
   return (
     <View accessibilityLabel="포착한 캐릭터 카드" style={styles.resultArea}>
-      <View
+      <Animated.View
         {...cardPanResponder.panHandlers}
-        accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
+        accessibilityHint="상하좌우로 밀어서 회전하고 두 번 탭하면 처음 방향으로 돌아갑니다"
         accessibilityLabel="포착한 캐릭터 카드"
         accessible
         style={styles.resultCard}
@@ -1133,10 +1238,12 @@ function ResultCard({
           style={[
             styles.resultCardFace,
             {
+              backfaceVisibility: 'hidden',
               opacity: cardFrontOpacity,
               transform: [
                 { perspective: scaleByDeviceWidth(900) },
-                { rotateY: cardFrontRotateY },
+                { rotateX: cardRotateX },
+                { rotateY: cardRotateY },
               ],
             },
           ]}
@@ -1147,15 +1254,37 @@ function ResultCard({
           style={[
             styles.resultCardFace,
             {
+              backfaceVisibility: 'hidden',
               opacity: cardBackOpacity,
               transform: [
                 { perspective: scaleByDeviceWidth(900) },
+                { rotateX: cardRotateX },
                 { rotateY: cardBackRotateY },
               ],
             },
           ]}
         />
-      </View>
+        {cardReflectionVariant && (
+          <CardSkiaReflection
+            cardHeight={resultCardHeight}
+            cardWidth={resultCardWidth}
+            frontOpacity={cardFrontOpacity}
+            rotationX={cardRotationX}
+            rotationY={cardRotationY}
+            style={{
+              width: resultCardWidth,
+              height: resultCardHeight,
+              borderRadius: scaleByDeviceWidth(14),
+              transform: [
+                { perspective: scaleByDeviceWidth(900) },
+                { rotateX: cardRotateX },
+                { rotateY: cardRotateY },
+              ],
+            }}
+            variant={cardReflectionVariant}
+          />
+        )}
+      </Animated.View>
       <View style={styles.resultActions}>
         <Pressable
           accessibilityLabel="농장에 저장하기"

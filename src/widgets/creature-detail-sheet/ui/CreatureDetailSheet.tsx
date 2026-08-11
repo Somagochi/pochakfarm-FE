@@ -16,6 +16,13 @@ import {
   GestureDetector,
   GestureHandlerRootView,
 } from 'react-native-gesture-handler';
+import Reanimated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import {
   useAnimalDetail,
@@ -24,6 +31,10 @@ import {
 } from '@/src/entities/creature';
 import { useReleaseAnimal } from '@/src/features/release-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import {
+  ReanimatedCardSkiaReflection,
+  type CardReflectionVariant,
+} from '@/src/shared/ui/CardSkiaReflection';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
@@ -112,7 +123,25 @@ const CARD_IMAGE_WIDTH = scaleByDeviceWidth(226.92);
 const CARD_IMAGE_HEIGHT = scaleByDeviceWidth(324.07);
 const CARD_IMAGE_BORDER_RADIUS = scaleByDeviceWidth(8);
 const CARD_IMAGE_TOP_OFFSET = scaleByDeviceWidth(68);
+const CARD_PERSPECTIVE = scaleByDeviceWidth(800);
 const CARD_ROTATION_DEGREES_PER_POINT = 0.9;
+const CARD_RESET_DURATION_MS = 300;
+const CREATURE_TIER_REFLECTION_VARIANTS: Partial<
+  Record<CreatureTier, CardReflectionVariant>
+> = {
+  A: 'tier-a',
+  S: 'tier-s',
+  SS: 'tier-ss',
+};
+
+function isCardFrontFacing(rotationX: number, rotationY: number) {
+  'worklet';
+
+  const xRadians = (rotationX * Math.PI) / 180;
+  const yRadians = (rotationY * Math.PI) / 180;
+
+  return Math.cos(xRadians) * Math.cos(yRadians) >= 0;
+}
 const CARD_NAME_FIELD_TOP_GAP = scaleByDeviceWidth(15.85);
 const CARD_NAME_FIELD_WIDTH = scaleByDeviceWidth(308);
 const CARD_NAME_FIELD_HEIGHT = scaleByDeviceWidth(40);
@@ -129,10 +158,6 @@ type CreatureDetailSheetProps = {
   onReleaseSuccess?: () => Promise<void>;
   width: number;
 };
-
-function normalizeCardRotation(rotation: number) {
-  return ((rotation + 180) % 360 + 360) % 360 - 180;
-}
 
 export function CreatureDetailSheet({
   animalId,
@@ -163,6 +188,8 @@ export function CreatureDetailSheet({
     ? CREATURE_TYPE_NAMES[animal.cardType]
     : CREATURE_TYPE;
   const creatureTier = animal?.tier ?? CREATURE_TIER;
+  const cardReflectionVariant =
+    CREATURE_TIER_REFLECTION_VARIANTS[creatureTier];
   const creatureTraits = animal
     ? [animal.skill1, animal.skill2]
     : CREATURE_TRAITS;
@@ -298,62 +325,102 @@ export function CreatureDetailSheet({
       top: createSheetPanGesture(),
     };
   }, [closeSheet, restoreSheetPosition, shouldScrollSheet, translateY]);
-  const cardRotation = useRef(new Animated.Value(0)).current;
-  const cardRotationStartRef = useRef(0);
+  const cardRotationX = useSharedValue(0);
+  const cardRotationY = useSharedValue(0);
+  const cardRotationXStart = useSharedValue(0);
+  const cardRotationYStart = useSharedValue(0);
+  const resetCardRotation = useCallback(() => {
+    'worklet';
+
+    cardRotationXStart.value = 0;
+    cardRotationYStart.value = 0;
+    cardRotationX.value = withTiming(0, {
+      duration: CARD_RESET_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+    cardRotationY.value = withTiming(0, {
+      duration: CARD_RESET_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [
+    cardRotationX,
+    cardRotationXStart,
+    cardRotationY,
+    cardRotationYStart,
+  ]);
   const cardPanGesture = useMemo(
     () =>
       Gesture.Pan()
-        .activeOffsetX([
-          -SHEET_GESTURE_THRESHOLD,
-          SHEET_GESTURE_THRESHOLD,
-        ])
-        .failOffsetY([
-          -SHEET_GESTURE_THRESHOLD,
-          SHEET_GESTURE_THRESHOLD,
-        ])
+        .minDistance(SHEET_GESTURE_THRESHOLD)
         .onBegin(() => {
-          cardRotation.stopAnimation((currentRotation) => {
-            cardRotationStartRef.current = currentRotation;
-          });
+          cancelAnimation(cardRotationX);
+          cancelAnimation(cardRotationY);
+          cardRotationXStart.value = cardRotationX.value;
+          cardRotationYStart.value = cardRotationY.value;
         })
         .onUpdate((event) => {
-          cardRotation.setValue(
-            normalizeCardRotation(
-              cardRotationStartRef.current +
-                event.translationX * CARD_ROTATION_DEGREES_PER_POINT,
-            ),
-          );
+          const nextRotationX =
+            cardRotationXStart.value -
+            event.translationY * CARD_ROTATION_DEGREES_PER_POINT;
+          const nextRotationY =
+            cardRotationYStart.value +
+            event.translationX * CARD_ROTATION_DEGREES_PER_POINT;
+
+          cardRotationX.value = nextRotationX;
+          cardRotationY.value = nextRotationY;
         })
         .onEnd((event) => {
-          const nextRotation = normalizeCardRotation(
-            cardRotationStartRef.current +
-              event.translationX * CARD_ROTATION_DEGREES_PER_POINT,
-          );
+          const nextRotationX =
+            cardRotationXStart.value -
+            event.translationY * CARD_ROTATION_DEGREES_PER_POINT;
+          const nextRotationY =
+            cardRotationYStart.value +
+            event.translationX * CARD_ROTATION_DEGREES_PER_POINT;
 
-          cardRotation.setValue(nextRotation);
-          cardRotationStartRef.current = nextRotation;
-        })
-        .runOnJS(true),
-    [cardRotation],
+          cardRotationX.value = nextRotationX;
+          cardRotationY.value = nextRotationY;
+          cardRotationXStart.value = nextRotationX;
+          cardRotationYStart.value = nextRotationY;
+        }),
+    [
+      cardRotationX,
+      cardRotationXStart,
+      cardRotationY,
+      cardRotationYStart,
+    ],
   );
-  const cardFrontRotateY = cardRotation.interpolate({
-    inputRange: [-180, 180],
-    outputRange: ['-180deg', '180deg'],
-  });
-  const cardBackRotateY = cardRotation.interpolate({
-    inputRange: [-180, 180],
-    outputRange: ['0deg', '360deg'],
-  });
-  const cardFrontOpacity = cardRotation.interpolate({
-    inputRange: [-180, -90, -89, 89, 90, 180],
-    outputRange: [0, 0, 1, 1, 0, 0],
-    extrapolate: 'clamp',
-  });
-  const cardBackOpacity = cardRotation.interpolate({
-    inputRange: [-180, -90, -89, 89, 90, 180],
-    outputRange: [1, 1, 0, 0, 1, 1],
-    extrapolate: 'clamp',
-  });
+  const cardDoubleTapGesture = useMemo(
+    () =>
+      Gesture.Tap()
+        .numberOfTaps(2)
+        .maxDuration(250)
+        .onEnd(resetCardRotation),
+    [resetCardRotation],
+  );
+  const cardGesture = useMemo(
+    () => Gesture.Race(cardDoubleTapGesture, cardPanGesture),
+    [cardDoubleTapGesture, cardPanGesture],
+  );
+  const cardFrontAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: isCardFrontFacing(cardRotationX.value, cardRotationY.value)
+      ? 1
+      : 0,
+    transform: [
+      { perspective: CARD_PERSPECTIVE },
+      { rotateX: `${cardRotationX.value}deg` },
+      { rotateY: `${cardRotationY.value}deg` },
+    ],
+  }));
+  const cardBackAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: isCardFrontFacing(cardRotationX.value, cardRotationY.value)
+      ? 0
+      : 1,
+    transform: [
+      { perspective: CARD_PERSPECTIVE },
+      { rotateX: `${cardRotationX.value}deg` },
+      { rotateY: `${cardRotationY.value + 180}deg` },
+    ],
+  }));
 
   useEffect(() => {
     translateY.setValue(visibleSheetHeight);
@@ -706,9 +773,9 @@ export function CreatureDetailSheet({
                 ]}
               />
 
-              <GestureDetector gesture={cardPanGesture}>
+              <GestureDetector gesture={cardGesture}>
                 <View
-                  accessibilityHint="좌우로 밀어서 카드를 회전할 수 있습니다"
+                  accessibilityHint="상하좌우로 밀어서 회전하고 두 번 탭하면 처음 방향으로 돌아갑니다"
                   accessibilityLabel={`${creatureName} 카드`}
                   accessible
                   style={[
@@ -721,7 +788,7 @@ export function CreatureDetailSheet({
                   ]}
                 >
                   {(!creatureCardSource || hasCreatureCardFailed) && (
-                    <Animated.Image
+                    <Reanimated.Image
                       resizeMode="contain"
                       source={CARD_IMAGE_PLACEHOLDER}
                       style={[
@@ -729,17 +796,14 @@ export function CreatureDetailSheet({
                         {
                           width: CARD_IMAGE_WIDTH,
                           height: CARD_IMAGE_HEIGHT,
-                          opacity: cardFrontOpacity,
-                          transform: [
-                            { perspective: scaleByDeviceWidth(800) },
-                            { rotateY: cardFrontRotateY },
-                          ],
+                          backfaceVisibility: 'hidden',
                         },
+                        cardFrontAnimatedStyle,
                       ]}
                     />
                   )}
                   {creatureCardSource && !hasCreatureCardFailed && (
-                    <Animated.Image
+                    <Reanimated.Image
                       defaultSource={CARD_IMAGE_PLACEHOLDER}
                       onError={() => {
                         if (creatureCardUri) {
@@ -753,16 +817,13 @@ export function CreatureDetailSheet({
                         {
                           width: CARD_IMAGE_WIDTH,
                           height: CARD_IMAGE_HEIGHT,
-                          opacity: cardFrontOpacity,
-                          transform: [
-                            { perspective: scaleByDeviceWidth(800) },
-                            { rotateY: cardFrontRotateY },
-                          ],
+                          backfaceVisibility: 'hidden',
                         },
+                        cardFrontAnimatedStyle,
                       ]}
                     />
                   )}
-                  <Animated.Image
+                  <Reanimated.Image
                     resizeMode="stretch"
                     source={creatureCardBackSource}
                     style={[
@@ -770,14 +831,20 @@ export function CreatureDetailSheet({
                       {
                         width: CARD_IMAGE_WIDTH,
                         height: CARD_IMAGE_HEIGHT,
-                        opacity: cardBackOpacity,
-                        transform: [
-                          { perspective: scaleByDeviceWidth(800) },
-                          { rotateY: cardBackRotateY },
-                        ],
+                        backfaceVisibility: 'hidden',
                       },
+                      cardBackAnimatedStyle,
                     ]}
                   />
+                  {cardReflectionVariant && (
+                    <ReanimatedCardSkiaReflection
+                      cardHeight={CARD_IMAGE_HEIGHT}
+                      cardWidth={CARD_IMAGE_WIDTH}
+                      rotationX={cardRotationX}
+                      rotationY={cardRotationY}
+                      variant={cardReflectionVariant}
+                    />
+                  )}
                 </View>
               </GestureDetector>
 
