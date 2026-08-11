@@ -16,9 +16,17 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import {
+  CardSkiaReflection,
+  type CardReflectionVariant,
+} from '@/src/shared/ui/CardSkiaReflection';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
-import type { CaptureCardType, CaptureDetail } from '../model/types';
+import type {
+  CaptureCardType,
+  CaptureDetail,
+  CaptureTier,
+} from '../model/types';
 
 const CARD_PLACEHOLDER_IMAGE = require('@/src/shared/assets/images/farm/card-image-placeholder.png');
 const CARD_BACK_IMAGES: Record<CaptureCardType, ImageSourcePropType> = {
@@ -59,6 +67,13 @@ const CARD_SELECT_FINAL_DELAY = 8993.739;
 const RESULT_CARD_ROTATION_DEGREES_PER_POINT = 0.9;
 const RESULT_CARD_DOUBLE_TAP_DELAY_MS = 300;
 const RESULT_CARD_RESET_DURATION_MS = 300;
+const CAPTURE_TIER_REFLECTION_VARIANTS: Partial<
+  Record<CaptureTier, CardReflectionVariant>
+> = {
+  A: 'tier-a',
+  S: 'tier-s',
+  SS: 'tier-ss',
+};
 
 function isResultCardFrontFacing(rotationX: number, rotationY: number) {
   const xRadians = (rotationX * Math.PI) / 180;
@@ -311,6 +326,7 @@ export function CardOpeningSequence({
             cardBackImage={cardBackImage}
             cardImageUrl={captureDetail?.cardImageUrl}
             onRelease={() => setIsReleaseAlertVisible(true)}
+            tier={captureDetail?.tier}
             onSave={() =>
               {
                 router.push({
@@ -1013,16 +1029,21 @@ function ResultCard({
   cardImageUrl,
   onRelease,
   onSave,
+  tier,
 }: {
   cardBackImage: ImageSourcePropType;
   cardImageUrl?: string;
   onRelease: () => void;
   onSave: () => void;
+  tier?: CaptureTier;
 }) {
   const [failedCardImageUrl, setFailedCardImageUrl] =
     useState<string | null>(null);
   const hasCardImageFailed =
     cardImageUrl !== undefined && failedCardImageUrl === cardImageUrl;
+  const cardReflectionVariant = tier
+    ? CAPTURE_TIER_REFLECTION_VARIANTS[tier]
+    : undefined;
   const cardRotationX = useRef(new Animated.Value(0)).current;
   const cardRotationY = useRef(new Animated.Value(180)).current;
   const cardFrontOpacity = useRef(new Animated.Value(0)).current;
@@ -1189,6 +1210,8 @@ function ResultCard({
     outputRange: ['180deg', '540deg'],
     extrapolate: 'extend',
   });
+  const resultCardWidth = scaleByDeviceWidth(283.66);
+  const resultCardHeight = scaleByDeviceWidth(408.52);
 
   return (
     <View accessibilityLabel="포착한 캐릭터 카드" style={styles.resultArea}>
@@ -1241,6 +1264,26 @@ function ResultCard({
             },
           ]}
         />
+        {cardReflectionVariant && (
+          <CardSkiaReflection
+            cardHeight={resultCardHeight}
+            cardWidth={resultCardWidth}
+            frontOpacity={cardFrontOpacity}
+            rotationX={cardRotationX}
+            rotationY={cardRotationY}
+            style={{
+              width: resultCardWidth,
+              height: resultCardHeight,
+              borderRadius: scaleByDeviceWidth(14),
+              transform: [
+                { perspective: scaleByDeviceWidth(900) },
+                { rotateX: cardRotateX },
+                { rotateY: cardRotateY },
+              ],
+            }}
+            variant={cardReflectionVariant}
+          />
+        )}
       </Animated.View>
       <View style={styles.resultActions}>
         <Pressable
