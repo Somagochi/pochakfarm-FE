@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import {
+  Animated,
   Image,
   type ImageSourcePropType,
   StyleSheet,
@@ -37,6 +38,7 @@ const REFERENCE_SCREEN_WIDTH = 360;
 const BASE_SLOT_SIZE = 58.4;
 const BASE_SLOT_GAP = 26.6;
 const SLOT_COUNT = 4;
+const BACKGROUND_TRANSITION_DURATION_MS = 220;
 const CREATURE_NAMEPLATE_IMAGE = require('@/src/shared/assets/images/farm/creature-nameplate.png');
 const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 const FARM_AREAS = [
@@ -100,6 +102,14 @@ export function FarmField({
   >(null);
   const { expandFloor, isExpanding } = useExpandFarmFloor(farmType);
   const { background, unlock } = ENVIRONMENT_ASSETS[environment];
+  const [displayedBackground, setDisplayedBackground] =
+    useState<ImageSourcePropType>(background);
+  const [incomingBackground, setIncomingBackground] =
+    useState<ImageSourcePropType | null>(null);
+  const backgroundTransitionOpacity = useRef(new Animated.Value(0)).current;
+  const backgroundTransitionRef = useRef<Animated.CompositeAnimation | null>(
+    null,
+  );
   const { width: imageWidth, height: imageHeight } =
     Image.resolveAssetSource(background);
   const farmImageRatio = imageHeight / imageWidth;
@@ -108,6 +118,50 @@ export function FarmField({
   const slotSize = BASE_SLOT_SIZE * uiScale;
   const slotGap = BASE_SLOT_GAP * uiScale;
   const rowWidth = slotSize * SLOT_COUNT + slotGap * (SLOT_COUNT - 1);
+
+  useEffect(() => {
+    if (background === displayedBackground) {
+      return;
+    }
+
+    backgroundTransitionRef.current?.stop();
+    backgroundTransitionOpacity.setValue(0);
+    setIncomingBackground(background);
+  }, [background, backgroundTransitionOpacity, displayedBackground]);
+
+  useEffect(
+    () => () => {
+      backgroundTransitionRef.current?.stop();
+    },
+    [],
+  );
+
+  const handleIncomingBackgroundLoad = () => {
+    const loadedBackground = incomingBackground;
+
+    if (loadedBackground === null) {
+      return;
+    }
+
+    backgroundTransitionRef.current?.stop();
+    const transition = Animated.timing(backgroundTransitionOpacity, {
+      toValue: 1,
+      duration: BACKGROUND_TRANSITION_DURATION_MS,
+      useNativeDriver: true,
+    });
+    backgroundTransitionRef.current = transition;
+    transition.start(({ finished }) => {
+      if (!finished) {
+        return;
+      }
+
+      setDisplayedBackground(loadedBackground);
+      setIncomingBackground((currentBackground) =>
+        currentBackground === loadedBackground ? null : currentBackground,
+      );
+      backgroundTransitionRef.current = null;
+    });
+  };
 
   const getDropTarget = (pageX: number, pageY: number) => {
     const x = pageX - canvasOriginRef.current.x;
@@ -159,10 +213,25 @@ export function FarmField({
       style={[styles.canvas, { width, height: canvasHeight }]}
     >
       <Image
-        resizeMode="contain"
-        source={background}
-        style={{ width, height: canvasHeight }}
+        resizeMode={displayedBackground === background ? 'contain' : 'cover'}
+        source={displayedBackground}
+        style={[styles.background, { width, height: canvasHeight }]}
       />
+      {incomingBackground !== null && (
+        <Animated.Image
+          onLoad={handleIncomingBackgroundLoad}
+          resizeMode="contain"
+          source={incomingBackground}
+          style={[
+            styles.background,
+            {
+              width,
+              height: canvasHeight,
+              opacity: backgroundTransitionOpacity,
+            },
+          ]}
+        />
+      )}
 
       {FARM_AREAS.map(({ areaNumber, sourceCenterY }) => {
         const floor = floors.find(
@@ -324,6 +393,11 @@ export function FarmField({
 const styles = StyleSheet.create({
   canvas: {
     position: 'relative',
+  },
+  background: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
   },
   areaRow: {
     position: 'absolute',
