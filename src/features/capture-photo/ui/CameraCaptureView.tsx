@@ -854,14 +854,16 @@ export function CameraCaptureView() {
             ) : (
               <GestureDetector gesture={pinchGesture}>
                 <View style={StyleSheet.absoluteFill}>
-                  <CameraView
-                    animateShutter={false}
-                    facing="back"
-                    flash="off"
-                    ref={cameraRef}
-                    style={StyleSheet.absoluteFill}
-                    zoom={cameraZoom}
-                  />
+                  {!isCoinDialogVisible && (
+                    <CameraView
+                      animateShutter={false}
+                      facing="back"
+                      flash="off"
+                      ref={cameraRef}
+                      style={StyleSheet.absoluteFill}
+                      zoom={cameraZoom}
+                    />
+                  )}
                   <View style={styles.dimOverlay} pointerEvents="none" />
                   {hasCaptureOpportunity && (
                     <Image
@@ -1128,7 +1130,17 @@ export function CameraCaptureView() {
         style={[styles.shutterFlash, { opacity: shutterFlashOpacity }]}
       />
 
-      {isCoinDialogVisible && (
+      <Modal
+        animationType="fade"
+        onRequestClose={() => {
+          if (!isPurchasingAttempt) {
+            setIsCoinDialogVisible(false);
+          }
+        }}
+        statusBarTranslucent
+        transparent
+        visible={isCoinDialogVisible}
+      >
         <View style={styles.dialogOverlay}>
           <View style={styles.coinDialog}>
             <Image
@@ -1163,7 +1175,7 @@ export function CameraCaptureView() {
             />
           </View>
         </View>
-      )}
+      </Modal>
 
       <Modal
         animationType="fade"
