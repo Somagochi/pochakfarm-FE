@@ -29,6 +29,7 @@ const FARM_TYPE_BY_ENVIRONMENT: Record<SelectableFarmEnvironment, FarmType> = {
 };
 const CLOSE_REORDER_BUTTON = require('@/src/shared/assets/images/capture/capture-close.png');
 const SAVE_REORDER_BUTTON = require('@/src/shared/assets/images/farm-status/save-reorder-button.png');
+const EMPTY_SAVE_SLOT_IMAGE = require('@/src/shared/assets/images/farm/empty-save-slot.png');
 
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
@@ -134,6 +135,9 @@ export function FarmScreen() {
                     setSelectedAnimalId(animal.animalId);
                     setIsCreatureDetailVisible(true);
                   }
+            }
+            selectionSlotImageSource={
+              isReordering ? EMPTY_SAVE_SLOT_IMAGE : undefined
             }
             width={contentSize.width}
           />
