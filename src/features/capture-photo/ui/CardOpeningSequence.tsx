@@ -3,7 +3,6 @@ import { router } from 'expo-router';
 import LottieView from 'lottie-react-native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Animated,
   Easing,
   Image,
@@ -40,6 +39,8 @@ const CARD_PACK_BACK_IMAGE = require('@/src/shared/assets/images/capture/card-op
 const CARD_PACK_READY_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-pack-ready.png');
 const CARD_PACK_OPEN_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-pack-open-text.png');
 const CARD_PACK_CUT_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-pack-cut-text.png');
+const FINISHING_CARD_GENERATION_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/finishing-card-generation-text.png');
+const CARD_GENERATION_SPINNER_IMAGE = require('@/src/shared/assets/images/capture/card-opening/card-generation-spinner.png');
 const PROCESSING_ANALYZING_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/processing-analyzing-text.png');
 const PROCESSING_SELECTING_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/processing-selecting-text.png');
 const CHOOSE_ONE_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-opening/choose-one-text.png');
@@ -305,10 +306,41 @@ export function CardOpeningSequence({
   if (stage === 'waiting-result') {
     return (
       <View accessibilityLabel="카드 결과 생성 중" style={styles.container}>
-        <ActivityIndicator color="#F6C94C" size="large" />
-        <Text style={styles.resultLoadingText}>
-          카드 결과를 만들고 있어요
-        </Text>
+        <View style={styles.waitingResultContent}>
+          <View style={[styles.shimmerTitleMask, styles.readyTitleMask]}>
+            <ShimmerTitle
+              cut={false}
+              progress={shimmer}
+              ready
+              selecting={false}
+              title="Card Pack Ready"
+            />
+          </View>
+          <Image
+            accessibilityLabel="카드 생성을 마무리하고 있어요"
+            resizeMode="contain"
+            source={FINISHING_CARD_GENERATION_TEXT_IMAGE}
+            style={styles.finishingCardGenerationText}
+          />
+          <Animated.Image
+            accessibilityLabel="카드 생성 중"
+            resizeMode="contain"
+            source={CARD_GENERATION_SPINNER_IMAGE}
+            style={[
+              styles.cardGenerationSpinner,
+              {
+                transform: [
+                  {
+                    rotate: shimmer.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: ['0deg', '360deg'],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        </View>
       </View>
     );
   }
@@ -1322,12 +1354,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(13, 18, 23, 0.94)',
   },
-  resultLoadingText: {
-    marginTop: scaleByDeviceWidth(16),
-    color: '#F8F2E7',
-    fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(16),
-    lineHeight: scaleByDeviceWidth(22),
+  waitingResultContent: {
+    alignItems: 'center',
+  },
+  finishingCardGenerationText: {
+    width: scaleByDeviceWidth(176),
+    height: scaleByDeviceWidth(18),
+    marginTop: scaleByDeviceWidth(15.56),
+  },
+  cardGenerationSpinner: {
+    width: scaleByDeviceWidth(92.49),
+    height: scaleByDeviceWidth(92.49),
+    marginTop: scaleByDeviceWidth(132.37),
   },
   heading: {
     position: 'absolute',
