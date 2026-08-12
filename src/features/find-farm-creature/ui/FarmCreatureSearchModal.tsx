@@ -17,6 +17,7 @@ import {
   useAnimals,
   type AnimalCardType,
   type CreatureEnvironment,
+  type CreatureTier,
   type FarmCreatureListItem,
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
@@ -43,6 +44,14 @@ const ENVIRONMENT_BY_CARD_TYPE: Record<
   SEA: 'sea',
   SKY: 'sky',
   SPACE: 'space',
+};
+const TIER_PRIORITY: Record<CreatureTier, number> = {
+  C: 0,
+  B: 1,
+  A: 2,
+  S: 3,
+  SS: 4,
+  SSS: 5,
 };
 
 type FarmCreatureSearchModalProps = {
@@ -85,18 +94,24 @@ export function FarmCreatureSearchModal({
   const filteredCreatures = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLocaleLowerCase('ko-KR');
 
-    return creatures.filter((creature) => {
-      const matchesType =
-        selectedAnimalType === 'all' ||
-        creature.environment === selectedAnimalType;
-      const matchesQuery =
-        normalizedQuery.length === 0 ||
-        creature.name
-          .toLocaleLowerCase('ko-KR')
-          .includes(normalizedQuery);
+    return creatures
+      .filter((creature) => {
+        const matchesType =
+          selectedAnimalType === 'all' ||
+          creature.environment === selectedAnimalType;
+        const matchesQuery =
+          normalizedQuery.length === 0 ||
+          creature.name
+            .toLocaleLowerCase('ko-KR')
+            .includes(normalizedQuery);
 
-      return matchesType && matchesQuery;
-    });
+        return matchesType && matchesQuery;
+      })
+      .sort(
+        (leftCreature, rightCreature) =>
+          TIER_PRIORITY[rightCreature.tier] -
+          TIER_PRIORITY[leftCreature.tier],
+      );
   }, [creatures, searchQuery, selectedAnimalType]);
 
   return (
