@@ -11,14 +11,14 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const ENVIRONMENTS = [
   {
-    key: 'sky',
-    label: '하늘',
-    source: require('@/src/shared/assets/images/farm-status/sky-button.png'),
-  },
-  {
     key: 'land',
     label: '땅',
     source: require('@/src/shared/assets/images/farm-status/farm-action-button.png'),
+  },
+  {
+    key: 'sky',
+    label: '하늘',
+    source: require('@/src/shared/assets/images/farm-status/sky-button.png'),
   },
   {
     key: 'sea',
