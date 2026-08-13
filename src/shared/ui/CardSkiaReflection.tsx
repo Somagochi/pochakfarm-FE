@@ -1,4 +1,5 @@
 import {
+  Blur,
   Canvas,
   LinearGradient,
   RoundedRect,
@@ -29,12 +30,19 @@ type ReanimatedCardSkiaReflectionProps = {
   variant: CardReflectionVariant;
 };
 
-export type CardReflectionVariant = 'tier-a' | 'tier-s' | 'tier-ss';
+export type CardReflectionVariant =
+  | 'tier-a'
+  | 'tier-s'
+  | 'tier-ss'
+  | 'tier-sss';
 
 type CardReflectionGradientConfig = {
+  blurRadiusRatio?: number;
   colors: string[];
+  endXRatio?: number;
   endYRatio: number;
   positions: number[];
+  startXRatio?: number;
   startYRatio: number;
 };
 
@@ -83,6 +91,37 @@ function buildSsReflectionLineGradient() {
 }
 
 const SS_REFLECTION_LINE_GRADIENT = buildSsReflectionLineGradient();
+
+function buildSssGridLineGradient(color: string) {
+  const colors: string[] = [];
+  const positions: number[] = [];
+  const lineCenters = [
+    0.1,
+    0.2,
+    0.3,
+    0.4,
+    0.5,
+    0.6,
+    0.7,
+    0.8,
+    0.9,
+  ];
+  const halfWidth = 0.006;
+
+  for (const center of lineCenters) {
+    colors.push('rgba(255,255,255,0)', color, 'rgba(255,255,255,0)');
+    positions.push(center - halfWidth, center, center + halfWidth);
+  }
+
+  return { colors, positions };
+}
+
+const SSS_GRID_CYAN = buildSssGridLineGradient(
+  'rgba(125,245,255,0.9)',
+);
+const SSS_GRID_MAGENTA = buildSssGridLineGradient(
+  'rgba(255,145,235,0.78)',
+);
 
 const CARD_REFLECTION_VARIANTS: Record<
   CardReflectionVariant,
@@ -142,6 +181,59 @@ const CARD_REFLECTION_VARIANTS: Record<
         ],
         endYRatio: 0.82,
         positions: [0.18, 0.34, 0.5, 0.66, 0.82],
+        startYRatio: 0.18,
+      },
+    ],
+  },
+  'tier-sss': {
+    angleScaleMax: 1.12,
+    canvasScale: 2.6,
+    colors: [
+      'rgba(255,80,170,0.18)',
+      'rgba(255,225,90,0.34)',
+      'rgba(100,255,210,0.3)',
+      'rgba(90,205,255,0.36)',
+      'rgba(180,105,255,0.3)',
+      'rgba(255,80,170,0.18)',
+    ],
+    gradientEndYRatio: 0.92,
+    gradientPositions: [0, 0.2, 0.4, 0.6, 0.8, 1],
+    gradientStartYRatio: 0.08,
+    maxOpacity: 1,
+    translateXRatio: 0.65,
+    translateYRatio: 0.55,
+    underlayGradients: [
+      {
+        blurRadiusRatio: 0.008,
+        colors: SSS_GRID_CYAN.colors,
+        endXRatio: 1,
+        endYRatio: 0.5,
+        positions: SSS_GRID_CYAN.positions,
+        startXRatio: 0,
+        startYRatio: 0.5,
+      },
+      {
+        blurRadiusRatio: 0.008,
+        colors: SSS_GRID_MAGENTA.colors,
+        endXRatio: 0.5,
+        endYRatio: 1,
+        positions: SSS_GRID_MAGENTA.positions,
+        startXRatio: 0.5,
+        startYRatio: 0,
+      },
+      {
+        blurRadiusRatio: 0.014,
+        colors: [
+          'rgba(255,255,255,0)',
+          'rgba(100,235,255,0.5)',
+          'rgba(255,255,255,1)',
+          'rgba(255,155,230,0.55)',
+          'rgba(255,255,255,0)',
+        ],
+        endXRatio: 1,
+        endYRatio: 0.82,
+        positions: [0.32, 0.43, 0.5, 0.57, 0.68],
+        startXRatio: 0,
         startYRatio: 0.18,
       },
     ],
@@ -239,12 +331,18 @@ function CardReflectionCanvas({
           <LinearGradient
             colors={gradient.colors}
             end={vec(
-              reflectionWidth,
+              reflectionWidth * (gradient.endXRatio ?? 1),
               reflectionHeight * gradient.endYRatio,
             )}
             positions={gradient.positions}
-            start={vec(0, reflectionHeight * gradient.startYRatio)}
+            start={vec(
+              reflectionWidth * (gradient.startXRatio ?? 0),
+              reflectionHeight * gradient.startYRatio,
+            )}
           />
+          {gradient.blurRadiusRatio ? (
+            <Blur blur={cardWidth * gradient.blurRadiusRatio} />
+          ) : null}
         </RoundedRect>
       ))}
     </Canvas>

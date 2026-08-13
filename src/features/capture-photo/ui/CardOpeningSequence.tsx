@@ -74,6 +74,7 @@ const CAPTURE_TIER_REFLECTION_VARIANTS: Partial<
   A: 'tier-a',
   S: 'tier-s',
   SS: 'tier-ss',
+  SSS: 'tier-sss',
 };
 
 function isResultCardFrontFacing(rotationX: number, rotationY: number) {
