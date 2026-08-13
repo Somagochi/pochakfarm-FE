@@ -439,6 +439,23 @@ export function CameraCaptureView() {
     }
   };
 
+  const developPhoto = async (photoUri: string) => {
+    developingPhotoTranslateY.setValue(-cameraCardHeight);
+    setDevelopingPhotoUri(photoUri);
+
+    await new Promise<void>((resolve) => {
+      Animated.timing(developingPhotoTranslateY, {
+        duration: PHOTO_DEVELOP_DURATION_MS,
+        easing: Easing.out(Easing.cubic),
+        toValue: 0,
+        useNativeDriver: true,
+      }).start(() => resolve());
+    });
+
+    setCapturedPhotoUri(photoUri);
+    setDevelopingPhotoUri(null);
+  };
+
   const handleCapture = async () => {
     if (
       !cameraRef.current ||
@@ -471,20 +488,7 @@ export function CameraCaptureView() {
       if (photo?.uri) {
         setCapturedPhotoContentType('image/jpeg');
         selectCapturePaymentMethod();
-        developingPhotoTranslateY.setValue(-cameraCardHeight);
-        setDevelopingPhotoUri(photo.uri);
-
-        await new Promise<void>((resolve) => {
-          Animated.timing(developingPhotoTranslateY, {
-            duration: PHOTO_DEVELOP_DURATION_MS,
-            easing: Easing.out(Easing.cubic),
-            toValue: 0,
-            useNativeDriver: true,
-          }).start(() => resolve());
-        });
-
-        setCapturedPhotoUri(photo.uri);
-        setDevelopingPhotoUri(null);
+        await developPhoto(photo.uri);
       }
     } catch {
       setLocalErrorMessage('사진을 촬영하지 못했습니다. 다시 시도해 주세요.');
@@ -512,7 +516,7 @@ export function CameraCaptureView() {
           selectedPhoto.mimeType ?? 'image/jpeg',
         );
         selectCapturePaymentMethod();
-        setCapturedPhotoUri(selectedPhoto.uri);
+        await developPhoto(selectedPhoto.uri);
       }
     } catch {
       setLocalErrorMessage(
