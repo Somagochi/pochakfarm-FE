@@ -197,12 +197,6 @@ const CARD_REFLECTION_VARIANTS: Record<
         positions: [0.18, 0.34, 0.5, 0.66, 0.82],
         startYRatio: 0.18,
       },
-      {
-        colors: SS_REFLECTION_LINE_GRADIENT.colors,
-        endYRatio: 0.1,
-        positions: SS_REFLECTION_LINE_GRADIENT.positions,
-        startYRatio: 0.9,
-      },
     ],
   },
   'tier-sss': {
