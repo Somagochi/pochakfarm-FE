@@ -132,6 +132,7 @@ const CREATURE_TIER_REFLECTION_VARIANTS: Partial<
   A: 'tier-a',
   S: 'tier-s',
   SS: 'tier-ss',
+  SSS: 'tier-sss',
 };
 
 function isCardFrontFacing(rotationX: number, rotationY: number) {
