@@ -1,4 +1,5 @@
 import { env } from '@/src/shared/config/env';
+import { beginApiRequest } from '@/src/shared/api/requestActivity';
 import {
   getServiceToken,
   saveServiceToken,
@@ -190,41 +191,47 @@ async function requestWithResponse<TResponse>(
   path: string,
   init: RequestInit = {},
 ): Promise<ApiResponse<TResponse>> {
-  if (!env.apiBaseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
-  }
+  const endApiRequest = beginApiRequest();
 
-  const authenticatedInit = await withAccessToken(path, init);
-  let response = await fetch(
-    `${env.apiBaseUrl}${path}`,
-    authenticatedInit,
-  );
+  try {
+    if (!env.apiBaseUrl) {
+      throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
+    }
 
-  if (
-    response.status === 401 &&
-    path !== LOGIN_PATH &&
-    path !== REFRESH_PATH
-  ) {
-    const refreshedToken = await getRefreshedToken();
-    response = await retryWithAccessToken(
-      path,
-      init,
-      refreshedToken.accessToken,
+    const authenticatedInit = await withAccessToken(path, init);
+    let response = await fetch(
+      `${env.apiBaseUrl}${path}`,
+      authenticatedInit,
     );
+
+    if (
+      response.status === 401 &&
+      path !== LOGIN_PATH &&
+      path !== REFRESH_PATH
+    ) {
+      const refreshedToken = await getRefreshedToken();
+      response = await retryWithAccessToken(
+        path,
+        init,
+        refreshedToken.accessToken,
+      );
+    }
+
+    const data = await parseResponse(response);
+
+    if (!response.ok) {
+      const message = getErrorMessage(data) ?? 'API 요청에 실패했습니다.';
+
+      throw new ApiError(message, response.status, getErrorCode(data));
+    }
+
+    return {
+      data: data as TResponse,
+      status: response.status,
+    };
+  } finally {
+    endApiRequest();
   }
-
-  const data = await parseResponse(response);
-
-  if (!response.ok) {
-    const message = getErrorMessage(data) ?? 'API 요청에 실패했습니다.';
-
-    throw new ApiError(message, response.status, getErrorCode(data));
-  }
-
-  return {
-    data: data as TResponse,
-    status: response.status,
-  };
 }
 
 async function request<TResponse>(

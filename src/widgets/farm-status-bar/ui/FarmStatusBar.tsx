@@ -1,4 +1,11 @@
-import { Image, ImageBackground, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  ImageBackground,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
@@ -8,26 +15,38 @@ const PAW_ICON = require('@/src/shared/assets/images/farm-status/paw.png');
 type FarmStatusBarProps = {
   level?: number;
   name?: string;
+  onPress?: () => void;
 };
 
 export function FarmStatusBar({
   level = 12,
   name = '소마고치',
+  onPress,
 }: FarmStatusBarProps) {
   return (
-    <ImageBackground
-      resizeMode="stretch"
-      source={STATUS_BACKGROUND}
-      style={styles.container}
+    <Pressable
+      accessibilityLabel="내 프로필 더보기"
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.container,
+        pressed && styles.pressed,
+      ]}
     >
-      <Image resizeMode="contain" source={PAW_ICON} style={styles.pawIcon} />
-      <Text numberOfLines={1} style={styles.name}>
-        {name}
-      </Text>
-      <View style={styles.levelBadge}>
-        <Text style={styles.level}>Lv.{level}</Text>
-      </View>
-    </ImageBackground>
+      <ImageBackground
+        resizeMode="stretch"
+        source={STATUS_BACKGROUND}
+        style={styles.background}
+      >
+        <Image resizeMode="contain" source={PAW_ICON} style={styles.pawIcon} />
+        <Text numberOfLines={1} style={styles.name}>
+          {name}
+        </Text>
+        <View style={styles.levelBadge}>
+          <Text style={styles.level}>Lv.{level}</Text>
+        </View>
+      </ImageBackground>
+    </Pressable>
   );
 }
 
@@ -35,6 +54,9 @@ const styles = StyleSheet.create({
   container: {
     width: scaleByDeviceWidth(177),
     height: scaleByDeviceWidth(32),
+  },
+  background: {
+    flex: 1,
     paddingHorizontal: scaleByDeviceWidth(11),
     flexDirection: 'row',
     alignItems: 'center',
@@ -66,5 +88,8 @@ const styles = StyleSheet.create({
     color: '#685A48',
     fontSize: scaleByDeviceWidth(10),
     lineHeight: scaleByDeviceWidth(12),
+  },
+  pressed: {
+    opacity: 0.8,
   },
 });

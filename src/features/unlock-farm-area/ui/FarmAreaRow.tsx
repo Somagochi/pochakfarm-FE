@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useRef, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 
@@ -132,6 +133,9 @@ export function FarmAreaRow({
                   if (!onCreatureDragStart) return;
 
                   draggingAnimalIdRef.current = creatureSlot.animalId;
+                  void Haptics.impactAsync(
+                    Haptics.ImpactFeedbackStyle.Medium,
+                  );
                   onCreatureDragStart(
                     creatureSlot.animal,
                     areaNumber,

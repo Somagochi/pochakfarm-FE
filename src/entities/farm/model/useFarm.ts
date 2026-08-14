@@ -6,12 +6,14 @@ import type { Farm, FarmType } from './types';
 export function useFarm(type: FarmType) {
   const [farm, setFarm] = useState<Farm | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const requestIdRef = useRef(0);
 
   const loadFarm = useCallback(async () => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setErrorMessage(null);
+    setIsLoading(true);
 
     try {
       const nextFarm = await getFarmApi(type);
@@ -31,6 +33,10 @@ export function useFarm(type: FarmType) {
       }
 
       return null;
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+      }
     }
   }, [type]);
 
@@ -44,6 +50,7 @@ export function useFarm(type: FarmType) {
     clearError: () => setErrorMessage(null),
     errorMessage,
     farm,
+    isLoading,
     reload: loadFarm,
   };
 }
