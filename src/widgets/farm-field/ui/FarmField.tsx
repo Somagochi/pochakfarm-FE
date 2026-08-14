@@ -15,6 +15,7 @@ import {
 } from '@/src/features/unlock-farm-area';
 import type { FarmAnimal, FarmFloor, FarmType } from '@/src/entities/farm';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { FarmAmbientEffects } from './FarmAmbientEffects';
 
 const ENVIRONMENT_ASSETS = {
   sky: {
@@ -237,6 +238,11 @@ export function FarmField({
           ]}
         />
       )}
+      <FarmAmbientEffects
+        environment={environment}
+        height={canvasHeight}
+        width={width}
+      />
 
       {FARM_AREAS.map(({ areaNumber, sourceCenterY }) => {
         const floor = floors.find(
