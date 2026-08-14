@@ -444,8 +444,8 @@ const styles = StyleSheet.create({
   },
   nicknameConfirmButtonText: {
     color: '#FFF9F0',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(14),
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(12),
     lineHeight: scaleByDeviceWidth(20),
   },
   disabledButton: {
