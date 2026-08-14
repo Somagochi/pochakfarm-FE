@@ -20,6 +20,7 @@ import { isUsableNickname, useSetNickname } from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useRefreshOnFocus } from '@/src/shared/lib/navigation/useRefreshOnFocus';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { LoadingScreen } from '@/src/shared/ui/LoadingScreen';
 
 const PROFILE_CARD_IMAGE = require('@/src/shared/assets/images/more/profile-card.png');
 const EXP_ICON_IMAGE = require('@/src/shared/assets/images/more/exp-icon.png');
@@ -40,6 +41,7 @@ export function MoreScreen() {
   const {
     clearError: clearProfileError,
     errorMessage: profileErrorMessage,
+    isLoading: isProfileLoading,
     profile,
     reload: reloadProfile,
   } = useUserProfile();
@@ -134,6 +136,10 @@ export function MoreScreen() {
         '메일 앱이 설치되어 있고 메일 계정이 설정되어 있는지 확인해주세요.',
       );
     }
+  }
+
+  if (isProfileLoading) {
+    return <LoadingScreen accessibilityLabel="더보기 화면 불러오는 중" />;
   }
 
   return (
