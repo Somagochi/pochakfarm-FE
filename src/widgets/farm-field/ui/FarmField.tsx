@@ -59,6 +59,8 @@ type FarmFieldProps = {
     targetSlotNumber: number,
   ) => void;
   onExpansionSuccess?: () => Promise<unknown>;
+  onBackgroundReady?: () => void;
+  onStartReordering?: () => void;
   onPressEmptySlot?: (floorNumber: number, slotNumber: number) => void;
   onPressCreature?: (
     animal: FarmAnimal,
@@ -78,6 +80,8 @@ export function FarmField({
   isReordering = false,
   onMoveCreature,
   onExpansionSuccess,
+  onBackgroundReady,
+  onStartReordering,
   onPressEmptySlot,
   onPressCreature,
   selectedSlot,
@@ -156,6 +160,7 @@ export function FarmField({
       }
 
       setDisplayedBackground(loadedBackground);
+      onBackgroundReady?.();
       setIncomingBackground((currentBackground) =>
         currentBackground === loadedBackground ? null : currentBackground,
       );
@@ -304,8 +309,10 @@ export function FarmField({
                 );
               }}
               onCreatureDragStart={
-                isReordering
+                isReordering || onStartReordering
                   ? (animal, floorNumber, slotNumber, pageX, pageY) => {
+                      if (!isReordering) onStartReordering?.();
+
                       canvasRef.current?.measureInWindow((x, y) => {
                         canvasOriginRef.current = { x, y };
                         setHasDraggedCreatureImageFailed(false);

@@ -1,5 +1,12 @@
+import { router } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { setBottomTabBarHidden } from '@/src/shared/lib/navigation/bottomTabBarVisibility';
@@ -11,6 +18,7 @@ import { useMoveFarmCreature } from '@/src/features/move-farm-creature';
 import { type FarmType, useFarm } from '@/src/entities/farm';
 import { useUserProfile } from '@/src/entities/user';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { LoadingScreen } from '@/src/shared/ui/LoadingScreen';
 import { CreatureDetailSheet } from '@/src/widgets/creature-detail-sheet';
 import { FarmField } from '@/src/widgets/farm-field';
 import {
@@ -46,8 +54,11 @@ export function FarmScreen() {
     clearError: clearFarmError,
     errorMessage: farmErrorMessage,
     farm,
+    isLoading: isFarmLoading,
     reload: reloadFarm,
   } = useFarm(FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]);
+  const [isEnvironmentChanging, setIsEnvironmentChanging] = useState(false);
+  const [isFarmBackgroundReady, setIsFarmBackgroundReady] = useState(true);
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
     useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<
@@ -76,6 +87,25 @@ export function FarmScreen() {
 
     return () => setBottomTabBarHidden(false);
   }, [isReordering]);
+
+  useEffect(() => {
+    if (
+      isEnvironmentChanging &&
+      isFarmBackgroundReady &&
+      !isFarmLoading &&
+      (farm?.type === FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment] ||
+        farmErrorMessage !== null)
+    ) {
+      setIsEnvironmentChanging(false);
+    }
+  }, [
+    farm?.type,
+    farmErrorMessage,
+    isEnvironmentChanging,
+    isFarmBackgroundReady,
+    isFarmLoading,
+    selectedEnvironment,
+  ]);
 
   return (
     <View
@@ -110,6 +140,7 @@ export function FarmScreen() {
             farmType={FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]}
             floors={farm?.floors ?? []}
             isReordering={isReordering}
+            onBackgroundReady={() => setIsFarmBackgroundReady(true)}
             onMoveCreature={async (
               animalId,
               targetFloorNumber,
@@ -128,6 +159,7 @@ export function FarmScreen() {
             onExpansionSuccess={async () => {
               await Promise.all([reloadFarm(), reloadProfile()]);
             }}
+            onStartReordering={() => setIsReordering(true)}
             onPressCreature={
               isReordering
                 ? undefined
@@ -153,10 +185,17 @@ export function FarmScreen() {
           <FarmStatusBar
             level={profile?.level ?? 0}
             name={profile?.nickname ?? ''}
+            onPress={() => router.push('/(tabs)/more')}
           />
           <View style={styles.actionButton}>
             <FarmEnvironmentSelector
-              onSelectEnvironment={setSelectedEnvironment}
+              onSelectEnvironment={(environment) => {
+                if (environment === selectedEnvironment) return;
+
+                setIsEnvironmentChanging(true);
+                setIsFarmBackgroundReady(false);
+                setSelectedEnvironment(environment);
+              }}
               selectedEnvironment={selectedEnvironment}
             />
           </View>
@@ -215,6 +254,12 @@ export function FarmScreen() {
         }}
         visible={isCreatureSearchVisible}
       />
+      {isEnvironmentChanging && (
+        <LoadingScreen
+          accessibilityLabel="농장 환경 불러오는 중"
+          style={styles.environmentLoadingOverlay}
+        />
+      )}
       {isCreatureDetailVisible && (
         <CreatureDetailSheet
           animalId={selectedAnimalId}
@@ -243,6 +288,10 @@ export function FarmScreen() {
 }
 
 const styles = StyleSheet.create({
+  environmentLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+  },
   screen: {
     flex: 1,
     width: '100%',
