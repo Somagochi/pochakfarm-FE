@@ -16,6 +16,21 @@ const COIN_IMAGE = require('@/src/shared/assets/images/farm-status/coin.png');
 const DEFAULT_BADGE_IMAGE = require('@/src/shared/assets/images/collection/unregistered-achievement-badge.png');
 const ADDITIONAL_REWARD_TITLE = require('@/src/shared/assets/images/collection/additional-reward-title.png');
 const BADGE_REWARD_GLOW = require('@/src/shared/assets/images/collection/badge-reward-glow.png');
+const REWARD_CONTENT_DEFAULT_TOP_RATIO = 0.25;
+const REWARD_CONTENT_BUTTON_MIN_GAP = 30;
+const REWARD_BUTTON_BOTTOM = 52;
+const REWARD_BUTTON_HEIGHT = 60;
+const BADGE_HEIGHT = 114.32;
+const MESSAGE_AREA_MARGIN_TOP = 100;
+const TITLE_LINE_HEIGHT = 22;
+const TITLE_LINE_COUNT = 2;
+const DESCRIPTION_MARGIN_TOP = 14;
+const DESCRIPTION_LINE_HEIGHT = 17;
+const DESCRIPTION_LINE_COUNT = 2;
+const ADDITIONAL_REWARD_MARGIN_TOP = 40;
+const ADDITIONAL_REWARD_HEIGHT = 24;
+const COIN_REWARD_MARGIN_TOP = 40;
+const COIN_REWARD_HEIGHT = 22;
 
 type AchievementClaimRewardModalProps = {
   badgeImageUrl?: string;
@@ -34,6 +49,27 @@ export function AchievementClaimRewardModal({
 }: AchievementClaimRewardModalProps) {
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
+  const rewardContentHeight = scaleByDeviceWidth(
+    BADGE_HEIGHT +
+      MESSAGE_AREA_MARGIN_TOP +
+      TITLE_LINE_HEIGHT * TITLE_LINE_COUNT +
+      DESCRIPTION_MARGIN_TOP +
+      DESCRIPTION_LINE_HEIGHT * DESCRIPTION_LINE_COUNT +
+      ADDITIONAL_REWARD_MARGIN_TOP +
+      ADDITIONAL_REWARD_HEIGHT +
+      COIN_REWARD_MARGIN_TOP +
+      COIN_REWARD_HEIGHT,
+  );
+  const rewardButtonTop =
+    height -
+    insets.bottom -
+    scaleByDeviceWidth(REWARD_BUTTON_BOTTOM + REWARD_BUTTON_HEIGHT);
+  const rewardContentTop = Math.min(
+    height * REWARD_CONTENT_DEFAULT_TOP_RATIO,
+    rewardButtonTop -
+      scaleByDeviceWidth(REWARD_CONTENT_BUTTON_MIN_GAP) -
+      rewardContentHeight,
+  );
 
   return (
     <Modal
@@ -61,7 +97,7 @@ export function AchievementClaimRewardModal({
         </Pressable>
 
         <View
-          style={[styles.rewardContent, { paddingTop: height * 0.25 }]}
+          style={[styles.rewardContent, { paddingTop: rewardContentTop }]}
         >
           <View style={styles.badgeAnchor}>
             <Image
@@ -106,7 +142,10 @@ export function AchievementClaimRewardModal({
           onPress={onClose}
           style={({ pressed }) => [
             styles.rewardButton,
-            { bottom: insets.bottom + scaleByDeviceWidth(52) },
+            {
+              bottom:
+                insets.bottom + scaleByDeviceWidth(REWARD_BUTTON_BOTTOM),
+            },
             pressed && styles.pressed,
           ]}
         >
@@ -154,7 +193,7 @@ const styles = StyleSheet.create({
   },
   badgeAnchor: {
     width: scaleByDeviceWidth(114.32),
-    height: scaleByDeviceWidth(114.32),
+    height: scaleByDeviceWidth(BADGE_HEIGHT),
   },
   badgeGlow: {
     position: 'absolute',
@@ -168,7 +207,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   messageArea: {
-    marginTop: scaleByDeviceWidth(100),
+    marginTop: scaleByDeviceWidth(MESSAGE_AREA_MARGIN_TOP),
     alignItems: 'center',
   },
   title: {
@@ -188,11 +227,11 @@ const styles = StyleSheet.create({
   },
   additionalRewardTitle: {
     width: scaleByDeviceWidth(275),
-    height: scaleByDeviceWidth(24),
-    marginTop: scaleByDeviceWidth(40),
+    height: scaleByDeviceWidth(ADDITIONAL_REWARD_HEIGHT),
+    marginTop: scaleByDeviceWidth(ADDITIONAL_REWARD_MARGIN_TOP),
   },
   coinReward: {
-    marginTop: scaleByDeviceWidth(40),
+    marginTop: scaleByDeviceWidth(COIN_REWARD_MARGIN_TOP),
     flexDirection: 'row',
     alignItems: 'center',
     gap: scaleByDeviceWidth(10),
@@ -210,7 +249,7 @@ const styles = StyleSheet.create({
   rewardButton: {
     position: 'absolute',
     width: scaleByDeviceWidth(280),
-    height: scaleByDeviceWidth(60),
+    height: scaleByDeviceWidth(REWARD_BUTTON_HEIGHT),
   },
   rewardButtonImage: {
     width: '100%',
