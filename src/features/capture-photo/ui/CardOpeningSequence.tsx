@@ -11,6 +11,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -68,6 +69,31 @@ const CARD_SELECT_FINAL_DELAY = 8993.739;
 const RESULT_CARD_ROTATION_DEGREES_PER_POINT = 0.9;
 const RESULT_CARD_DOUBLE_TAP_DELAY_MS = 300;
 const RESULT_CARD_RESET_DURATION_MS = 300;
+const RESULT_AREA_TOP = 133.19;
+const RESULT_CARD_WIDTH = 283.66;
+const RESULT_CARD_HEIGHT = 408.52;
+const RESULT_ACTIONS_MARGIN_TOP = 41.7;
+const RESULT_ACTIONS_GAP = 12.34;
+const RESULT_ACTION_BUTTON_HEIGHT = 60;
+const RESULT_BOTTOM_MIN_GAP = 30;
+const SKY_HEADING_TOP = 171.81;
+const SKY_TITLE_HEIGHT = 22;
+const SKY_CHOOSE_TEXT_MARGIN_TOP = 15.57;
+const SKY_CHOOSE_TEXT_HEIGHT = 18;
+const SKY_CARDS_TOP_GAP = 89.86;
+const SKY_CARD_HEIGHT = 130;
+const SKY_CARD_HIT_AREA_HEIGHT = 147;
+const SKY_CARD_HIT_AREA_WIDTH = 104;
+const SKY_CARD_HIT_AREA_PADDING_TOP =
+  (SKY_CARD_HIT_AREA_HEIGHT - SKY_CARD_HEIGHT) / 2;
+const SKY_AREA_TOP =
+  SKY_HEADING_TOP +
+  SKY_TITLE_HEIGHT +
+  SKY_CHOOSE_TEXT_MARGIN_TOP +
+  SKY_CHOOSE_TEXT_HEIGHT +
+  SKY_CARDS_TOP_GAP -
+  SKY_CARD_HIT_AREA_PADDING_TOP;
+const SKY_CARD_ROW_GAP = 143.66;
 const CAPTURE_TIER_REFLECTION_VARIANTS: Partial<
   Record<CaptureTier, CardReflectionVariant>
 > = {
@@ -84,11 +110,11 @@ function isResultCardFrontFacing(rotationX: number, rotationY: number) {
   return Math.cos(xRadians) * Math.cos(yRadians) >= 0;
 }
 const SKY_CARD_POSITIONS = [
-  { delay: 0, x: -111.06, y: -70 },
-  { delay: 1367, x: 0, y: -70 },
-  { delay: 2800, x: 111.06, y: -70 },
-  { delay: 4133, x: -55.53, y: 73.66 },
-  { delay: 5467, x: 55.53, y: 73.66 },
+  { delay: 0, x: -111.06, y: 0 },
+  { delay: 1367, x: 0, y: 0 },
+  { delay: 2800, x: 111.06, y: 0 },
+  { delay: 4133, x: -55.53, y: SKY_CARD_ROW_GAP },
+  { delay: 5467, x: 55.53, y: SKY_CARD_ROW_GAP },
 ] as const;
 
 type OpeningStage =
@@ -1070,6 +1096,7 @@ function ResultCard({
   onSave: () => void;
   tier?: CaptureTier;
 }) {
+  const { height: screenHeight } = useWindowDimensions();
   const [failedCardImageUrl, setFailedCardImageUrl] =
     useState<string | null>(null);
   const hasCardImageFailed =
@@ -1243,11 +1270,27 @@ function ResultCard({
     outputRange: ['180deg', '540deg'],
     extrapolate: 'extend',
   });
-  const resultCardWidth = scaleByDeviceWidth(283.66);
-  const resultCardHeight = scaleByDeviceWidth(408.52);
+  const resultCardWidth = scaleByDeviceWidth(RESULT_CARD_WIDTH);
+  const resultCardHeight = scaleByDeviceWidth(RESULT_CARD_HEIGHT);
+  const resultContentHeight = scaleByDeviceWidth(
+    RESULT_CARD_HEIGHT +
+      RESULT_ACTIONS_MARGIN_TOP +
+      RESULT_ACTION_BUTTON_HEIGHT * 2 +
+      RESULT_ACTIONS_GAP,
+  );
+  const defaultResultAreaTop = scaleByDeviceWidth(RESULT_AREA_TOP);
+  const resultAreaTop = Math.min(
+    defaultResultAreaTop,
+    screenHeight -
+      scaleByDeviceWidth(RESULT_BOTTOM_MIN_GAP) -
+      resultContentHeight,
+  );
 
   return (
-    <View accessibilityLabel="포착한 캐릭터 카드" style={styles.resultArea}>
+    <View
+      accessibilityLabel="포착한 캐릭터 카드"
+      style={[styles.resultArea, { top: resultAreaTop }]}
+    >
       <Animated.View
         {...cardPanResponder.panHandlers}
         accessibilityHint="상하좌우로 밀어서 회전하고 두 번 탭하면 처음 방향으로 돌아갑니다"
@@ -1394,7 +1437,7 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(118),
   },
   skyHeading: {
-    top: scaleByDeviceWidth(171.81),
+    top: scaleByDeviceWidth(SKY_HEADING_TOP),
     width: scaleByDeviceWidth(330),
     height: scaleByDeviceWidth(118),
   },
@@ -1629,21 +1672,27 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(36),
   },
   skyArea: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(SKY_AREA_TOP),
     width: '100%',
-    height: scaleByDeviceWidth(520),
+    height: scaleByDeviceWidth(
+      SKY_CARD_ROW_GAP + SKY_CARD_HIT_AREA_HEIGHT,
+    ),
     alignItems: 'center',
-    justifyContent: 'center',
   },
   skyCardHitArea: {
     position: 'absolute',
-    width: scaleByDeviceWidth(104),
-    height: scaleByDeviceWidth(147),
+    top: 0,
+    left: '50%',
+    width: scaleByDeviceWidth(SKY_CARD_HIT_AREA_WIDTH),
+    height: scaleByDeviceWidth(SKY_CARD_HIT_AREA_HEIGHT),
+    marginLeft: scaleByDeviceWidth(-SKY_CARD_HIT_AREA_WIDTH / 2),
     alignItems: 'center',
     justifyContent: 'center',
   },
   skyCard: {
     width: scaleByDeviceWidth(92),
-    height: scaleByDeviceWidth(130),
+    height: scaleByDeviceWidth(SKY_CARD_HEIGHT),
   },
   skyCardGlow: {
     position: 'absolute',
@@ -1747,12 +1796,11 @@ const styles = StyleSheet.create({
   },
   resultArea: {
     position: 'absolute',
-    top: scaleByDeviceWidth(133.19),
     alignItems: 'center',
   },
   resultCard: {
-    width: scaleByDeviceWidth(283.66),
-    height: scaleByDeviceWidth(408.52),
+    width: scaleByDeviceWidth(RESULT_CARD_WIDTH),
+    height: scaleByDeviceWidth(RESULT_CARD_HEIGHT),
   },
   resultCardFace: {
     ...StyleSheet.absoluteFillObject,
@@ -1761,12 +1809,12 @@ const styles = StyleSheet.create({
     backfaceVisibility: 'hidden',
   },
   resultActions: {
-    gap: scaleByDeviceWidth(12.34),
-    marginTop: scaleByDeviceWidth(41.7),
+    gap: scaleByDeviceWidth(RESULT_ACTIONS_GAP),
+    marginTop: scaleByDeviceWidth(RESULT_ACTIONS_MARGIN_TOP),
   },
   resultActionButton: {
     width: scaleByDeviceWidth(280),
-    height: scaleByDeviceWidth(60),
+    height: scaleByDeviceWidth(RESULT_ACTION_BUTTON_HEIGHT),
   },
   resultActionButtonImage: {
     width: '100%',
