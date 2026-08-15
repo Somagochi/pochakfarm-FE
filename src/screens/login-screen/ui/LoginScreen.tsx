@@ -5,7 +5,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  SafeAreaView,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
 import {
   SocialLoginButtons,
@@ -42,12 +45,14 @@ const PAW_POSITIONS = [
 ] as const;
 
 export function LoginScreen() {
+  const insets = useSafeAreaInsets();
+
   const handleLoginSuccess = ({ isNew }: SocialLoginResult) => {
     router.replace(isNew ? '/nickname' : '/(tabs)');
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top']} style={styles.container}>
       <StatusBar style="dark" />
       <PawPattern />
 
@@ -66,7 +71,12 @@ export function LoginScreen() {
         />
       </View>
 
-      <View style={styles.loginArea}>
+      <View
+        style={[
+          styles.loginArea,
+          { bottom: insets.bottom + scaleByDeviceWidth(47) },
+        ]}
+      >
         <SocialLoginButtons onLoginSuccess={handleLoginSuccess} />
       </View>
     </SafeAreaView>
@@ -116,8 +126,8 @@ const styles = StyleSheet.create({
     marginTop: scaleByDeviceWidth(16),
   },
   loginArea: {
+    position: 'absolute',
+    left: scaleByDeviceWidth(40),
     width: scaleByDeviceWidth(280),
-    marginTop: scaleByDeviceWidth(272),
-    alignSelf: 'center',
   },
 });
