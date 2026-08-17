@@ -55,6 +55,7 @@ const SHUTTER_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/shutter
 const CAPTURE_LIMIT_IMAGE = require('@/src/shared/assets/images/capture/capture-limit.png');
 const CAPTURE_COIN_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/capture-coin-dialog.png');
 const CAMERA_PERMISSION_DIALOG_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-dialog.png');
+const CAMERA_PERMISSION_CONTINUE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-continue-button.png');
 const CAPTURE_PROBABILITY_MODAL_IMAGE = require('@/src/shared/assets/images/capture/capture-probability-modal.png');
 const CAMERA_PERMISSION_TOAST_IMAGE = require('@/src/shared/assets/images/capture/camera-permission-toast.png');
 const CAMERA_FRAME_IMAGE = require('@/src/shared/assets/images/capture/camera-frame.png');
@@ -585,6 +586,11 @@ export function CameraCaptureView() {
               source={CAMERA_PERMISSION_DIALOG_IMAGE}
               style={styles.permissionDialogImage}
             />
+            <Image
+              resizeMode="contain"
+              source={CAMERA_PERMISSION_CONTINUE_BUTTON_IMAGE}
+              style={styles.permissionDialogContinueButtonImage}
+            />
             <Pressable
               accessibilityLabel="카메라 권한 안내 닫기"
               accessibilityRole="button"
@@ -592,7 +598,7 @@ export function CameraCaptureView() {
               style={styles.permissionDialogCloseButton}
             />
             <Pressable
-              accessibilityLabel="카메라 권한 허용하기"
+              accessibilityLabel="카메라 권한 요청 계속하기"
               accessibilityRole="button"
               onPress={handleRequestPermission}
               style={styles.permissionDialogAllowButton}
@@ -1824,12 +1830,19 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(30),
     height: scaleByDeviceWidth(30),
   },
+  permissionDialogContinueButtonImage: {
+    position: 'absolute',
+    bottom: scaleByDeviceWidth(27.5),
+    left: scaleByDeviceWidth(87.375),
+    width: scaleByDeviceWidth(105.25),
+    height: scaleByDeviceWidth(42),
+  },
   permissionDialogAllowButton: {
     position: 'absolute',
-    bottom: scaleByDeviceWidth(30),
-    left: scaleByDeviceWidth(90),
-    width: scaleByDeviceWidth(100),
-    height: scaleByDeviceWidth(36),
+    bottom: scaleByDeviceWidth(27.5),
+    left: scaleByDeviceWidth(87.375),
+    width: scaleByDeviceWidth(105.25),
+    height: scaleByDeviceWidth(42),
   },
   buttonPressed: {
     opacity: 0.65,
