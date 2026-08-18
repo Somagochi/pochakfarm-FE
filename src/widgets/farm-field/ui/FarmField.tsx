@@ -16,6 +16,7 @@ import {
 import type { FarmAnimal, FarmFloor, FarmType } from '@/src/entities/farm';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { FarmAmbientEffects } from './FarmAmbientEffects';
+import { SkyFarmCloudLayer } from './SkyFarmCloudLayer';
 
 const ENVIRONMENT_ASSETS = {
   sky: {
@@ -239,6 +240,18 @@ export function FarmField({
         />
       )}
       <FarmAmbientEffects
+        environment={environment}
+        height={canvasHeight}
+        width={width}
+      />
+      <SkyFarmCloudLayer
+        depth="background"
+        environment={environment}
+        height={canvasHeight}
+        width={width}
+      />
+      <SkyFarmCloudLayer
+        depth="foreground"
         environment={environment}
         height={canvasHeight}
         width={width}
