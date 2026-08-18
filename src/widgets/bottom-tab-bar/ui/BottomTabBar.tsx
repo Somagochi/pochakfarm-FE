@@ -59,7 +59,11 @@ export function BottomTabBar({
   const isHidden = useIsBottomTabBarHidden();
   const activeRoute = state.routes[state.index];
 
-  if (isHidden || activeRoute?.name === 'capture') {
+  if (
+    isHidden ||
+    activeRoute?.name === 'capture' ||
+    activeRoute?.name === 'battle'
+  ) {
     return null;
   }
 

@@ -1,45 +1,68 @@
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, ScrollView, StyleSheet } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { BattleActionBar } from '@/src/widgets/battle-action-bar';
+import { BattleHeader } from '@/src/widgets/battle-header';
 
-const EMPTY_STATE_IMAGE = require('@/src/shared/assets/images/battle/empty-state.png');
-const BACKGROUND_IMAGE = require('@/src/shared/assets/images/battle/background.png');
-const EMPTY_STATE_WIDTH = scaleByDeviceWidth(280);
-const EMPTY_STATE_HEIGHT = EMPTY_STATE_WIDTH * (748 / 1120);
+const BATTLE_LINEUP_GUIDE = require('@/src/shared/assets/images/battle/battle-lineup-guide.png');
+const GUIDE_WIDTH = scaleByDeviceWidth(328);
+const GUIDE_HEIGHT = GUIDE_WIDTH * (231 / 328);
 
 export function BattleScreen() {
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [isCreatureListInteracting, setIsCreatureListInteracting] =
+    useState(false);
+  const setScreenScrollEnabled = useCallback((isEnabled: boolean) => {
+    scrollViewRef.current?.setNativeProps({ scrollEnabled: isEnabled });
+    setIsCreatureListInteracting(!isEnabled);
+  }, []);
+
   return (
-    <View style={styles.screen}>
-      <Image
-        accessible={false}
-        resizeMode="cover"
-        source={BACKGROUND_IMAGE}
-        style={styles.background}
-      />
-      <Image
-        accessibilityLabel="곧 업데이트 될 예정이에요. 조금만 더 기다려주세요"
-        resizeMode="contain"
-        source={EMPTY_STATE_IMAGE}
-        style={styles.emptyState}
-      />
-    </View>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
+      <BattleHeader />
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        nestedScrollEnabled
+        ref={scrollViewRef}
+        scrollEnabled={!isCreatureListInteracting}
+        style={styles.scrollView}
+      >
+        <Image
+          accessibilityLabel="관장 라인업과 출전 동물 선택 안내"
+          resizeMode="contain"
+          source={BATTLE_LINEUP_GUIDE}
+          style={styles.lineupGuide}
+        />
+        <BattleCreatureSelector
+          onListInteractionEnd={() => setScreenScrollEnabled(true)}
+          onListInteractionStart={() => setScreenScrollEnabled(false)}
+        />
+      </ScrollView>
+      <BattleActionBar />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: '#FAF5EB',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF8EE',
+    paddingTop: scaleByDeviceWidth(16),
+    paddingBottom: scaleByDeviceWidth(16),
+    gap: scaleByDeviceWidth(16),
   },
-  background: {
-    ...StyleSheet.absoluteFillObject,
-    width: '100%',
-    height: '100%',
-  },
-  emptyState: {
-    width: EMPTY_STATE_WIDTH,
-    height: EMPTY_STATE_HEIGHT,
+  lineupGuide: {
+    width: GUIDE_WIDTH,
+    height: GUIDE_HEIGHT,
   },
 });
