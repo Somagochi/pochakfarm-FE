@@ -42,6 +42,7 @@ const EMPTY_SAVE_SLOT_IMAGE = require('@/src/shared/assets/images/farm/empty-sav
 export function FarmScreen() {
   const insets = useSafeAreaInsets();
   const farmScrollRef = useRef<ScrollView>(null);
+  const environmentChangeFrameRef = useRef<number | null>(null);
   const {
     clearError,
     errorMessage,
@@ -87,6 +88,15 @@ export function FarmScreen() {
 
     return () => setBottomTabBarHidden(false);
   }, [isReordering]);
+
+  useEffect(
+    () => () => {
+      if (environmentChangeFrameRef.current !== null) {
+        cancelAnimationFrame(environmentChangeFrameRef.current);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (
@@ -192,9 +202,18 @@ export function FarmScreen() {
               onSelectEnvironment={(environment) => {
                 if (environment === selectedEnvironment) return;
 
+                if (environmentChangeFrameRef.current !== null) {
+                  cancelAnimationFrame(environmentChangeFrameRef.current);
+                }
+
                 setIsEnvironmentChanging(true);
                 setIsFarmBackgroundReady(false);
-                setSelectedEnvironment(environment);
+                environmentChangeFrameRef.current = requestAnimationFrame(
+                  () => {
+                    setSelectedEnvironment(environment);
+                    environmentChangeFrameRef.current = null;
+                  },
+                );
               }}
               selectedEnvironment={selectedEnvironment}
             />
@@ -254,12 +273,11 @@ export function FarmScreen() {
         }}
         visible={isCreatureSearchVisible}
       />
-      {isEnvironmentChanging && (
-        <LoadingScreen
-          accessibilityLabel="농장 환경 불러오는 중"
-          style={styles.environmentLoadingOverlay}
-        />
-      )}
+      <LoadingScreen
+        accessibilityLabel="농장 환경 불러오는 중"
+        style={styles.environmentLoadingOverlay}
+        visible={isEnvironmentChanging}
+      />
       {isCreatureDetailVisible && (
         <CreatureDetailSheet
           animalId={selectedAnimalId}
