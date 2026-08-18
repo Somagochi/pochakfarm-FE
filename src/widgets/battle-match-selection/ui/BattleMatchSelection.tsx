@@ -6,11 +6,16 @@ import {
   Text,
   View,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   FadeIn,
   FadeOut,
   LinearTransition,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
 
 import type { FarmCreatureListItem } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
@@ -30,13 +35,120 @@ const COIN_BUTTON_HEIGHT = COIN_BUTTON_WIDTH * (109 / 256);
 const TIP_WIDTH = scaleByDeviceWidth(284);
 const TIP_HEIGHT = TIP_WIDTH * (112 / 1136);
 const PARTY_SLOT_SIZE = scaleByDeviceWidth(54);
+const PARTY_SLOT_GAP = scaleByDeviceWidth(8);
+const PARTY_SLOT_STRIDE = PARTY_SLOT_SIZE + PARTY_SLOT_GAP;
 
 type BattleMatchSelectionProps = {
+  onMoveCreature: (fromIndex: number, toIndex: number) => void;
   onRemoveCreature: (creatureId: string) => void;
   selectedCreatures: FarmCreatureListItem[];
 };
 
+type DraggablePartySlotProps = {
+  creature: FarmCreatureListItem;
+  index: number;
+  onMoveCreature: (fromIndex: number, toIndex: number) => void;
+  onRemoveCreature: (creatureId: string) => void;
+  selectedCount: number;
+};
+
+function DraggablePartySlot({
+  creature,
+  index,
+  onMoveCreature,
+  onRemoveCreature,
+  selectedCount,
+}: DraggablePartySlotProps) {
+  const translateX = useSharedValue(0);
+  const isDragging = useSharedValue(false);
+  const scale = useSharedValue(1);
+  const gesture = Gesture.Pan()
+    .activeOffsetX([-scaleByDeviceWidth(4), scaleByDeviceWidth(4)])
+    .failOffsetY([-scaleByDeviceWidth(8), scaleByDeviceWidth(8)])
+    .onBegin(() => {
+      'worklet';
+      isDragging.value = true;
+      scale.value = withTiming(1.06, { duration: 100 });
+    })
+    .onUpdate((event) => {
+      'worklet';
+      const minTranslateX = -index * PARTY_SLOT_STRIDE;
+      const maxTranslateX =
+        (selectedCount - 1 - index) * PARTY_SLOT_STRIDE;
+
+      translateX.value = Math.max(
+        minTranslateX,
+        Math.min(event.translationX, maxTranslateX),
+      );
+    })
+    .onEnd(() => {
+      'worklet';
+      const movedSlotCount = Math.round(
+        translateX.value / PARTY_SLOT_STRIDE,
+      );
+      const targetIndex = Math.max(
+        0,
+        Math.min(index + movedSlotCount, selectedCount - 1),
+      );
+
+      if (targetIndex !== index) {
+        scheduleOnRN(onMoveCreature, index, targetIndex);
+      }
+
+    })
+    .onFinalize(() => {
+      'worklet';
+      translateX.value = withTiming(0, { duration: 140 });
+      scale.value = withTiming(1, { duration: 100 });
+      isDragging.value = false;
+    });
+  const animatedStyle = useAnimatedStyle(() => ({
+    zIndex: isDragging.value ? 2 : 0,
+    transform: [
+      { translateX: translateX.value },
+      { scale: scale.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View
+        entering={FadeIn.duration(140)}
+        exiting={FadeOut.duration(100)}
+        layout={LinearTransition.duration(180)}
+        style={[styles.selectedSlot, animatedStyle]}
+      >
+        <Image
+          resizeMode="contain"
+          source={creature.creatureImageSource}
+          style={styles.selectedCreatureImage}
+        />
+        <Text numberOfLines={1} style={styles.selectedCreatureName}>
+          {creature.name}
+        </Text>
+        <Pressable
+          accessibilityLabel={`${creature.name} 선택 해제`}
+          accessibilityRole="button"
+          hitSlop={scaleByDeviceWidth(6)}
+          onPress={() => onRemoveCreature(creature.id)}
+          style={({ pressed }) => [
+            styles.removeButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Image
+            resizeMode="contain"
+            source={REMOVE_PARTY_SLOT_BUTTON}
+            style={styles.removeButtonImage}
+          />
+        </Pressable>
+      </Animated.View>
+    </GestureDetector>
+  );
+}
+
 export function BattleMatchSelection({
+  onMoveCreature,
   onRemoveCreature,
   selectedCreatures,
 }: BattleMatchSelectionProps) {
@@ -91,38 +203,14 @@ export function BattleMatchSelection({
               }
 
               return (
-                <Animated.View
-                  entering={FadeIn.duration(140)}
-                  exiting={FadeOut.duration(100)}
+                <DraggablePartySlot
+                  creature={creature}
+                  index={slotIndex}
                   key={creature.id}
-                  layout={LinearTransition.duration(180)}
-                  style={styles.selectedSlot}
-                >
-                  <Image
-                    resizeMode="contain"
-                    source={creature.creatureImageSource}
-                    style={styles.selectedCreatureImage}
-                  />
-                  <Text numberOfLines={1} style={styles.selectedCreatureName}>
-                    {creature.name}
-                  </Text>
-                  <Pressable
-                    accessibilityLabel={`${creature.name} 선택 해제`}
-                    accessibilityRole="button"
-                    hitSlop={scaleByDeviceWidth(6)}
-                    onPress={() => onRemoveCreature(creature.id)}
-                    style={({ pressed }) => [
-                      styles.removeButton,
-                      pressed && styles.pressed,
-                    ]}
-                  >
-                    <Image
-                      resizeMode="contain"
-                      source={REMOVE_PARTY_SLOT_BUTTON}
-                      style={styles.removeButtonImage}
-                    />
-                  </Pressable>
-                </Animated.View>
+                  onMoveCreature={onMoveCreature}
+                  onRemoveCreature={onRemoveCreature}
+                  selectedCount={selectedCreatures.length}
+                />
               );
             })}
           </View>
@@ -173,7 +261,7 @@ const styles = StyleSheet.create({
   },
   partySlots: {
     flexDirection: 'row',
-    gap: scaleByDeviceWidth(8),
+    gap: PARTY_SLOT_GAP,
   },
   emptySlot: {
     width: '100%',

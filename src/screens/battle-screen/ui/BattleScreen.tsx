@@ -49,6 +49,22 @@ export function BattleScreen() {
             style={styles.lineupGuide}
           />
           <BattleMatchSelection
+            onMoveCreature={(fromIndex, toIndex) =>
+              setSelectedCreatures((currentCreatures) => {
+                const reorderedCreatures = [...currentCreatures];
+                const [movedCreature] = reorderedCreatures.splice(
+                  fromIndex,
+                  1,
+                );
+
+                if (!movedCreature || toIndex >= currentCreatures.length) {
+                  return currentCreatures;
+                }
+
+                reorderedCreatures.splice(toIndex, 0, movedCreature);
+                return reorderedCreatures;
+              })
+            }
             onRemoveCreature={(creatureId) =>
               setSelectedCreatures((currentCreatures) =>
                 currentCreatures.filter(
