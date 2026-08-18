@@ -53,13 +53,15 @@ const TIER_PRIORITY: Record<CreatureTier, number> = {
 type BattleCreatureSelectorProps = {
   onListInteractionEnd?: () => void;
   onListInteractionStart?: () => void;
-  onSelectAnimal?: (animalId: number) => void;
+  onToggleCreature?: (creature: FarmCreatureListItem) => void;
+  selectedCreatureIds?: string[];
 };
 
 export function BattleCreatureSelector({
   onListInteractionEnd,
   onListInteractionStart,
-  onSelectAnimal,
+  onToggleCreature,
+  selectedCreatureIds = [],
 }: BattleCreatureSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedAnimalType, setSelectedAnimalType] = useState<
@@ -197,11 +199,14 @@ export function BattleCreatureSelector({
               <FarmCreatureCard
                 creature={creature}
                 key={creature.id}
-                onPress={
-                  onSelectAnimal
-                    ? () => onSelectAnimal(Number(creature.id))
-                    : undefined
-                }
+                onPress={() => onToggleCreature?.(creature)}
+                selectionOrder={(() => {
+                  const selectedIndex = selectedCreatureIds.indexOf(
+                    creature.id,
+                  );
+
+                  return selectedIndex >= 0 ? selectedIndex + 1 : undefined;
+                })()}
               />
             ))}
           </View>
