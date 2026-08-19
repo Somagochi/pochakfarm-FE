@@ -4,23 +4,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
 import type { FarmCreatureListItem } from '@/src/entities/creature';
+import { useUserProfile } from '@/src/entities/user';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { BattleActionBar } from '@/src/widgets/battle-action-bar';
 import { BattleHeader } from '@/src/widgets/battle-header';
 import { BattleMatchSelection } from '@/src/widgets/battle-match-selection';
 
 const BATTLE_LINEUP_GUIDE = require('@/src/shared/assets/images/battle/battle-lineup-guide.png');
-const VERSUS_IMAGE = require('@/src/shared/assets/images/battle/versus.png');
 const GUIDE_WIDTH = scaleByDeviceWidth(328);
 const LINEUP_GUIDE_HEIGHT = GUIDE_WIDTH * (470 / 1314);
-const VERSUS_WIDTH = scaleByDeviceWidth(37.5);
-const VERSUS_HEIGHT = VERSUS_WIDTH * (113 / 150);
-const AUTO_MATCH_CARD_WIDTH = scaleByDeviceWidth(112);
-const MATCH_SELECTION_GAP = scaleByDeviceWidth(8);
-const BATTLE_PARTY_CARD_WIDTH = scaleByDeviceWidth(208);
 
 export function BattleScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
+  const { profile } = useUserProfile();
   const [isCreatureListInteracting, setIsCreatureListInteracting] =
     useState(false);
   const [selectedCreatures, setSelectedCreatures] = useState<
@@ -73,12 +69,8 @@ export function BattleScreen() {
               )
             }
             selectedCreatures={selectedCreatures}
-          />
-          <Image
-            accessible={false}
-            resizeMode="contain"
-            source={VERSUS_IMAGE}
-            style={styles.versus}
+            userLevel={profile?.level}
+            userNickname={profile?.nickname}
           />
         </View>
         <BattleCreatureSelector
@@ -139,19 +131,5 @@ const styles = StyleSheet.create({
     width: GUIDE_WIDTH,
     alignItems: 'center',
     gap: scaleByDeviceWidth(8),
-  },
-  versus: {
-    position: 'absolute',
-    top:
-      LINEUP_GUIDE_HEIGHT +
-      scaleByDeviceWidth(4) -
-      VERSUS_HEIGHT / 2,
-    left:
-      AUTO_MATCH_CARD_WIDTH +
-      MATCH_SELECTION_GAP +
-      (BATTLE_PARTY_CARD_WIDTH - VERSUS_WIDTH) / 2,
-    zIndex: 1,
-    width: VERSUS_WIDTH,
-    height: VERSUS_HEIGHT,
   },
 });

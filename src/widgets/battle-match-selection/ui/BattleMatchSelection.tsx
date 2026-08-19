@@ -20,28 +20,31 @@ import { scheduleOnRN } from 'react-native-worklets';
 import type { FarmCreatureListItem } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
-const AUTO_MATCH_CARD = require('@/src/shared/assets/images/battle/auto-match-card.png');
-const AUTO_MATCH_COIN_BUTTON = require('@/src/shared/assets/images/battle/auto-match-coin-button.png');
-const BATTLE_PARTY_CARD = require('@/src/shared/assets/images/battle/battle-party-card.png');
+const CREATURE_CARD_BACKGROUND = require('@/src/shared/assets/images/farm-search/creature-search-card-background.png');
+const COACH_RECOMMENDATION_CARD = require('@/src/shared/assets/images/battle/coach-recommendation-card.png');
 const EMPTY_PARTY_SLOT = require('@/src/shared/assets/images/battle/empty-party-slot.png');
+const PARTY_SEQUENCE_ARROW = require('@/src/shared/assets/images/battle/party-sequence-arrow.png');
 const REMOVE_PARTY_SLOT_BUTTON = require('@/src/shared/assets/images/battle/remove-party-slot-button.png');
 const TYPE_SELECTION_TIP = require('@/src/shared/assets/images/battle/type-selection-tip.png');
-const AUTO_MATCH_CARD_WIDTH = scaleByDeviceWidth(112);
-const AUTO_MATCH_CARD_HEIGHT = AUTO_MATCH_CARD_WIDTH * (326 / 448);
-const BATTLE_PARTY_CARD_WIDTH = scaleByDeviceWidth(208);
-const BATTLE_PARTY_CARD_HEIGHT = BATTLE_PARTY_CARD_WIDTH * (324 / 836);
-const COIN_BUTTON_WIDTH = scaleByDeviceWidth(64);
-const COIN_BUTTON_HEIGHT = COIN_BUTTON_WIDTH * (109 / 256);
-const TIP_WIDTH = scaleByDeviceWidth(284);
-const TIP_HEIGHT = TIP_WIDTH * (112 / 1136);
-const PARTY_SLOT_SIZE = scaleByDeviceWidth(54);
-const PARTY_SLOT_GAP = scaleByDeviceWidth(8);
-const PARTY_SLOT_STRIDE = PARTY_SLOT_SIZE + PARTY_SLOT_GAP;
+const PARTY_SLOT_WIDTH = scaleByDeviceWidth(58);
+const PARTY_SLOT_HEIGHT = PARTY_SLOT_WIDTH * (564 / 404);
+const PARTY_SLOT_GAP = scaleByDeviceWidth(3.5);
+const PARTY_ARROW_WIDTH = scaleByDeviceWidth(8);
+const PARTY_ARROW_HEIGHT = PARTY_ARROW_WIDTH * (26 / 32);
+const PARTY_SLOT_STRIDE =
+  PARTY_SLOT_WIDTH + PARTY_ARROW_WIDTH + PARTY_SLOT_GAP * 2;
+const EMPTY_SLOT_SIZE = scaleByDeviceWidth(40);
+const TIP_WIDTH = scaleByDeviceWidth(219);
+const TIP_HEIGHT = TIP_WIDTH * (68 / 876);
+const RECOMMENDATION_WIDTH = scaleByDeviceWidth(112);
+const RECOMMENDATION_HEIGHT = RECOMMENDATION_WIDTH * (450 / 448);
 
 type BattleMatchSelectionProps = {
   onMoveCreature: (fromIndex: number, toIndex: number) => void;
   onRemoveCreature: (creatureId: string) => void;
   selectedCreatures: FarmCreatureListItem[];
+  userLevel?: number;
+  userNickname?: string | null;
 };
 
 type DraggablePartySlotProps = {
@@ -118,30 +121,36 @@ function DraggablePartySlot({
         layout={LinearTransition.duration(180)}
         style={[styles.selectedSlot, animatedStyle]}
       >
-        <Image
-          resizeMode="contain"
-          source={creature.creatureImageSource}
-          style={styles.selectedCreatureImage}
-        />
-        <Text numberOfLines={1} style={styles.selectedCreatureName}>
-          {creature.name}
-        </Text>
-        <Pressable
-          accessibilityLabel={`${creature.name} 선택 해제`}
-          accessibilityRole="button"
-          hitSlop={scaleByDeviceWidth(6)}
-          onPress={() => onRemoveCreature(creature.id)}
-          style={({ pressed }) => [
-            styles.removeButton,
-            pressed && styles.pressed,
-          ]}
+        <ImageBackground
+          resizeMode="stretch"
+          source={CREATURE_CARD_BACKGROUND}
+          style={styles.selectedCard}
         >
           <Image
             resizeMode="contain"
-            source={REMOVE_PARTY_SLOT_BUTTON}
-            style={styles.removeButtonImage}
+            source={creature.creatureImageSource}
+            style={styles.selectedCreatureImage}
           />
-        </Pressable>
+          <Text numberOfLines={1} style={styles.selectedCreatureName}>
+            {creature.name}
+          </Text>
+          <Pressable
+            accessibilityLabel={`${creature.name} 선택 해제`}
+            accessibilityRole="button"
+            hitSlop={scaleByDeviceWidth(6)}
+            onPress={() => onRemoveCreature(creature.id)}
+            style={({ pressed }) => [
+              styles.removeButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Image
+              resizeMode="contain"
+              source={REMOVE_PARTY_SLOT_BUTTON}
+              style={styles.removeButtonImage}
+            />
+          </Pressable>
+        </ImageBackground>
       </Animated.View>
     </GestureDetector>
   );
@@ -151,77 +160,85 @@ export function BattleMatchSelection({
   onMoveCreature,
   onRemoveCreature,
   selectedCreatures,
+  userLevel,
+  userNickname,
 }: BattleMatchSelectionProps) {
   return (
     <View style={styles.container}>
-      <View style={styles.cardRow}>
-        <ImageBackground
-          resizeMode="contain"
-          source={AUTO_MATCH_CARD}
-          style={styles.autoMatchCard}
-        >
-          <Pressable
-            accessibilityLabel="10코인으로 자동 매칭"
-            accessibilityRole="button"
-            style={({ pressed }) => [
-              styles.coinButton,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Image
-              resizeMode="contain"
-              source={AUTO_MATCH_COIN_BUTTON}
-              style={styles.coinButtonImage}
-            />
-          </Pressable>
-        </ImageBackground>
-        <ImageBackground
-          resizeMode="contain"
-          source={BATTLE_PARTY_CARD}
-          style={styles.partyCard}
-        >
-          <View style={styles.partySlots}>
-            {[0, 1, 2].map((slotIndex) => {
-              const creature = selectedCreatures[slotIndex];
+      <View style={styles.selectionColumn}>
+        <View style={styles.partySlots}>
+          {[0, 1, 2].map((slotIndex) => {
+            const creature = selectedCreatures[slotIndex];
 
-              if (!creature) {
-                return (
+            return (
+              <View key={`party-position-${slotIndex}`} style={styles.partyPosition}>
+                {creature ? (
+                  <DraggablePartySlot
+                    creature={creature}
+                    index={slotIndex}
+                    onMoveCreature={onMoveCreature}
+                    onRemoveCreature={onRemoveCreature}
+                    selectedCount={selectedCreatures.length}
+                  />
+                ) : (
                   <Animated.View
                     entering={FadeIn.duration(140)}
                     key={`empty-${slotIndex}`}
                     layout={LinearTransition.duration(180)}
                     style={styles.partySlot}
                   >
-                    <Image
-                      accessibilityLabel={`${slotIndex + 1}번 빈 출전 슬롯`}
-                      resizeMode="contain"
-                      source={EMPTY_PARTY_SLOT}
-                      style={styles.emptySlot}
-                    />
+                    <ImageBackground
+                      resizeMode="stretch"
+                      source={CREATURE_CARD_BACKGROUND}
+                      style={styles.emptyCard}
+                    >
+                      <Image
+                        accessibilityLabel={`${slotIndex + 1}번 빈 출전 슬롯`}
+                        resizeMode="contain"
+                        source={EMPTY_PARTY_SLOT}
+                        style={styles.emptySlot}
+                      />
+                    </ImageBackground>
                   </Animated.View>
-                );
-              }
-
-              return (
-                <DraggablePartySlot
-                  creature={creature}
-                  index={slotIndex}
-                  key={creature.id}
-                  onMoveCreature={onMoveCreature}
-                  onRemoveCreature={onRemoveCreature}
-                  selectedCount={selectedCreatures.length}
-                />
-              );
-            })}
-          </View>
-        </ImageBackground>
+                )}
+                {slotIndex < 2 && (
+                  <Image
+                    accessible={false}
+                    resizeMode="contain"
+                    source={PARTY_SEQUENCE_ARROW}
+                    style={styles.partyArrow}
+                  />
+                )}
+              </View>
+            );
+          })}
+        </View>
+        <Image
+          accessibilityLabel="공격형 타입의 동물을 선택해보세요"
+          resizeMode="contain"
+          source={TYPE_SELECTION_TIP}
+          style={styles.tip}
+        />
       </View>
-      <Image
-        accessibilityLabel="공격형 타입의 동물을 선택해보세요"
+      <ImageBackground
+        accessibilityLabel={`관장 정보: 레벨 ${userLevel ?? ''}, 닉네임 ${userNickname ?? ''}, 추천 타입 땅과 바다`}
         resizeMode="contain"
-        source={TYPE_SELECTION_TIP}
-        style={styles.tip}
-      />
+        source={COACH_RECOMMENDATION_CARD}
+        style={styles.recommendationCard}
+      >
+        <View style={styles.coachIdentity}>
+          <Text style={styles.coachLevel}>
+            {userLevel !== undefined ? `Lv.${userLevel}` : ''}
+          </Text>
+          <Text numberOfLines={1} style={styles.coachNickname}>
+            {userNickname ?? ''}
+          </Text>
+        </View>
+        <View style={styles.recommendedType}>
+          <Text style={styles.recommendedTypeLabel}>추천타입</Text>
+          <Text style={styles.recommendedTypeValue}>땅 · 바다</Text>
+        </View>
+      </ImageBackground>
     </View>
   );
 }
@@ -229,72 +246,74 @@ export function BattleMatchSelection({
 const styles = StyleSheet.create({
   container: {
     width: scaleByDeviceWidth(328),
-    alignItems: 'center',
-    gap: scaleByDeviceWidth(8),
-  },
-  cardRow: {
-    width: '100%',
+    height: RECOMMENDATION_HEIGHT,
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: scaleByDeviceWidth(8),
+    justifyContent: 'space-between',
   },
-  autoMatchCard: {
-    width: AUTO_MATCH_CARD_WIDTH,
-    height: AUTO_MATCH_CARD_HEIGHT,
+  selectionColumn: {
+    width: TIP_WIDTH,
+    paddingTop: scaleByDeviceWidth(5),
+    gap: scaleByDeviceWidth(6),
+  },
+  partySlots: {
+    width: scaleByDeviceWidth(204),
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  coinButton: {
-    position: 'absolute',
-    bottom: scaleByDeviceWidth(8),
-    width: COIN_BUTTON_WIDTH,
-    height: COIN_BUTTON_HEIGHT,
+  partyPosition: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: PARTY_SLOT_GAP,
   },
-  coinButtonImage: {
+  partyArrow: {
+    width: PARTY_ARROW_WIDTH,
+    height: PARTY_ARROW_HEIGHT,
+  },
+  emptySlot: {
+    width: EMPTY_SLOT_SIZE,
+    height: EMPTY_SLOT_SIZE,
+  },
+  emptyCard: {
     width: '100%',
     height: '100%',
-  },
-  partyCard: {
-    width: BATTLE_PARTY_CARD_WIDTH,
-    height: BATTLE_PARTY_CARD_HEIGHT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  partySlots: {
-    flexDirection: 'row',
-    gap: PARTY_SLOT_GAP,
-  },
-  emptySlot: {
-    width: '100%',
-    height: '100%',
-  },
   partySlot: {
-    width: PARTY_SLOT_SIZE,
-    height: PARTY_SLOT_SIZE,
+    width: PARTY_SLOT_WIDTH,
+    height: PARTY_SLOT_HEIGHT,
   },
   selectedSlot: {
     position: 'relative',
-    width: PARTY_SLOT_SIZE,
-    height: PARTY_SLOT_SIZE,
+    width: PARTY_SLOT_WIDTH,
+    height: PARTY_SLOT_HEIGHT,
+  },
+  selectedCard: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   selectedCreatureImage: {
-    width: scaleByDeviceWidth(48),
-    height: scaleByDeviceWidth(40),
+    width: scaleByDeviceWidth(46),
+    height: scaleByDeviceWidth(42),
   },
   selectedCreatureName: {
-    width: '100%',
+    width: scaleByDeviceWidth(52),
     color: '#4F4B43',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(8),
-    lineHeight: scaleByDeviceWidth(11),
+    fontSize: scaleByDeviceWidth(9),
+    lineHeight: scaleByDeviceWidth(13),
     textAlign: 'center',
   },
   removeButton: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    width: scaleByDeviceWidth(12),
-    height: scaleByDeviceWidth(12.75),
+    top: scaleByDeviceWidth(7),
+    right: scaleByDeviceWidth(5),
+    width: scaleByDeviceWidth(8),
+    height: scaleByDeviceWidth(8.5),
   },
   removeButtonImage: {
     width: '100%',
@@ -303,6 +322,47 @@ const styles = StyleSheet.create({
   tip: {
     width: TIP_WIDTH,
     height: TIP_HEIGHT,
+  },
+  recommendationCard: {
+    width: RECOMMENDATION_WIDTH,
+    height: RECOMMENDATION_HEIGHT,
+  },
+  coachIdentity: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(12),
+    right: scaleByDeviceWidth(10),
+    alignItems: 'flex-end',
+  },
+  coachLevel: {
+    color: '#CFB78D',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(16),
+  },
+  coachNickname: {
+    maxWidth: scaleByDeviceWidth(92),
+    color: '#675744',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(20),
+  },
+  recommendedType: {
+    position: 'absolute',
+    right: scaleByDeviceWidth(10),
+    bottom: scaleByDeviceWidth(11),
+    alignItems: 'flex-end',
+  },
+  recommendedTypeLabel: {
+    color: '#D7BD8C',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: scaleByDeviceWidth(14),
+  },
+  recommendedTypeValue: {
+    color: '#8B704D',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(16),
   },
   pressed: {
     opacity: 0.8,
