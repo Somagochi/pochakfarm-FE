@@ -1,7 +1,7 @@
 import { getUserProfileApi } from '@/src/entities/user';
 import { getServiceToken } from '@/src/shared/lib/auth/tokenStorage';
 
-export type AuthenticatedRoute = '/(tabs)' | '/login' | '/nickname';
+export type AuthenticatedRoute = '/(tabs)' | '/login';
 
 export async function resolveAuthenticatedRoute(): Promise<AuthenticatedRoute> {
   const token = await getServiceToken();
@@ -11,9 +11,9 @@ export async function resolveAuthenticatedRoute(): Promise<AuthenticatedRoute> {
   }
 
   try {
-    const profile = await getUserProfileApi();
+    await getUserProfileApi();
 
-    return profile.nickname ? '/(tabs)' : '/nickname';
+    return '/(tabs)';
   } catch {
     return '/login';
   }
