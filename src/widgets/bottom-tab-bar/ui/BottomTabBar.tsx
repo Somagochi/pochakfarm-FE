@@ -61,8 +61,7 @@ export function BottomTabBar({
 
   if (
     isHidden ||
-    activeRoute?.name === 'capture' ||
-    activeRoute?.name === 'battle'
+    activeRoute?.name === 'capture'
   ) {
     return null;
   }
