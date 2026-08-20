@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { AppPostHogProvider } from '@/src/app/providers/AppPostHogProvider';
 import { useInitializeSocialLogin } from '@/src/features/social-login';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
 import { ScreenLoadingOverlay } from '@/src/shared/ui/ScreenLoadingOverlay';
@@ -68,9 +69,11 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Stack screenOptions={{ headerShown: false }} />
-      <ScreenLoadingOverlay />
-      <StatusBar style="auto" />
+      <AppPostHogProvider>
+        <Stack screenOptions={{ headerShown: false }} />
+        <ScreenLoadingOverlay />
+        <StatusBar style="auto" />
+      </AppPostHogProvider>
     </GestureHandlerRootView>
   );
 }
