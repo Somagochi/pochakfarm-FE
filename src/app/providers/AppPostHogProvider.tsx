@@ -29,7 +29,15 @@ export function AppPostHogProvider({ children }: PropsWithChildren) {
       apiKey={env.posthog.apiKey}
       options={{
         captureAppLifecycleEvents: true,
+        enableSessionReplay: false,
         host: env.posthog.host,
+        sessionReplayConfig: {
+          captureLog: false,
+          maskAllImages: true,
+          maskAllSandboxedViews: true,
+          maskAllTextInputs: true,
+          sampleRate: 1,
+        },
       }}
       autocapture={{
         captureScreens: false,
