@@ -1,10 +1,9 @@
-import { router, useLocalSearchParams } from 'expo-router';
+import { router } from 'expo-router';
 import { useState } from 'react';
 import { Image, ImageBackground, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAgreeToTerms } from '@/src/features/agree-to-terms';
-import { useSetNickname } from '@/src/features/set-nickname';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
@@ -31,17 +30,10 @@ const agreements = [
 
 export function TermsAgreementScreen() {
   const insets = useSafeAreaInsets();
-  const { nickname = '' } = useLocalSearchParams<{ nickname?: string }>();
   const {
     agreeToTerms,
     isLoading: isTermsAgreementLoading,
   } = useAgreeToTerms();
-  const {
-    clearError,
-    errorMessage,
-    isLoading,
-    setNickname,
-  } = useSetNickname();
   const [checkedAgreements, setCheckedAgreements] = useState<boolean[]>(
     agreements.map(() => false),
   );
@@ -51,7 +43,6 @@ export function TermsAgreementScreen() {
   const isAllAgreed = checkedAgreements.every(Boolean);
   const isCompleteEnabled =
     checkedAgreements.slice(0, 3).every(Boolean) &&
-    !isLoading &&
     !isTermsAgreementLoading;
 
   function handleAllAgreementPress() {
@@ -89,27 +80,14 @@ export function TermsAgreementScreen() {
 
   async function handleCompletePress() {
     try {
-      const isNicknameUpdated = await setNickname(nickname);
-
-      if (isNicknameUpdated) {
-        await agreeToTerms({
-          ageRequirementAgreed: checkedAgreements[0],
-          termsOfServiceAgreed: checkedAgreements[1],
-          privacyPolicyAgreed: checkedAgreements[2],
-          serviceQualityAgreed: checkedAgreements[3],
-          marketingAgreed: checkedAgreements[4],
-        });
-        router.replace('/(tabs)/farm');
-        return;
-      }
-
-      router.replace({
-        pathname: '/nickname',
-        params: {
-          nickname,
-          nicknameError: 'duplicate',
-        },
+      await agreeToTerms({
+        ageRequirementAgreed: checkedAgreements[0],
+        termsOfServiceAgreed: checkedAgreements[1],
+        privacyPolicyAgreed: checkedAgreements[2],
+        serviceQualityAgreed: checkedAgreements[3],
+        marketingAgreed: checkedAgreements[4],
       });
+      router.replace('/(tabs)/farm');
     } catch (error) {
       setRequestErrorMessage(
         error instanceof Error
@@ -243,11 +221,8 @@ export function TermsAgreementScreen() {
         />
       </Pressable>
       <ErrorModal
-        message={errorMessage ?? requestErrorMessage}
-        onClose={() => {
-          clearError();
-          setRequestErrorMessage(null);
-        }}
+        message={requestErrorMessage}
+        onClose={() => setRequestErrorMessage(null)}
       />
     </SafeAreaView>
   );
