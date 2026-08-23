@@ -48,7 +48,7 @@ export function LoginScreen() {
   const insets = useSafeAreaInsets();
 
   const handleLoginSuccess = ({ isNew }: SocialLoginResult) => {
-    router.replace(isNew ? '/nickname' : '/(tabs)');
+    router.replace(isNew ? '/terms-agreement' : '/(tabs)');
   };
 
   return (

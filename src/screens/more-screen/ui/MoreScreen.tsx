@@ -25,7 +25,6 @@ import { LoadingScreen } from '@/src/shared/ui/LoadingScreen';
 const PROFILE_CARD_IMAGE = require('@/src/shared/assets/images/more/profile-card.png');
 const EXP_ICON_IMAGE = require('@/src/shared/assets/images/more/exp-icon.png');
 const EDIT_NICKNAME_BUTTON_IMAGE = require('@/src/shared/assets/images/more/edit-nickname-button.png');
-const COUPON_REGISTRATION_BUTTON_IMAGE = require('@/src/shared/assets/images/more/coupon-registration-button.png');
 const SETTINGS_CARD_IMAGE = require('@/src/shared/assets/images/more/settings-card.png');
 const ACCOUNT_MANAGEMENT_ROW_IMAGE = require('@/src/shared/assets/images/more/account-management-row.png');
 const TERMS_CARD_IMAGE = require('@/src/shared/assets/images/more/terms-card.png');
@@ -256,21 +255,6 @@ export function MoreScreen() {
           </Text>
         </View>
       </View>
-      <Pressable
-        accessibilityLabel="쿠폰 등록"
-        accessibilityRole="button"
-        onPress={() => router.push('/coupon-registration')}
-        style={({ pressed }) => [
-          styles.couponRegistrationButton,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Image
-          resizeMode="contain"
-          source={COUPON_REGISTRATION_BUTTON_IMAGE}
-          style={styles.couponRegistrationButtonImage}
-        />
-      </Pressable>
       <ErrorModal
         message={nicknameErrorMessage ?? profileErrorMessage ?? modalErrorMessage}
         onClose={closeNicknameErrorModal}
@@ -517,15 +501,6 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(8),
     lineHeight: scaleByDeviceWidth(14),
     textAlign: 'center',
-  },
-  couponRegistrationButton: {
-    width: scaleByDeviceWidth(328),
-    height: scaleByDeviceWidth(89),
-    marginTop: scaleByDeviceWidth(8),
-  },
-  couponRegistrationButtonImage: {
-    width: '100%',
-    height: '100%',
   },
   settingsCard: {
     width: scaleByDeviceWidth(328),
