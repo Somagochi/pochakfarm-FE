@@ -4,8 +4,19 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BACK_ICON = require('@/src/shared/assets/images/coupon-registration/back-icon.png');
+const BATTLE_REWARD_BANNER = require('@/src/shared/assets/images/battle/battle-reward-banner.png');
+const COIN_REWARD_ICON = require('@/src/shared/assets/images/battle/coin-reward-icon.png');
+const EXPERIENCE_REWARD_ICON = require('@/src/shared/assets/images/battle/experience-reward-icon.png');
 
-export function BattleHeader() {
+type BattleHeaderProps = {
+  coinReward?: number | string;
+  experienceReward?: number | string;
+};
+
+export function BattleHeader({
+  coinReward = 300,
+  experienceReward = 328,
+}: BattleHeaderProps) {
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
@@ -23,9 +34,24 @@ export function BattleHeader() {
         </Pressable>
         <Text style={styles.title}>출전 동물 선택</Text>
       </View>
-      <Text style={styles.description}>
-        관장 라인업을 확인하고 대결 순서를 정해보세요
-      </Text>
+      <View style={styles.rewardBannerContainer}>
+        <Image
+          accessibilityLabel="대전 보상"
+          resizeMode="contain"
+          source={BATTLE_REWARD_BANNER}
+          style={styles.rewardBanner}
+        />
+        <View style={styles.rewardList}>
+          <View style={styles.rewardItem}>
+            <Image source={COIN_REWARD_ICON} style={styles.rewardIcon} />
+            <Text style={styles.rewardText}>+{coinReward}코인</Text>
+          </View>
+          <View style={styles.rewardItem}>
+            <Image source={EXPERIENCE_REWARD_ICON} style={styles.rewardIcon} />
+            <Text style={styles.rewardText}>+{experienceReward}EXP</Text>
+          </View>
+        </View>
+      </View>
     </View>
   );
 }
@@ -33,7 +59,8 @@ export function BattleHeader() {
 const styles = StyleSheet.create({
   container: {
     paddingTop: scaleByDeviceWidth(10),
-    paddingBottom: scaleByDeviceWidth(16),
+    alignItems: 'center',
+    paddingBottom: scaleByDeviceWidth(23),
     gap: scaleByDeviceWidth(8),
   },
   titleRow: {
@@ -59,12 +86,37 @@ const styles = StyleSheet.create({
     lineHeight: scaleByDeviceWidth(28),
     textAlign: 'center',
   },
-  description: {
-    color: '#75695D',
+  rewardBannerContainer: {
+    width: scaleByDeviceWidth(292),
+    height: scaleByDeviceWidth(34),
+    justifyContent: 'center',
+  },
+  rewardBanner: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  rewardList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    paddingRight: scaleByDeviceWidth(12),
+    gap: scaleByDeviceWidth(16),
+  },
+  rewardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scaleByDeviceWidth(2),
+  },
+  rewardIcon: {
+    width: scaleByDeviceWidth(16),
+    height: scaleByDeviceWidth(16),
+  },
+  rewardText: {
+    color: '#725C43',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(12),
-    lineHeight: scaleByDeviceWidth(18),
-    textAlign: 'center',
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: scaleByDeviceWidth(14),
   },
   pressed: {
     opacity: 0.8,
