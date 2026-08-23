@@ -14,6 +14,7 @@ import {
 
 import {
   FarmCreatureCard,
+  useSearchAnimals,
   type AnimalCardType,
   type CreatureEnvironment,
   type CreatureTier,
@@ -21,8 +22,6 @@ import {
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
-
-import { useSearchAnimals } from '../model/useSearchAnimals';
 
 const SEARCH_PANEL = require('@/src/shared/assets/images/farm-search/animal-search-panel.png');
 const SEARCH_TITLE = require('@/src/shared/assets/images/farm-search/animal-search-title.png');

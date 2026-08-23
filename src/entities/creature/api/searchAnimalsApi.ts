@@ -1,9 +1,6 @@
 import { apiClient } from '@/src/shared/api/client';
 
-import type {
-  AnimalCardType,
-  AnimalsPage,
-} from '@/src/entities/creature';
+import type { AnimalCardType, AnimalsPage } from '../model/types';
 
 type SearchAnimalsParams = {
   cursor?: number;

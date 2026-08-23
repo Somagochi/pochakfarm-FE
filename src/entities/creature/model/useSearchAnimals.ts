@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { Animal, AnimalCardType } from '@/src/entities/creature';
-
 import { searchAnimalsApi } from '../api/searchAnimalsApi';
+import type { Animal, AnimalCardType } from './types';
 
 type UseSearchAnimalsOptions = {
   enabled?: boolean;

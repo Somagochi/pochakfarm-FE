@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -13,7 +13,7 @@ import {
 
 import {
   FarmCreatureCard,
-  useAnimals,
+  useSearchAnimals,
   type AnimalCardType,
   type CreatureEnvironment,
   type CreatureTier,
@@ -41,6 +41,15 @@ const ENVIRONMENT_BY_CARD_TYPE: Record<
   SKY: 'sky',
   SPACE: 'space',
 };
+const CARD_TYPE_BY_ENVIRONMENT: Record<
+  CreatureEnvironment,
+  AnimalCardType
+> = {
+  land: 'GROUND',
+  sea: 'SEA',
+  sky: 'SKY',
+  space: 'SPACE',
+};
 const TIER_PRIORITY: Record<CreatureTier, number> = {
   C: 0,
   B: 1,
@@ -64,6 +73,7 @@ export function BattleCreatureSelector({
   selectedCreatureIds = [],
 }: BattleCreatureSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedAnimalType, setSelectedAnimalType] = useState<
     (typeof ANIMAL_TYPES)[number]['value']
   >('all');
@@ -74,7 +84,20 @@ export function BattleCreatureSelector({
     hasNext,
     isLoading,
     loadNextPage,
-  } = useAnimals({ enabled: true });
+  } = useSearchAnimals({
+    keyword: debouncedSearchQuery,
+    type:
+      selectedAnimalType === 'all'
+        ? undefined
+        : CARD_TYPE_BY_ENVIRONMENT[selectedAnimalType],
+  });
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
   const creatures = useMemo<FarmCreatureListItem[]>(
     () =>
       animals.map((animal) => ({
@@ -89,28 +112,15 @@ export function BattleCreatureSelector({
       })),
     [animals],
   );
-  const filteredCreatures = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLocaleLowerCase('ko-KR');
-
-    return creatures
-      .filter((creature) => {
-        const matchesType =
-          selectedAnimalType === 'all' ||
-          creature.environment === selectedAnimalType;
-        const matchesQuery =
-          normalizedQuery.length === 0 ||
-          creature.name
-            .toLocaleLowerCase('ko-KR')
-            .includes(normalizedQuery);
-
-        return matchesType && matchesQuery;
-      })
-      .sort(
+  const sortedCreatures = useMemo(
+    () =>
+      [...creatures].sort(
         (leftCreature, rightCreature) =>
           TIER_PRIORITY[rightCreature.tier] -
           TIER_PRIORITY[leftCreature.tier],
-      );
-  }, [creatures, searchQuery, selectedAnimalType]);
+      ),
+    [creatures],
+  );
 
   return (
     <>
@@ -195,7 +205,7 @@ export function BattleCreatureSelector({
           style={styles.creatureList}
         >
           <View style={styles.creatureGrid}>
-            {filteredCreatures.map((creature) => (
+            {sortedCreatures.map((creature) => (
               <FarmCreatureCard
                 creature={creature}
                 key={creature.id}
