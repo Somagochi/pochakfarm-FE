@@ -22,7 +22,7 @@ import {
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
-const SEARCH_INPUT = require('@/src/shared/assets/images/farm-search/animal-search-input.png');
+const SEARCH_INPUT = require('@/src/shared/assets/images/battle/battle-search-input.png');
 const SEARCH_ICON = require('@/src/shared/assets/images/farm-search/search-icon.png');
 const SEARCH_PLACEHOLDER = require('@/src/shared/assets/images/farm-search/search-placeholder.png');
 const ANIMAL_TYPES = [
