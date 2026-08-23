@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -14,7 +14,6 @@ import {
 
 import {
   FarmCreatureCard,
-  useAnimals,
   type AnimalCardType,
   type CreatureEnvironment,
   type CreatureTier,
@@ -22,6 +21,8 @@ import {
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+
+import { useSearchAnimals } from '../model/useSearchAnimals';
 
 const SEARCH_PANEL = require('@/src/shared/assets/images/farm-search/animal-search-panel.png');
 const SEARCH_TITLE = require('@/src/shared/assets/images/farm-search/animal-search-title.png');
@@ -45,6 +46,15 @@ const ENVIRONMENT_BY_CARD_TYPE: Record<
   SKY: 'sky',
   SPACE: 'space',
 };
+const CARD_TYPE_BY_ENVIRONMENT: Record<
+  CreatureEnvironment,
+  AnimalCardType
+> = {
+  land: 'GROUND',
+  sea: 'SEA',
+  sky: 'SKY',
+  space: 'SPACE',
+};
 const TIER_PRIORITY: Record<CreatureTier, number> = {
   C: 0,
   B: 1,
@@ -66,6 +76,7 @@ export function FarmCreatureSearchModal({
   visible,
 }: FarmCreatureSearchModalProps) {
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedAnimalType, setSelectedAnimalType] = useState<
     (typeof ANIMAL_TYPES)[number]['value']
   >('all');
@@ -76,7 +87,21 @@ export function FarmCreatureSearchModal({
     hasNext,
     isLoading,
     loadNextPage,
-  } = useAnimals({ enabled: visible });
+  } = useSearchAnimals({
+    enabled: visible,
+    keyword: debouncedSearchQuery,
+    type:
+      selectedAnimalType === 'all'
+        ? undefined
+        : CARD_TYPE_BY_ENVIRONMENT[selectedAnimalType],
+  });
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
   const creatures = useMemo<FarmCreatureListItem[]>(
     () =>
       animals.map((animal) => ({
@@ -91,28 +116,15 @@ export function FarmCreatureSearchModal({
       })),
     [animals],
   );
-  const filteredCreatures = useMemo(() => {
-    const normalizedQuery = searchQuery.trim().toLocaleLowerCase('ko-KR');
-
-    return creatures
-      .filter((creature) => {
-        const matchesType =
-          selectedAnimalType === 'all' ||
-          creature.environment === selectedAnimalType;
-        const matchesQuery =
-          normalizedQuery.length === 0 ||
-          creature.name
-            .toLocaleLowerCase('ko-KR')
-            .includes(normalizedQuery);
-
-        return matchesType && matchesQuery;
-      })
-      .sort(
+  const sortedCreatures = useMemo(
+    () =>
+      [...creatures].sort(
         (leftCreature, rightCreature) =>
           TIER_PRIORITY[rightCreature.tier] -
           TIER_PRIORITY[leftCreature.tier],
-      );
-  }, [creatures, searchQuery, selectedAnimalType]);
+      ),
+    [creatures],
+  );
 
   return (
     <>
@@ -219,7 +231,7 @@ export function FarmCreatureSearchModal({
           <FlatList
             columnWrapperStyle={styles.creatureListRow}
             contentContainerStyle={styles.creatureListContent}
-            data={filteredCreatures}
+            data={sortedCreatures}
             keyExtractor={(creature) => creature.id}
             keyboardShouldPersistTaps="handled"
             ListFooterComponent={
