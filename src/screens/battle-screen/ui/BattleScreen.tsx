@@ -1,4 +1,5 @@
 import { Image, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -102,7 +103,25 @@ export function BattleScreen() {
           )}
         />
       </ScrollView>
-      <BattleActionBar />
+      <BattleActionBar
+        isEnabled={selectedCreatures.length === 3}
+        onPress={() =>
+          router.push({
+            pathname: '/battle-arena',
+            params: {
+              coach: 'moru',
+              party: JSON.stringify(
+                selectedCreatures.map((creature) => ({
+                  environment: creature.environment,
+                  id: creature.id,
+                  imageUri: creature.creatureImageUri,
+                  name: creature.name,
+                })),
+              ),
+            },
+          })
+        }
+      />
     </SafeAreaView>
   );
 }
