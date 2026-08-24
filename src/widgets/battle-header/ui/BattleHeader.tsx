@@ -11,11 +11,17 @@ const EXPERIENCE_REWARD_ICON = require('@/src/shared/assets/images/battle/experi
 type BattleHeaderProps = {
   coinReward?: number | string;
   experienceReward?: number | string;
+  showRewardBanner?: boolean;
+  subtitle?: string;
+  title?: string;
 };
 
 export function BattleHeader({
   coinReward = 300,
   experienceReward = 328,
+  showRewardBanner = true,
+  subtitle,
+  title = '출전 동물 선택',
 }: BattleHeaderProps) {
   return (
     <View style={styles.container}>
@@ -32,26 +38,29 @@ export function BattleHeader({
         >
           <Image source={BACK_ICON} style={styles.backIcon} />
         </Pressable>
-        <Text style={styles.title}>출전 동물 선택</Text>
+        <Text style={styles.title}>{title}</Text>
       </View>
-      <View style={styles.rewardBannerContainer}>
-        <Image
-          accessibilityLabel="대전 보상"
-          resizeMode="contain"
-          source={BATTLE_REWARD_BANNER}
-          style={styles.rewardBanner}
-        />
-        <View style={styles.rewardList}>
-          <View style={styles.rewardItem}>
-            <Image source={COIN_REWARD_ICON} style={styles.rewardIcon} />
-            <Text style={styles.rewardText}>+{coinReward}코인</Text>
-          </View>
-          <View style={styles.rewardItem}>
-            <Image source={EXPERIENCE_REWARD_ICON} style={styles.rewardIcon} />
-            <Text style={styles.rewardText}>+{experienceReward}EXP</Text>
+      {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+      {showRewardBanner && (
+        <View style={styles.rewardBannerContainer}>
+          <Image
+            accessibilityLabel="대전 보상"
+            resizeMode="contain"
+            source={BATTLE_REWARD_BANNER}
+            style={styles.rewardBanner}
+          />
+          <View style={styles.rewardList}>
+            <View style={styles.rewardItem}>
+              <Image source={COIN_REWARD_ICON} style={styles.rewardIcon} />
+              <Text style={styles.rewardText}>+{coinReward}코인</Text>
+            </View>
+            <View style={styles.rewardItem}>
+              <Image source={EXPERIENCE_REWARD_ICON} style={styles.rewardIcon} />
+              <Text style={styles.rewardText}>+{experienceReward}EXP</Text>
+            </View>
           </View>
         </View>
-      </View>
+      )}
     </View>
   );
 }
@@ -84,6 +93,13 @@ const styles = StyleSheet.create({
     fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(20),
     lineHeight: scaleByDeviceWidth(28),
+    textAlign: 'center',
+  },
+  subtitle: {
+    color: '#9B805D',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(17),
     textAlign: 'center',
   },
   rewardBannerContainer: {
