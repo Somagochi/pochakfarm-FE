@@ -12,6 +12,7 @@ import {
   vec,
 } from '@shopify/react-native-skia';
 import Animated, {
+  type DerivedValue,
   Easing,
   cancelAnimation,
   interpolate,
@@ -90,6 +91,25 @@ const LAND_AMBIENT_ASSETS = {
   cloudWarm: require('@/src/shared/assets/images/farm/ambient/cloud-warm.png'),
   sparkles: require('@/src/shared/assets/images/farm/ambient/sparkles.png'),
   wildflowers: require('@/src/shared/assets/images/farm/ambient/wildflowers.png'),
+} as const;
+
+const SEA_AMBIENT_ASSETS = {
+  coralFrames: [
+    require('@/src/shared/assets/images/farm/ambient/sea/coral-frame-1.png'),
+    require('@/src/shared/assets/images/farm/ambient/sea/coral-frame-2.png'),
+    require('@/src/shared/assets/images/farm/ambient/sea/coral-frame-3.png'),
+  ],
+  fishFrames: [
+    require('@/src/shared/assets/images/farm/ambient/sea/fish-frame-1.png'),
+    require('@/src/shared/assets/images/farm/ambient/sea/fish-frame-2.png'),
+    require('@/src/shared/assets/images/farm/ambient/sea/fish-frame-3.png'),
+  ],
+  tropicalFish: {
+    blue: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue.png'),
+    green: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green.png'),
+    purple: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple.png'),
+    yellow: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow.png'),
+  },
 } as const;
 
 type LandDecorationProps = {
@@ -519,6 +539,465 @@ function LandAmbientDecorations({
   );
 }
 
+function SeaFrameImages<FrameIndex extends number>({
+  activeFrameIndex,
+  frames,
+}: {
+  activeFrameIndex: DerivedValue<FrameIndex>;
+  frames: readonly ImageSourcePropType[];
+}) {
+  const frameOneStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 0 ? 1 : 0,
+  }));
+  const frameTwoStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 1 ? 1 : 0,
+  }));
+  const frameThreeStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 2 ? 1 : 0,
+  }));
+  const frameStyles = [frameOneStyle, frameTwoStyle, frameThreeStyle];
+
+  return frames.map((source, index) => (
+    <Animated.Image
+      key={index}
+      resizeMode="contain"
+      source={source}
+      style={[styles.flyingFrame, frameStyles[index]]}
+    />
+  ));
+}
+
+function SwimmingFish({
+  delay,
+  duration,
+  height,
+  reducedMotion,
+  size,
+  top,
+  width,
+}: {
+  delay: number;
+  duration: number;
+  height: number;
+  reducedMotion: boolean;
+  size: number;
+  top: number;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const fishSize = width * (size / 360);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.48;
+      return;
+    }
+
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration, easing: Easing.linear }),
+        -1,
+        false,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, duration, progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(progress.value, [0, 1], [
+          -fishSize,
+          width + fishSize * 0.1,
+        ]),
+      },
+      {
+        translateY:
+          height * top + Math.sin(progress.value * Math.PI * 4) * height * 0.025,
+      },
+      { rotate: `${Math.sin(progress.value * Math.PI * 4) * 2}deg` },
+    ],
+  }));
+  const activeFrameIndex = useDerivedValue(() =>
+    reducedMotion ? 1 : Math.floor(progress.value * 36) % 3,
+  );
+
+  return (
+    <Animated.View
+      style={[
+        styles.seaMovingElement,
+        { height: fishSize, width: fishSize },
+        movementStyle,
+      ]}
+    >
+      <SeaFrameImages
+        activeFrameIndex={activeFrameIndex}
+        frames={SEA_AMBIENT_ASSETS.fishFrames}
+      />
+    </Animated.View>
+  );
+}
+
+function SwimmingTropicalFish({
+  height,
+  reducedMotion,
+  width,
+}: {
+  height: number;
+  reducedMotion: boolean;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const schoolWidth = width * (104 / 360);
+  const schoolHeight = schoolWidth * (82 / 104);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.46;
+      return;
+    }
+
+    progress.value = withDelay(
+      900,
+      withRepeat(
+        withTiming(1, { duration: 17500, easing: Easing.linear }),
+        -1,
+        false,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateX: interpolate(progress.value, [0, 1], [
+          -schoolWidth,
+          width + schoolWidth * 0.1,
+        ]),
+      },
+      {
+        translateY:
+          height * 0.2 + Math.sin(progress.value * Math.PI * 4) * height * 0.018,
+      },
+      { rotate: `${Math.sin(progress.value * Math.PI * 4) * 1.6}deg` },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.seaMovingElement,
+        { height: schoolHeight, width: schoolWidth },
+        movementStyle,
+      ]}
+    >
+      <Image
+        resizeMode="contain"
+        source={SEA_AMBIENT_ASSETS.tropicalFish.blue}
+        style={[
+          styles.tropicalFish,
+          {
+            height: schoolWidth * 0.42,
+            left: schoolWidth * 0.29,
+            top: 0,
+            width: schoolWidth * 0.42,
+          },
+        ]}
+      />
+      <Image
+        resizeMode="contain"
+        source={SEA_AMBIENT_ASSETS.tropicalFish.yellow}
+        style={[
+          styles.tropicalFish,
+          {
+            height: schoolWidth * 0.38,
+            left: 0,
+            top: schoolHeight * 0.32,
+            width: schoolWidth * 0.38,
+          },
+        ]}
+      />
+      <Image
+        resizeMode="contain"
+        source={SEA_AMBIENT_ASSETS.tropicalFish.green}
+        style={[
+          styles.tropicalFish,
+          {
+            height: schoolWidth * 0.36,
+            left: schoolWidth * 0.34,
+            top: schoolHeight * 0.48,
+            transform: [{ scaleX: -1 }],
+            width: schoolWidth * 0.36,
+          },
+        ]}
+      />
+      <Image
+        resizeMode="contain"
+        source={SEA_AMBIENT_ASSETS.tropicalFish.purple}
+        style={[
+          styles.tropicalFish,
+          {
+            height: schoolWidth * 0.36,
+            left: schoolWidth * 0.64,
+            top: schoolHeight * 0.27,
+            width: schoolWidth * 0.36,
+          },
+        ]}
+      />
+    </Animated.View>
+  );
+}
+
+function RisingBubbles({
+  delay,
+  height,
+  left,
+  reducedMotion,
+  size,
+  top,
+  width,
+}: {
+  delay: number;
+  height: number;
+  left: number;
+  reducedMotion: boolean;
+  size: number;
+  top: number;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const bubbleSize = width * (size / 360);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.45;
+      return;
+    }
+
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: 8500, easing: Easing.linear }),
+        -1,
+        false,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.12, 0.82, 1], [0, 0.9, 0.9, 0]),
+    transform: [
+      { translateY: -height * 0.22 * progress.value },
+      { translateX: Math.sin(progress.value * Math.PI * 3) * width * 0.025 },
+      { scale: interpolate(progress.value, [0, 1], [0.88, 1.04]) },
+    ],
+  }));
+  return (
+    <Animated.View
+      style={[
+        styles.seaMovingElement,
+        {
+          height: bubbleSize,
+          left: width * left,
+          top: height * top,
+          width: bubbleSize,
+        },
+        movementStyle,
+      ]}
+    >
+      {[
+        { left: 0.38, size: 0.3, top: 0.08 },
+        { left: 0.58, size: 0.18, top: 0.29 },
+        { left: 0.25, size: 0.2, top: 0.47 },
+        { left: 0.53, size: 0.38, top: 0.57 },
+        { left: 0.32, size: 0.14, top: 0.82 },
+      ].map((bubble, index) => {
+        const diameter = bubbleSize * bubble.size;
+
+        return (
+          <View
+            key={index}
+            style={[
+              styles.seaBubble,
+              {
+                borderRadius: diameter / 2,
+                borderWidth: bubbleSize * 0.018,
+                height: diameter,
+                left: bubbleSize * bubble.left,
+                top: bubbleSize * bubble.top,
+                width: diameter,
+                shadowRadius: diameter * 0.12,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.seaBubbleHighlight,
+                {
+                  borderRadius: diameter * 0.1,
+                  height: diameter * 0.2,
+                  left: diameter * 0.2,
+                  top: diameter * 0.16,
+                  width: diameter * 0.2,
+                },
+              ]}
+            />
+          </View>
+        );
+      })}
+    </Animated.View>
+  );
+}
+
+function SwayingCoral({
+  delay,
+  height,
+  left,
+  reducedMotion,
+  size,
+  top,
+  width,
+}: {
+  delay: number;
+  height: number;
+  left: number;
+  reducedMotion: boolean;
+  size: number;
+  top: number;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const coralSize = width * (size / 360);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.5;
+      return;
+    }
+
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration: 4200, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        rotate: `${interpolate(progress.value, [0, 1], [-0.65, 0.65])}deg`,
+      },
+      {
+        translateX: interpolate(
+          progress.value,
+          [0, 1],
+          [-coralSize * 0.008, coralSize * 0.008],
+        ),
+      },
+      {
+        scaleX: interpolate(progress.value, [0, 1], [0.995, 1.005]),
+      },
+    ],
+  }));
+
+  return (
+    <Animated.View
+      style={[
+        styles.seaCoral,
+        {
+          height: coralSize,
+          left: width * left,
+          top: height * top,
+          width: coralSize,
+        },
+        movementStyle,
+      ]}
+    >
+      <Image
+        resizeMode="contain"
+        source={SEA_AMBIENT_ASSETS.coralFrames[1]}
+        style={styles.flyingFrame}
+      />
+    </Animated.View>
+  );
+}
+
+function SeaAmbientDecorations({
+  height,
+  reducedMotion,
+  width,
+}: {
+  height: number;
+  reducedMotion: boolean;
+  width: number;
+}) {
+  return (
+    <>
+      <SwimmingTropicalFish
+        height={height}
+        reducedMotion={reducedMotion}
+        width={width}
+      />
+      <SwimmingFish
+        delay={6800}
+        duration={19000}
+        height={height}
+        reducedMotion={reducedMotion}
+        size={70}
+        top={0.59}
+        width={width}
+      />
+      <RisingBubbles
+        delay={0}
+        height={height}
+        left={0.04}
+        reducedMotion={reducedMotion}
+        size={74}
+        top={0.46}
+        width={width}
+      />
+      <RisingBubbles
+        delay={3100}
+        height={height}
+        left={0.67}
+        reducedMotion={reducedMotion}
+        size={64}
+        top={0.7}
+        width={width}
+      />
+      <SwayingCoral
+        delay={0}
+        height={height}
+        left={0.57}
+        reducedMotion={reducedMotion}
+        size={104}
+        top={0.79}
+        width={width}
+      />
+      <SwayingCoral
+        delay={1300}
+        height={height}
+        left={0.05}
+        reducedMotion={reducedMotion}
+        size={82}
+        top={0.34}
+        width={width}
+      />
+    </>
+  );
+}
+
 function AmbientParticle({
   color,
   height,
@@ -656,6 +1135,13 @@ export function FarmAmbientEffects({
           width={width}
         />
       )}
+      {environment === 'sea' && (
+        <SeaAmbientDecorations
+          height={height}
+          reducedMotion={reducedMotion}
+          width={width}
+        />
+      )}
     </View>
   );
 }
@@ -686,6 +1172,30 @@ const styles = StyleSheet.create({
     top: 0,
   },
   landDecoration: {
+    position: 'absolute',
+  },
+  seaCoral: {
+    position: 'absolute',
+    transformOrigin: 'bottom center',
+  },
+  seaBubble: {
+    backgroundColor: 'rgba(91, 223, 255, 0.16)',
+    borderColor: 'rgba(203, 249, 255, 0.86)',
+    position: 'absolute',
+    shadowColor: '#61E8FF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.62,
+  },
+  seaBubbleHighlight: {
+    backgroundColor: 'rgba(255, 255, 255, 0.86)',
+    position: 'absolute',
+  },
+  seaMovingElement: {
+    left: 0,
+    position: 'absolute',
+    top: 0,
+  },
+  tropicalFish: {
     position: 'absolute',
   },
   particle: {
