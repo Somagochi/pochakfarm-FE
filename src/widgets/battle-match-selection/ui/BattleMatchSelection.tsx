@@ -64,6 +64,7 @@ function DraggablePartySlot({
 }: DraggablePartySlotProps) {
   const translateX = useSharedValue(0);
   const isDragging = useSharedValue(false);
+  const rotation = useSharedValue(0);
   const scale = useSharedValue(1);
   const gesture = Gesture.Pan()
     .activeOffsetX([-scaleByDeviceWidth(4), scaleByDeviceWidth(4)])
@@ -71,6 +72,7 @@ function DraggablePartySlot({
     .onBegin(() => {
       'worklet';
       isDragging.value = true;
+      rotation.value = withTiming(-3, { duration: 100 });
       scale.value = withTiming(1.06, { duration: 100 });
     })
     .onUpdate((event) => {
@@ -102,6 +104,7 @@ function DraggablePartySlot({
     .onFinalize(() => {
       'worklet';
       translateX.value = withTiming(0, { duration: 140 });
+      rotation.value = withTiming(0, { duration: 100 });
       scale.value = withTiming(1, { duration: 100 });
       isDragging.value = false;
     });
@@ -109,6 +112,7 @@ function DraggablePartySlot({
     zIndex: isDragging.value ? 2 : 0,
     transform: [
       { translateX: translateX.value },
+      { rotateZ: `${rotation.value}deg` },
       { scale: scale.value },
     ],
   }));
