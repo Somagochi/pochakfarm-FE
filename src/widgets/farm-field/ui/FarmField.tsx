@@ -54,6 +54,7 @@ type FarmFieldProps = {
   environment: 'sky' | 'land' | 'sea' | 'space';
   farmType: FarmType;
   floors: FarmFloor[];
+  isActive?: boolean;
   isReordering?: boolean;
   onMoveCreature?: (
     animalId: number,
@@ -79,6 +80,7 @@ export function FarmField({
   environment,
   farmType,
   floors,
+  isActive = true,
   isReordering = false,
   onMoveCreature,
   onExpansionSuccess,
@@ -239,23 +241,27 @@ export function FarmField({
           ]}
         />
       )}
-      <FarmAmbientEffects
-        environment={environment}
-        height={canvasHeight}
-        width={width}
-      />
-      <SkyFarmCloudLayer
-        depth="background"
-        environment={environment}
-        height={canvasHeight}
-        width={width}
-      />
-      <SkyFarmCloudLayer
-        depth="foreground"
-        environment={environment}
-        height={canvasHeight}
-        width={width}
-      />
+      {isActive && (
+        <>
+          <FarmAmbientEffects
+            environment={environment}
+            height={canvasHeight}
+            width={width}
+          />
+          <SkyFarmCloudLayer
+            depth="background"
+            environment={environment}
+            height={canvasHeight}
+            width={width}
+          />
+          <SkyFarmCloudLayer
+            depth="foreground"
+            environment={environment}
+            height={canvasHeight}
+            width={width}
+          />
+        </>
+      )}
 
       {FARM_AREAS.map(({ areaNumber, sourceCenterY }) => {
         const floor = floors.find(
