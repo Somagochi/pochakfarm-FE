@@ -17,6 +17,7 @@ export default function TabLayout() {
     <Tabs
       tabBar={(props) => <BottomTabBar {...props} />}
       screenOptions={{
+        freezeOnBlur: true,
         headerShown: false,
       }}
     >
