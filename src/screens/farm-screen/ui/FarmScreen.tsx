@@ -1,4 +1,5 @@
 import { router } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useRef, useState } from 'react';
 import {
   Image,
@@ -40,6 +41,7 @@ const SAVE_REORDER_BUTTON = require('@/src/shared/assets/images/farm-status/save
 const EMPTY_SAVE_SLOT_IMAGE = require('@/src/shared/assets/images/farm/empty-save-slot.png');
 
 export function FarmScreen() {
+  const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const farmScrollRef = useRef<ScrollView>(null);
   const environmentChangeFrameRef = useRef<number | null>(null);
@@ -149,6 +151,7 @@ export function FarmScreen() {
             environment={selectedEnvironment}
             farmType={FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]}
             floors={farm?.floors ?? []}
+            isActive={isFocused}
             isReordering={isReordering}
             onBackgroundReady={() => setIsFarmBackgroundReady(true)}
             onMoveCreature={async (
