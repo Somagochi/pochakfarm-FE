@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   ImageBackground,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -60,6 +60,7 @@ const TIER_PRIORITY: Record<CreatureTier, number> = {
 };
 
 type BattleCreatureSelectorProps = {
+  headerContent?: ReactNode;
   onListInteractionEnd?: () => void;
   onListInteractionStart?: () => void;
   onToggleCreature?: (creature: FarmCreatureListItem) => void;
@@ -67,6 +68,7 @@ type BattleCreatureSelectorProps = {
 };
 
 export function BattleCreatureSelector({
+  headerContent,
   onListInteractionEnd,
   onListInteractionStart,
   onToggleCreature,
@@ -124,65 +126,87 @@ export function BattleCreatureSelector({
 
   return (
     <>
-      <View style={styles.panel}>
-        <ImageBackground
-          resizeMode="stretch"
-          source={SEARCH_INPUT}
-          style={styles.searchInputBackground}
-        >
-          <Image source={SEARCH_ICON} style={styles.searchIcon} />
-          {!searchQuery && (
-            <Image
-              resizeMode="contain"
-              source={SEARCH_PLACEHOLDER}
-              style={styles.searchPlaceholder}
-            />
-          )}
-          <TextInput
-            accessibilityLabel="대전 출전 동물 검색"
-            autoCapitalize="none"
-            autoCorrect={false}
-            onChangeText={setSearchQuery}
-            style={styles.searchInput}
-            value={searchQuery}
-          />
-        </ImageBackground>
-        <View style={styles.animalTypeTabs}>
-          {ANIMAL_TYPES.map((animalType) => {
-            const isSelected = selectedAnimalType === animalType.value;
-
-            return (
-              <Pressable
-                accessibilityLabel={`${animalType.label} 동물 보기`}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isSelected }}
-                key={animalType.value}
-                onPress={() => setSelectedAnimalType(animalType.value)}
-                style={[
-                  styles.animalTypeTab,
-                  isSelected
-                    ? styles.selectedAnimalTypeTab
-                    : styles.unselectedAnimalTypeTab,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.animalTypeLabel,
-                    isSelected
-                      ? styles.selectedAnimalTypeLabel
-                      : styles.unselectedAnimalTypeLabel,
-                  ]}
-                >
-                  {animalType.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        <ScrollView
+      <FlatList
+          columnWrapperStyle={styles.creatureRow}
           contentContainerStyle={styles.creatureListContent}
+          data={sortedCreatures}
+          initialNumToRender={6}
           keyboardShouldPersistTaps="handled"
+          keyExtractor={(creature) => creature.id}
+          ListFooterComponent={
+            <View style={styles.listFooter}>
+              {isLoading && (
+                <ActivityIndicator
+                  color="#BCA47E"
+                  style={styles.loadingIndicator}
+                />
+              )}
+            </View>
+          }
+          ListHeaderComponent={
+            <>
+              {headerContent}
+              <View style={styles.panelHeader}>
+                <ImageBackground
+                  resizeMode="stretch"
+                  source={SEARCH_INPUT}
+                  style={styles.searchInputBackground}
+                >
+                  <Image source={SEARCH_ICON} style={styles.searchIcon} />
+                  {!searchQuery && (
+                    <Image
+                      resizeMode="contain"
+                      source={SEARCH_PLACEHOLDER}
+                      style={styles.searchPlaceholder}
+                    />
+                  )}
+                  <TextInput
+                    accessibilityLabel="대전 출전 동물 검색"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onChangeText={setSearchQuery}
+                    style={styles.searchInput}
+                    value={searchQuery}
+                  />
+                </ImageBackground>
+                <View style={styles.animalTypeTabs}>
+                  {ANIMAL_TYPES.map((animalType) => {
+                    const isSelected = selectedAnimalType === animalType.value;
+
+                    return (
+                      <Pressable
+                        accessibilityLabel={`${animalType.label} 동물 보기`}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: isSelected }}
+                        key={animalType.value}
+                        onPress={() => setSelectedAnimalType(animalType.value)}
+                        style={[
+                          styles.animalTypeTab,
+                          isSelected
+                            ? styles.selectedAnimalTypeTab
+                            : styles.unselectedAnimalTypeTab,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.animalTypeLabel,
+                            isSelected
+                              ? styles.selectedAnimalTypeLabel
+                              : styles.unselectedAnimalTypeLabel,
+                          ]}
+                        >
+                          {animalType.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          }
+          maxToRenderPerBatch={6}
           nestedScrollEnabled
+          numColumns={3}
           onTouchCancel={onListInteractionEnd}
           onTouchEnd={onListInteractionEnd}
           onTouchStart={onListInteractionStart}
@@ -203,43 +227,36 @@ export function BattleCreatureSelector({
           scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           style={styles.creatureList}
-        >
-          <View style={styles.creatureGrid}>
-            {sortedCreatures.map((creature) => (
-              <FarmCreatureCard
-                creature={creature}
-                key={creature.id}
-                onPress={() => onToggleCreature?.(creature)}
-                selectionOrder={(() => {
-                  const selectedIndex = selectedCreatureIds.indexOf(
-                    creature.id,
-                  );
+          renderItem={({ item: creature }) => {
+            const selectedIndex = selectedCreatureIds.indexOf(creature.id);
 
-                  return selectedIndex >= 0 ? selectedIndex + 1 : undefined;
-                })()}
-              />
-            ))}
-          </View>
-          {isLoading && (
-            <ActivityIndicator
-              color="#BCA47E"
-              style={styles.loadingIndicator}
-            />
-          )}
-        </ScrollView>
-      </View>
+            return (
+              <View style={styles.creatureGridItem}>
+                <FarmCreatureCard
+                  creature={creature}
+                  onPress={() => onToggleCreature?.(creature)}
+                  selectionOrder={
+                    selectedIndex >= 0 ? selectedIndex + 1 : undefined
+                  }
+                />
+              </View>
+            );
+          }}
+          windowSize={5}
+        />
       <ErrorModal message={errorMessage} onClose={clearError} />
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  panel: {
+  panelHeader: {
     position: 'relative',
     width: scaleByDeviceWidth(328),
-    height: scaleByDeviceWidth(432),
+    height: scaleByDeviceWidth(102),
     alignItems: 'center',
-    borderRadius: scaleByDeviceWidth(20),
+    borderTopLeftRadius: scaleByDeviceWidth(20),
+    borderTopRightRadius: scaleByDeviceWidth(20),
     backgroundColor: '#FFFDF8',
     overflow: 'hidden',
   },
@@ -305,20 +322,28 @@ const styles = StyleSheet.create({
     color: '#A6A299',
   },
   creatureList: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(102),
-    left: scaleByDeviceWidth(10),
-    width: scaleByDeviceWidth(308),
-    height: scaleByDeviceWidth(302),
+    flex: 1,
   },
   creatureListContent: {
+    alignItems: 'center',
+    paddingTop: scaleByDeviceWidth(16),
     paddingBottom: scaleByDeviceWidth(8),
   },
-  creatureGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: scaleByDeviceWidth(4),
-    rowGap: scaleByDeviceWidth(4),
+  creatureRow: {
+    width: scaleByDeviceWidth(328),
+    paddingLeft: scaleByDeviceWidth(10),
+    backgroundColor: '#FFFDF8',
+  },
+  creatureGridItem: {
+    marginBottom: scaleByDeviceWidth(4),
+    marginRight: scaleByDeviceWidth(4),
+  },
+  listFooter: {
+    width: scaleByDeviceWidth(328),
+    minHeight: scaleByDeviceWidth(20),
+    borderBottomLeftRadius: scaleByDeviceWidth(20),
+    borderBottomRightRadius: scaleByDeviceWidth(20),
+    backgroundColor: '#FFFDF8',
   },
   loadingIndicator: {
     marginVertical: scaleByDeviceWidth(12),
