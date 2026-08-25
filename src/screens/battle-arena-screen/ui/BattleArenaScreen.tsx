@@ -35,6 +35,7 @@ const BATTLE_LOG_TITLE = require('@/src/shared/assets/images/battle/battle-log-t
 const BATTLE_LOG_LEFT_BUBBLE = require('@/src/shared/assets/images/battle/battle-log-left-bubble.png');
 const BATTLE_LOG_RIGHT_BUBBLE = require('@/src/shared/assets/images/battle/battle-log-right-bubble.png');
 const BATTLE_PROGRESS_BAR = require('@/src/shared/assets/images/battle/battle-progress-bar.png');
+const BATTLE_PROGRESS_FILL = require('@/src/shared/assets/images/battle/battle-progress-fill.png');
 const BATTLE_STATUS_BADGE = require('@/src/shared/assets/images/battle/battle-status-badge.png');
 const BATTLE_ROUND_LABEL = require('@/src/shared/assets/images/battle/battle-round-label.png');
 const OPPONENT_CREATURE = require('@/src/shared/assets/images/farm/kkomi.png');
@@ -45,6 +46,16 @@ const STABLE_SKILL_TYPE = require('@/src/shared/assets/images/battle/stable-skil
 const CHEER_BUTTON = require('@/src/shared/assets/images/battle/cheer-button.png');
 const BATTLE_LOG_COUNT = 4;
 const BATTLE_PROGRESS_INNER_WIDTH = scaleByDeviceWidth(310);
+const BATTLE_PROGRESS_FILL_WIDTH = scaleByDeviceWidth(310);
+const BATTLE_PROGRESS_FILL_HEIGHT = scaleByDeviceWidth(26);
+const BATTLE_PROGRESS_FILL_IMAGE_WIDTH =
+  BATTLE_PROGRESS_FILL_WIDTH * (2020 / 1872);
+const BATTLE_PROGRESS_FILL_IMAGE_HEIGHT =
+  BATTLE_PROGRESS_FILL_HEIGHT * (778 / 144);
+const BATTLE_PROGRESS_FILL_IMAGE_LEFT =
+  -BATTLE_PROGRESS_FILL_WIDTH * (74 / 1872);
+const BATTLE_PROGRESS_FILL_IMAGE_TOP =
+  -BATTLE_PROGRESS_FILL_HEIGHT * (303 / 144);
 const BATTLE_STATUS_BADGE_SIZE = scaleByDeviceWidth(62);
 const FINAL_CLASH_DURATION_MS = 6000;
 
@@ -214,7 +225,7 @@ export function BattleArenaScreen() {
   }, [battleProgress, visibleLogCount]);
 
   const battleProgressStyle = useAnimatedStyle(() => ({
-    width: BATTLE_PROGRESS_INNER_WIDTH * battleProgress.value,
+    width: BATTLE_PROGRESS_FILL_WIDTH * battleProgress.value,
   }));
   const battleStatusBadgeStyle = useAnimatedStyle(() => ({
     transform: [
@@ -226,7 +237,7 @@ export function BattleArenaScreen() {
     ],
   }));
   const finalClashProgressStyle = useAnimatedStyle(() => ({
-    width: BATTLE_PROGRESS_INNER_WIDTH * finalClashProgress.value,
+    width: BATTLE_PROGRESS_FILL_WIDTH * finalClashProgress.value,
   }));
   const finalClashStatusBadgeStyle = useAnimatedStyle(() => ({
     transform: [
@@ -316,7 +327,13 @@ export function BattleArenaScreen() {
               source={BATTLE_PROGRESS_BAR}
               style={styles.battleProgressFrame}
             />
-            <Animated.View style={[styles.battleProgressFill, battleProgressStyle]} />
+            <Animated.View style={[styles.battleProgressFill, battleProgressStyle]}>
+              <Image
+                resizeMode="stretch"
+                source={BATTLE_PROGRESS_FILL}
+                style={styles.battleProgressFillImage}
+              />
+            </Animated.View>
             <Animated.Image
               resizeMode="contain"
               source={BATTLE_STATUS_BADGE}
@@ -384,7 +401,13 @@ export function BattleArenaScreen() {
                 source={BATTLE_PROGRESS_BAR}
                 style={styles.battleProgressFrame}
               />
-              <Animated.View style={[styles.battleProgressFill, finalClashProgressStyle]} />
+              <Animated.View style={[styles.battleProgressFill, finalClashProgressStyle]}>
+                <Image
+                  resizeMode="stretch"
+                  source={BATTLE_PROGRESS_FILL}
+                  style={styles.battleProgressFillImage}
+                />
+              </Animated.View>
               <Animated.Image
                 resizeMode="contain"
                 source={BATTLE_STATUS_BADGE}
@@ -521,11 +544,23 @@ const styles = StyleSheet.create({
   },
   battleProgressFill: {
     position: 'absolute',
-    top: scaleByDeviceWidth(11),
+    top: '50%',
     left: scaleByDeviceWidth(13),
-    height: scaleByDeviceWidth(32),
-    borderRadius: scaleByDeviceWidth(16),
-    backgroundColor: '#FFD600',
+    height: BATTLE_PROGRESS_FILL_HEIGHT,
+    overflow: 'hidden',
+    transform: [
+      {
+        translateY:
+          -BATTLE_PROGRESS_FILL_HEIGHT / 2 - scaleByDeviceWidth(1),
+      },
+    ],
+  },
+  battleProgressFillImage: {
+    position: 'absolute',
+    top: BATTLE_PROGRESS_FILL_IMAGE_TOP,
+    left: BATTLE_PROGRESS_FILL_IMAGE_LEFT,
+    width: BATTLE_PROGRESS_FILL_IMAGE_WIDTH,
+    height: BATTLE_PROGRESS_FILL_IMAGE_HEIGHT,
   },
   battleProgressFrame: {
     position: 'absolute',
