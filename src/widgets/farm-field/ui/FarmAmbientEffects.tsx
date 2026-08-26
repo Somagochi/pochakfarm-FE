@@ -6,13 +6,17 @@ import {
   View,
 } from 'react-native';
 import {
+  BlurMask,
   Canvas,
+  Circle,
   LinearGradient,
+  Path,
   Rect,
   vec,
 } from '@shopify/react-native-skia';
 import Animated, {
   type DerivedValue,
+  type SharedValue,
   Easing,
   cancelAnimation,
   interpolate,
@@ -105,11 +109,35 @@ const SEA_AMBIENT_ASSETS = {
     require('@/src/shared/assets/images/farm/ambient/sea/fish-frame-3.png'),
   ],
   tropicalFish: {
-    blue: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue.png'),
-    green: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green.png'),
-    purple: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple.png'),
-    yellow: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow.png'),
+    blue: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue-frame-3.png'),
+    ],
+    green: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green-frame-3.png'),
+    ],
+    purple: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple-frame-3.png'),
+    ],
+    yellow: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow-frame-3.png'),
+    ],
   },
+} as const;
+
+const SPACE_AMBIENT_ASSETS = {
+  planetFrames: [
+    require('@/src/shared/assets/images/farm/ambient/space/planet-frame-1.png'),
+    require('@/src/shared/assets/images/farm/ambient/space/planet-frame-3.png'),
+  ],
+  sparkleFrames: [
+    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-1.png'),
+    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-2.png'),
+    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-3.png'),
+  ],
 } as const;
 
 type LandDecorationProps = {
@@ -567,6 +595,56 @@ function SeaFrameImages<FrameIndex extends number>({
   ));
 }
 
+type TropicalFrameAdjustment = {
+  scaleX: number;
+  scaleY: number;
+  translateX: number;
+  translateY: number;
+};
+
+function TropicalFishFrames<FrameIndex extends number>({
+  activeFrameIndex,
+  frames,
+  secondFrameAdjustment,
+}: {
+  activeFrameIndex: DerivedValue<FrameIndex>;
+  frames: readonly ImageSourcePropType[];
+  secondFrameAdjustment: TropicalFrameAdjustment;
+}) {
+  const firstFrameStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 0 ? 1 : 0,
+  }));
+  const secondFrameStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 1 ? 1 : 0,
+  }));
+
+  return (
+    <>
+      <Animated.Image
+        resizeMode="contain"
+        source={frames[0]}
+        style={[styles.flyingFrame, firstFrameStyle]}
+      />
+      <Animated.Image
+        resizeMode="contain"
+        source={frames[1]}
+        style={[
+          styles.flyingFrame,
+          {
+            transform: [
+              { translateX: secondFrameAdjustment.translateX },
+              { translateY: secondFrameAdjustment.translateY },
+              { scaleX: secondFrameAdjustment.scaleX },
+              { scaleY: secondFrameAdjustment.scaleY },
+            ],
+          },
+          secondFrameStyle,
+        ]}
+      />
+    </>
+  );
+}
+
 function SwimmingFish({
   delay,
   duration,
@@ -650,12 +728,14 @@ function SwimmingTropicalFish({
   width: number;
 }) {
   const progress = useSharedValue(0);
+  const finMotion = useSharedValue(0);
   const schoolWidth = width * (104 / 360);
   const schoolHeight = schoolWidth * (82 / 104);
 
   useEffect(() => {
     if (reducedMotion) {
       progress.value = 0.46;
+      finMotion.value = 0.5;
       return;
     }
 
@@ -667,9 +747,17 @@ function SwimmingTropicalFish({
         false,
       ),
     );
+    finMotion.value = withRepeat(
+      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
 
-    return () => cancelAnimation(progress);
-  }, [progress, reducedMotion]);
+    return () => {
+      cancelAnimation(progress);
+      cancelAnimation(finMotion);
+    };
+  }, [finMotion, progress, reducedMotion]);
 
   const movementStyle = useAnimatedStyle(() => ({
     transform: [
@@ -686,6 +774,57 @@ function SwimmingTropicalFish({
       { rotate: `${Math.sin(progress.value * Math.PI * 4) * 1.6}deg` },
     ],
   }));
+  const blueFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [-schoolWidth * 0.008, schoolWidth * 0.008],
+        ),
+      },
+    ],
+  }));
+  const yellowFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [schoolWidth * 0.007, -schoolWidth * 0.007],
+        ),
+      },
+    ],
+  }));
+  const greenFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scaleX: -1 },
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [-schoolWidth * 0.006, schoolWidth * 0.006],
+        ),
+      },
+    ],
+  }));
+  const purpleFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [schoolWidth * 0.0075, -schoolWidth * 0.0075],
+        ),
+      },
+    ],
+  }));
+  const forwardFrameIndex = useDerivedValue(() =>
+    finMotion.value < 0.5 ? 0 : 1,
+  );
+  const reverseFrameIndex = useDerivedValue(() =>
+    finMotion.value < 0.5 ? 1 : 0,
+  );
 
   return (
     <Animated.View
@@ -695,9 +834,7 @@ function SwimmingTropicalFish({
         movementStyle,
       ]}
     >
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.blue}
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
@@ -706,11 +843,21 @@ function SwimmingTropicalFish({
             top: 0,
             width: schoolWidth * 0.42,
           },
+          blueFishStyle,
         ]}
-      />
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.yellow}
+      >
+        <TropicalFishFrames
+          activeFrameIndex={forwardFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.blue}
+          secondFrameAdjustment={{
+            scaleX: 1.04,
+            scaleY: 0.957,
+            translateX: -schoolWidth * 0.003,
+            translateY: -schoolWidth * 0.011,
+          }}
+        />
+      </Animated.View>
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
@@ -719,25 +866,44 @@ function SwimmingTropicalFish({
             top: schoolHeight * 0.32,
             width: schoolWidth * 0.38,
           },
+          yellowFishStyle,
         ]}
-      />
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.green}
+      >
+        <TropicalFishFrames
+          activeFrameIndex={reverseFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.yellow}
+          secondFrameAdjustment={{
+            scaleX: 1.106,
+            scaleY: 1.185,
+            translateX: schoolWidth * 0.018,
+            translateY: 0,
+          }}
+        />
+      </Animated.View>
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
             height: schoolWidth * 0.36,
             left: schoolWidth * 0.34,
             top: schoolHeight * 0.48,
-            transform: [{ scaleX: -1 }],
             width: schoolWidth * 0.36,
           },
+          greenFishStyle,
         ]}
-      />
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.purple}
+      >
+        <TropicalFishFrames
+          activeFrameIndex={forwardFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.green}
+          secondFrameAdjustment={{
+            scaleX: 0.897,
+            scaleY: 0.986,
+            translateX: -schoolWidth * 0.005,
+            translateY: -schoolWidth * 0.005,
+          }}
+        />
+      </Animated.View>
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
@@ -746,8 +912,20 @@ function SwimmingTropicalFish({
             top: schoolHeight * 0.27,
             width: schoolWidth * 0.36,
           },
+          purpleFishStyle,
         ]}
-      />
+      >
+        <TropicalFishFrames
+          activeFrameIndex={reverseFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.purple}
+          secondFrameAdjustment={{
+            scaleX: 0.92,
+            scaleY: 0.914,
+            translateX: schoolWidth * 0.024,
+            translateY: 0,
+          }}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
@@ -998,6 +1176,844 @@ function SeaAmbientDecorations({
   );
 }
 
+function SpaceFrameImages<FrameIndex extends number>({
+  activeFrameIndex,
+  frames,
+}: {
+  activeFrameIndex: DerivedValue<FrameIndex>;
+  frames: readonly ImageSourcePropType[];
+}) {
+  const frameOneStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 0 ? 1 : 0,
+  }));
+  const frameTwoStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 1 ? 1 : 0,
+  }));
+  const frameThreeStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 2 ? 1 : 0,
+  }));
+  const frameStyles = [frameOneStyle, frameTwoStyle, frameThreeStyle];
+
+  return frames.map((source, index) => (
+    <Animated.Image
+      key={index}
+      resizeMode="contain"
+      source={source}
+      style={[styles.flyingFrame, frameStyles[index]]}
+    />
+  ));
+}
+
+function FloatingSpacePlanet({
+  delay,
+  duration,
+  height,
+  left,
+  motion,
+  reducedMotion,
+  size,
+  source,
+  top,
+  travelDirection,
+  width,
+}: {
+  delay: number;
+  duration: number;
+  height: number;
+  left: number;
+  motion: 'horizontal' | 'vertical';
+  reducedMotion: boolean;
+  size: number;
+  source: ImageSourcePropType;
+  top: number;
+  travelDirection: -1 | 1;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const planetSize = width * (size / 360);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.5;
+      return;
+    }
+
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withTiming(1, { duration, easing: Easing.inOut(Easing.sin) }),
+        -1,
+        true,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, duration, progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => {
+    const horizontalTravel =
+      motion === 'horizontal' ? width * 0.16 * travelDirection : 0;
+    const verticalTravel =
+      motion === 'vertical' ? height * 0.012 : height * 0.005;
+
+    return {
+      opacity: interpolate(progress.value, [0, 0.5, 1], [0.62, 0.86, 0.62]),
+      transform: [
+        {
+          translateX: interpolate(
+            progress.value,
+            [0, 1],
+            [-horizontalTravel, horizontalTravel],
+          ),
+        },
+        {
+          translateY: interpolate(
+            progress.value,
+            [0, 1],
+            [-verticalTravel, verticalTravel],
+          ),
+        },
+        { rotate: `${interpolate(progress.value, [0, 1], [-1.6, 1.6])}deg` },
+        {
+          scale: interpolate(
+            progress.value,
+            [0, 0.5, 1],
+            motion === 'horizontal' ? [0.96, 1.025, 0.96] : [0.98, 1.01, 0.98],
+          ),
+        },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View
+      style={[
+        styles.spaceElement,
+        {
+          height: planetSize,
+          left: width * left,
+          top: height * top,
+          width: planetSize,
+        },
+        movementStyle,
+      ]}
+    >
+      <Image
+        resizeMode="contain"
+        source={source}
+        style={styles.decorationImage}
+      />
+    </Animated.View>
+  );
+}
+
+function PulsingSpaceSparkle({
+  delay,
+  height,
+  left,
+  reducedMotion,
+  size,
+  top,
+  width,
+}: {
+  delay: number;
+  height: number;
+  left: number;
+  reducedMotion: boolean;
+  size: number;
+  top: number;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const sparkleSize = width * (size / 360);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.45;
+      return;
+    }
+
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration: 260, easing: Easing.out(Easing.quad) }),
+          withTiming(0.82, { duration: 180 }),
+          withTiming(1, { duration: 140 }),
+          withTiming(0, { duration: 520, easing: Easing.in(Easing.quad) }),
+          withTiming(0, { duration: 3900 + delay }),
+        ),
+        -1,
+        false,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => {
+    return {
+      opacity: 0.03 + progress.value * 0.86,
+      transform: [
+        { translateY: -height * 0.006 * progress.value },
+        { rotate: `${progress.value * 7 - 3.5}deg` },
+        { scale: 0.68 + progress.value * 0.38 },
+      ],
+    };
+  });
+  const activeFrameIndex = useDerivedValue(() =>
+    reducedMotion ? 1 : progress.value > 0.9 ? 2 : progress.value > 0.45 ? 1 : 0,
+  );
+
+  return (
+    <Animated.View
+      style={[
+        styles.spaceElement,
+        {
+          height: sparkleSize,
+          left: width * left,
+          top: height * top,
+          width: sparkleSize,
+        },
+        movementStyle,
+      ]}
+    >
+      <SpaceFrameImages
+        activeFrameIndex={activeFrameIndex}
+        frames={SPACE_AMBIENT_ASSETS.sparkleFrames}
+      />
+    </Animated.View>
+  );
+}
+
+function buildFourPointStarPath(
+  centerX: number,
+  centerY: number,
+  outerRadius: number,
+  innerRadius: number,
+) {
+  return [
+    `M ${centerX} ${centerY - outerRadius}`,
+    `L ${centerX + innerRadius} ${centerY - innerRadius}`,
+    `L ${centerX + outerRadius} ${centerY}`,
+    `L ${centerX + innerRadius} ${centerY + innerRadius}`,
+    `L ${centerX} ${centerY + outerRadius}`,
+    `L ${centerX - innerRadius} ${centerY + innerRadius}`,
+    `L ${centerX - outerRadius} ${centerY}`,
+    `L ${centerX - innerRadius} ${centerY - innerRadius}`,
+    'Z',
+  ].join(' ');
+}
+
+function SkiaShootingStar({
+  glowOpacity,
+  glowRadius,
+  size,
+}: {
+  glowOpacity: DerivedValue<number>;
+  glowRadius: DerivedValue<number>;
+  size: number;
+}) {
+  const centerX = size * 0.5;
+  const centerY = size * 0.5;
+  const outerRadius = size * 0.115;
+
+  return (
+    <Canvas style={StyleSheet.absoluteFill}>
+      <Circle
+        color="rgba(255, 188, 45, 0.62)"
+        cx={centerX}
+        cy={centerY}
+        opacity={glowOpacity}
+        r={glowRadius}
+      >
+        <BlurMask blur={size * 0.055} style="normal" />
+      </Circle>
+      <Path
+        color="#FFBF24"
+        path={buildFourPointStarPath(
+          centerX,
+          centerY,
+          outerRadius,
+          outerRadius * 0.36,
+        )}
+      />
+      <Path
+        color="#FFF270"
+        path={buildFourPointStarPath(
+          centerX,
+          centerY,
+          outerRadius * 0.72,
+          outerRadius * 0.26,
+        )}
+      />
+      <Circle color="#FFF9B8" cx={centerX} cy={centerY} r={outerRadius * 0.24} />
+    </Canvas>
+  );
+}
+
+type CometPathProps = {
+  endX: number;
+  endY: number;
+  height: number;
+  progress: SharedValue<number>;
+  starSize: number;
+  startX: number;
+  startY: number;
+  width: number;
+};
+
+function getCometPathPoint(
+  pathProgress: number,
+  startPositionX: number,
+  startPositionY: number,
+  endPositionX: number,
+  endPositionY: number,
+) {
+  'worklet';
+
+  const controlPositionX =
+    startPositionX + (endPositionX - startPositionX) * 0.55;
+  const controlPositionY =
+    startPositionY + (endPositionY - startPositionY) * 0.06;
+  const inverseProgress = 1 - pathProgress;
+
+  return {
+    x:
+      inverseProgress * inverseProgress * startPositionX +
+      2 * inverseProgress * pathProgress * controlPositionX +
+      pathProgress * pathProgress * endPositionX,
+    y:
+      inverseProgress * inverseProgress * startPositionY +
+      2 * inverseProgress * pathProgress * controlPositionY +
+      pathProgress * pathProgress * endPositionY,
+  };
+}
+
+function CometTrailPoint({
+  depth,
+  endX,
+  endY,
+  height,
+  progress,
+  starSize,
+  startX,
+  startY,
+  width,
+}: CometPathProps & { depth: number }) {
+  const point = useDerivedValue(() => {
+    const tailExtent = interpolate(
+      progress.value,
+      [0, 0.16, 0.54, 0.74, 0.9, 1],
+      [0.14, 0.18, 1, 1, 0.32, 0.04],
+    );
+    const lag = depth * 0.3 * tailExtent;
+    const sampleProgress = Math.max(0, progress.value - lag);
+    const startPositionX = width * startX - starSize + starSize * 0.5;
+    const startPositionY =
+      height * startY - starSize * 0.35 + starSize * 0.5;
+    const endPositionX = width * endX + starSize * 0.5;
+    const endPositionY = height * endY + starSize * 0.5;
+    const pathPoint = getCometPathPoint(
+      sampleProgress / 0.88,
+      startPositionX,
+      startPositionY,
+      endPositionX,
+      endPositionY,
+    );
+    const exitFade = Math.max(
+      0,
+      Math.min(1, interpolate(progress.value, [0.88, 0.98], [1, 0])),
+    );
+    const hasReachedSample = progress.value > lag + 0.01 ? 1 : 0;
+
+    return {
+      opacity:
+        hasReachedSample *
+        exitFade *
+        tailExtent *
+        Math.pow(1 - depth, 1.25),
+      radius: starSize * (0.046 - depth * 0.034),
+      x: pathPoint.x,
+      y: pathPoint.y,
+    };
+  });
+  const x = useDerivedValue(() => point.value.x);
+  const y = useDerivedValue(() => point.value.y);
+  const radius = useDerivedValue(() => point.value.radius);
+  const outerRadius = useDerivedValue(() => point.value.radius * 2.4);
+  const coreRadius = useDerivedValue(() => point.value.radius * 0.38);
+  const outerOpacity = useDerivedValue(() => point.value.opacity * 0.32);
+  const middleOpacity = useDerivedValue(() => point.value.opacity * 0.82);
+  const coreOpacity = useDerivedValue(() => point.value.opacity * 0.92);
+
+  return (
+    <>
+      <Circle
+        color="#FFB51E"
+        cx={x}
+        cy={y}
+        opacity={outerOpacity}
+        r={outerRadius}
+      >
+        <BlurMask blur={starSize * 0.045} style="normal" />
+      </Circle>
+      <Circle
+        color="#FFD83D"
+        cx={x}
+        cy={y}
+        opacity={middleOpacity}
+        r={radius}
+      />
+      <Circle
+        color="#FFF7A3"
+        cx={x}
+        cy={y}
+        opacity={coreOpacity}
+        r={coreRadius}
+      />
+    </>
+  );
+}
+
+function CometSparkParticle({
+  index,
+  ...pathProps
+}: CometPathProps & { index: number }) {
+  const particle = useDerivedValue(() => {
+    const lag = 0.055 + index * 0.025;
+    const sampleProgress = Math.max(0, pathProps.progress.value - lag);
+    const startPositionX =
+      pathProps.width * pathProps.startX -
+      pathProps.starSize +
+      pathProps.starSize * 0.5;
+    const startPositionY =
+      pathProps.height * pathProps.startY -
+      pathProps.starSize * 0.35 +
+      pathProps.starSize * 0.5;
+    const endPositionX =
+      pathProps.width * pathProps.endX + pathProps.starSize * 0.5;
+    const endPositionY =
+      pathProps.height * pathProps.endY + pathProps.starSize * 0.5;
+    const pathPoint = getCometPathPoint(
+      sampleProgress / 0.88,
+      startPositionX,
+      startPositionY,
+      endPositionX,
+      endPositionY,
+    );
+    const scatterWave = Math.sin(
+      pathProps.progress.value * Math.PI * (5 + index * 0.6) + index,
+    );
+    const active =
+      pathProps.progress.value > lag && pathProps.progress.value < 0.88
+        ? 1
+        : 0;
+
+    return {
+      opacity:
+        active *
+        interpolate(
+          pathProps.progress.value,
+          [lag, lag + 0.08, 0.8, 0.88],
+          [0, 0.72, 0.52, 0],
+        ),
+      radius: pathProps.starSize * (0.009 + (index % 3) * 0.003),
+      x:
+        pathPoint.x +
+        scatterWave * pathProps.starSize * (0.07 + index * 0.008),
+      y:
+        pathPoint.y -
+        Math.abs(scatterWave) * pathProps.starSize * (0.06 + index * 0.012),
+    };
+  });
+  const x = useDerivedValue(() => particle.value.x);
+  const y = useDerivedValue(() => particle.value.y);
+  const radius = useDerivedValue(() => particle.value.radius);
+  const opacity = useDerivedValue(() => particle.value.opacity);
+
+  return (
+    <Circle
+      color={index % 2 === 0 ? '#FFF18A' : '#FFC62F'}
+      cx={x}
+      cy={y}
+      opacity={opacity}
+      r={radius}
+    />
+  );
+}
+
+function CometTrailCanvas(pathProps: CometPathProps) {
+  return (
+    <Canvas style={StyleSheet.absoluteFill}>
+      {Array.from({ length: 20 }, (_, index) => (
+        <CometTrailPoint
+          {...pathProps}
+          depth={(index + 1) / 21}
+          key={`trail-${index}`}
+        />
+      ))}
+      {Array.from({ length: 5 }, (_, index) => (
+        <CometSparkParticle
+          {...pathProps}
+          index={index}
+          key={`spark-${index}`}
+        />
+      ))}
+    </Canvas>
+  );
+}
+
+function FlyingShootingStar({
+  delay,
+  duration,
+  endX,
+  endY,
+  height,
+  reducedMotion,
+  size,
+  startX,
+  startY,
+  width,
+}: {
+  delay: number;
+  duration: number;
+  endX: number;
+  endY: number;
+  height: number;
+  reducedMotion: boolean;
+  size: number;
+  startX: number;
+  startY: number;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const starSize = width * (size / 360);
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0;
+      return;
+    }
+
+    progress.value = withDelay(
+      delay,
+      withRepeat(
+        withSequence(
+          withTiming(1, { duration, easing: Easing.linear }),
+          withTiming(1, { duration: 9800 }),
+          withTiming(0, { duration: 0 }),
+        ),
+        -1,
+        false,
+      ),
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, duration, progress, reducedMotion]);
+
+  const movementStyle = useAnimatedStyle(() => {
+    const pathProgress = progress.value / 0.88;
+    const startPositionX = width * startX - starSize;
+    const startPositionY = height * startY - starSize * 0.35;
+    const horizontalTravel = width * endX - startPositionX;
+    const verticalTravel = height * endY - startPositionY;
+    const endPositionX = startPositionX + horizontalTravel;
+    const endPositionY = startPositionY + verticalTravel;
+    const controlPositionX = startPositionX + horizontalTravel * 0.55;
+    const controlPositionY = startPositionY + verticalTravel * 0.06;
+    const inverseProgress = 1 - pathProgress;
+    const curvedPositionX =
+      inverseProgress * inverseProgress * startPositionX +
+      2 * inverseProgress * pathProgress * controlPositionX +
+      pathProgress * pathProgress * endPositionX;
+    const curvedPositionY =
+      inverseProgress * inverseProgress * startPositionY +
+      2 * inverseProgress * pathProgress * controlPositionY +
+      pathProgress * pathProgress * endPositionY;
+    const tangentX =
+      2 * inverseProgress * (controlPositionX - startPositionX) +
+      2 * pathProgress * (endPositionX - controlPositionX);
+    const tangentY =
+      2 * inverseProgress * (controlPositionY - startPositionY) +
+      2 * pathProgress * (endPositionY - controlPositionY);
+    const trajectoryAngle = (Math.atan2(tangentY, tangentX) * 180) / Math.PI;
+
+    return {
+      opacity: interpolate(
+        progress.value,
+        [0, 0.05, 0.88, 0.94, 1],
+        [0, 0.9, 0.9, 0, 0],
+      ),
+      transform: [
+        {
+          translateX: curvedPositionX,
+        },
+        {
+          translateY: curvedPositionY,
+        },
+        {
+          rotate: `${trajectoryAngle - 45}deg`,
+        },
+      ],
+    };
+  });
+  const glowOpacity = useDerivedValue(() => {
+    const pulse = 0.5 + Math.sin(progress.value * Math.PI * 12) * 0.5;
+    const tailBrightness = interpolate(
+      progress.value,
+      [0, 0.16, 0.54, 0.74, 0.9, 1],
+      [0.38, 0.44, 1, 1, 0.42, 0],
+    );
+
+    return tailBrightness * (0.72 + pulse * 0.28);
+  });
+  const glowRadius = useDerivedValue(() => {
+    const pulse = 0.5 + Math.sin(progress.value * Math.PI * 12) * 0.5;
+
+    return starSize * (0.135 + pulse * 0.018);
+  });
+  const headPulseStyle = useAnimatedStyle(() => {
+    const pulse = Math.sin(progress.value * Math.PI * 12);
+
+    return {
+      transform: [{ scale: 1 + pulse * 0.045 }],
+    };
+  });
+
+  return (
+    <>
+      <CometTrailCanvas
+        endX={endX}
+        endY={endY}
+        height={height}
+        progress={progress}
+        starSize={starSize}
+        startX={startX}
+        startY={startY}
+        width={width}
+      />
+      <Animated.View
+        style={[
+          styles.spaceElement,
+          { height: starSize, width: starSize },
+          movementStyle,
+        ]}
+      >
+        <Animated.View style={[StyleSheet.absoluteFill, headPulseStyle]}>
+          <SkiaShootingStar
+            glowOpacity={glowOpacity}
+            glowRadius={glowRadius}
+            size={starSize}
+          />
+        </Animated.View>
+      </Animated.View>
+    </>
+  );
+}
+
+const SPACE_DUST_SPECS = {
+  far: [
+    { left: 0.06, size: 0.8, top: 0.12 },
+    { left: 0.29, size: 1.1, top: 0.26 },
+    { left: 0.78, size: 0.7, top: 0.36 },
+    { left: 0.52, size: 0.9, top: 0.58 },
+    { left: 0.9, size: 1.2, top: 0.74 },
+    { left: 0.18, size: 0.8, top: 0.91 },
+  ],
+  near: [
+    { left: 0.12, size: 1.8, top: 0.31 },
+    { left: 0.7, size: 2.2, top: 0.19 },
+    { left: 0.86, size: 1.7, top: 0.53 },
+    { left: 0.34, size: 2.4, top: 0.69 },
+    { left: 0.64, size: 1.9, top: 0.87 },
+  ],
+} as const;
+
+function SpaceDustLayer({
+  depth,
+  height,
+  reducedMotion,
+  width,
+}: {
+  depth: keyof typeof SPACE_DUST_SPECS;
+  height: number;
+  reducedMotion: boolean;
+  width: number;
+}) {
+  const progress = useSharedValue(0);
+  const isNear = depth === 'near';
+
+  useEffect(() => {
+    if (reducedMotion) {
+      progress.value = 0.5;
+      return;
+    }
+
+    progress.value = withRepeat(
+      withTiming(1, {
+        duration: isNear ? 16000 : 28000,
+        easing: Easing.inOut(Easing.sin),
+      }),
+      -1,
+      true,
+    );
+
+    return () => cancelAnimation(progress);
+  }, [isNear, progress, reducedMotion]);
+
+  const layerStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      progress.value,
+      [0, 0.5, 1],
+      isNear ? [0.28, 0.58, 0.28] : [0.16, 0.34, 0.16],
+    ),
+    transform: [
+      {
+        translateX: interpolate(
+          progress.value,
+          [0, 1],
+          isNear ? [-width * 0.025, width * 0.025] : [-width * 0.01, width * 0.01],
+        ),
+      },
+      {
+        translateY: interpolate(
+          progress.value,
+          [0, 1],
+          isNear ? [height * 0.012, -height * 0.012] : [height * 0.005, -height * 0.005],
+        ),
+      },
+    ],
+  }));
+
+  return (
+    <Animated.View style={[StyleSheet.absoluteFill, layerStyle]}>
+      {SPACE_DUST_SPECS[depth].map((particle, index) => {
+        const particleSize = width * (particle.size / 360);
+        const color = index % 2 === 0 ? '#9FE8FF' : '#D7B8FF';
+
+        return (
+          <View
+            key={`${depth}-${index}`}
+            style={[
+              styles.spaceDust,
+              {
+                backgroundColor: color,
+                borderRadius: particleSize / 2,
+                height: particleSize,
+                left: width * particle.left,
+                shadowColor: color,
+                shadowRadius: particleSize * 1.8,
+                top: height * particle.top,
+                width: particleSize,
+              },
+            ]}
+          />
+        );
+      })}
+    </Animated.View>
+  );
+}
+
+function SpaceAmbientDecorations({
+  height,
+  reducedMotion,
+  width,
+}: {
+  height: number;
+  reducedMotion: boolean;
+  width: number;
+}) {
+  return (
+    <>
+      <SpaceDustLayer
+        depth="far"
+        height={height}
+        reducedMotion={reducedMotion}
+        width={width}
+      />
+      <FloatingSpacePlanet
+        delay={0}
+        duration={26000}
+        height={height}
+        left={0.42}
+        motion="horizontal"
+        reducedMotion={reducedMotion}
+        size={214}
+        source={SPACE_AMBIENT_ASSETS.planetFrames[0]}
+        top={0.025}
+        travelDirection={-1}
+        width={width}
+      />
+      <FloatingSpacePlanet
+        delay={1800}
+        duration={30000}
+        height={height}
+        left={-0.16}
+        motion="horizontal"
+        reducedMotion={reducedMotion}
+        size={190}
+        source={SPACE_AMBIENT_ASSETS.planetFrames[1]}
+        top={0.78}
+        travelDirection={1}
+        width={width}
+      />
+      <SpaceDustLayer
+        depth="near"
+        height={height}
+        reducedMotion={reducedMotion}
+        width={width}
+      />
+      <PulsingSpaceSparkle
+        delay={1900}
+        height={height}
+        left={0.66}
+        reducedMotion={reducedMotion}
+        size={58}
+        top={0.45}
+        width={width}
+      />
+      <PulsingSpaceSparkle
+        delay={900}
+        height={height}
+        left={0.04}
+        reducedMotion={reducedMotion}
+        size={52}
+        top={0.72}
+        width={width}
+      />
+      {!reducedMotion && (
+        <>
+          <FlyingShootingStar
+            delay={1800}
+            duration={3000}
+            endX={0.95}
+            endY={0.25}
+            height={height}
+            reducedMotion={reducedMotion}
+            size={82}
+            startX={0.04}
+            startY={0.04}
+            width={width}
+          />
+          <FlyingShootingStar
+            delay={7200}
+            duration={2800}
+            endX={0.95}
+            endY={0.76}
+            height={height}
+            reducedMotion={reducedMotion}
+            size={74}
+            startX={-0.04}
+            startY={0.56}
+            width={width}
+          />
+        </>
+      )}
+    </>
+  );
+}
+
 function AmbientParticle({
   color,
   height,
@@ -1142,6 +2158,13 @@ export function FarmAmbientEffects({
           width={width}
         />
       )}
+      {environment === 'space' && (
+        <SpaceAmbientDecorations
+          height={height}
+          reducedMotion={reducedMotion}
+          width={width}
+        />
+      )}
     </View>
   );
 }
@@ -1191,6 +2214,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   seaMovingElement: {
+    left: 0,
+    position: 'absolute',
+    top: 0,
+  },
+  spaceDust: {
+    position: 'absolute',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+  },
+  spaceElement: {
     left: 0,
     position: 'absolute',
     top: 0,
