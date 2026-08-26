@@ -131,7 +131,6 @@ const SEA_AMBIENT_ASSETS = {
 const SPACE_AMBIENT_ASSETS = {
   planetFrames: [
     require('@/src/shared/assets/images/farm/ambient/space/planet-frame-1.png'),
-    require('@/src/shared/assets/images/farm/ambient/space/planet-frame-2.png'),
     require('@/src/shared/assets/images/farm/ambient/space/planet-frame-3.png'),
   ],
   sparkleFrames: [
@@ -1954,7 +1953,7 @@ function SpaceAmbientDecorations({
         motion="horizontal"
         reducedMotion={reducedMotion}
         size={190}
-        source={SPACE_AMBIENT_ASSETS.planetFrames[2]}
+        source={SPACE_AMBIENT_ASSETS.planetFrames[1]}
         top={0.78}
         travelDirection={1}
         width={width}
