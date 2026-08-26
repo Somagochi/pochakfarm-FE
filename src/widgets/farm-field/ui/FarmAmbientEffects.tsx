@@ -105,10 +105,22 @@ const SEA_AMBIENT_ASSETS = {
     require('@/src/shared/assets/images/farm/ambient/sea/fish-frame-3.png'),
   ],
   tropicalFish: {
-    blue: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue.png'),
-    green: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green.png'),
-    purple: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple.png'),
-    yellow: require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow.png'),
+    blue: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-blue-frame-3.png'),
+    ],
+    green: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-green-frame-3.png'),
+    ],
+    purple: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-purple-frame-3.png'),
+    ],
+    yellow: [
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow-frame-2.png'),
+      require('@/src/shared/assets/images/farm/ambient/sea/tropical-fish-yellow-frame-3.png'),
+    ],
   },
 } as const;
 
@@ -567,6 +579,56 @@ function SeaFrameImages<FrameIndex extends number>({
   ));
 }
 
+type TropicalFrameAdjustment = {
+  scaleX: number;
+  scaleY: number;
+  translateX: number;
+  translateY: number;
+};
+
+function TropicalFishFrames<FrameIndex extends number>({
+  activeFrameIndex,
+  frames,
+  secondFrameAdjustment,
+}: {
+  activeFrameIndex: DerivedValue<FrameIndex>;
+  frames: readonly ImageSourcePropType[];
+  secondFrameAdjustment: TropicalFrameAdjustment;
+}) {
+  const firstFrameStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 0 ? 1 : 0,
+  }));
+  const secondFrameStyle = useAnimatedStyle(() => ({
+    opacity: activeFrameIndex.value === 1 ? 1 : 0,
+  }));
+
+  return (
+    <>
+      <Animated.Image
+        resizeMode="contain"
+        source={frames[0]}
+        style={[styles.flyingFrame, firstFrameStyle]}
+      />
+      <Animated.Image
+        resizeMode="contain"
+        source={frames[1]}
+        style={[
+          styles.flyingFrame,
+          {
+            transform: [
+              { translateX: secondFrameAdjustment.translateX },
+              { translateY: secondFrameAdjustment.translateY },
+              { scaleX: secondFrameAdjustment.scaleX },
+              { scaleY: secondFrameAdjustment.scaleY },
+            ],
+          },
+          secondFrameStyle,
+        ]}
+      />
+    </>
+  );
+}
+
 function SwimmingFish({
   delay,
   duration,
@@ -650,12 +712,14 @@ function SwimmingTropicalFish({
   width: number;
 }) {
   const progress = useSharedValue(0);
+  const finMotion = useSharedValue(0);
   const schoolWidth = width * (104 / 360);
   const schoolHeight = schoolWidth * (82 / 104);
 
   useEffect(() => {
     if (reducedMotion) {
       progress.value = 0.46;
+      finMotion.value = 0.5;
       return;
     }
 
@@ -667,9 +731,17 @@ function SwimmingTropicalFish({
         false,
       ),
     );
+    finMotion.value = withRepeat(
+      withTiming(1, { duration: 600, easing: Easing.inOut(Easing.sin) }),
+      -1,
+      true,
+    );
 
-    return () => cancelAnimation(progress);
-  }, [progress, reducedMotion]);
+    return () => {
+      cancelAnimation(progress);
+      cancelAnimation(finMotion);
+    };
+  }, [finMotion, progress, reducedMotion]);
 
   const movementStyle = useAnimatedStyle(() => ({
     transform: [
@@ -686,6 +758,57 @@ function SwimmingTropicalFish({
       { rotate: `${Math.sin(progress.value * Math.PI * 4) * 1.6}deg` },
     ],
   }));
+  const blueFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [-schoolWidth * 0.008, schoolWidth * 0.008],
+        ),
+      },
+    ],
+  }));
+  const yellowFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [schoolWidth * 0.007, -schoolWidth * 0.007],
+        ),
+      },
+    ],
+  }));
+  const greenFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scaleX: -1 },
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [-schoolWidth * 0.006, schoolWidth * 0.006],
+        ),
+      },
+    ],
+  }));
+  const purpleFishStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(
+          finMotion.value,
+          [0, 1],
+          [schoolWidth * 0.0075, -schoolWidth * 0.0075],
+        ),
+      },
+    ],
+  }));
+  const forwardFrameIndex = useDerivedValue(() =>
+    finMotion.value < 0.5 ? 0 : 1,
+  );
+  const reverseFrameIndex = useDerivedValue(() =>
+    finMotion.value < 0.5 ? 1 : 0,
+  );
 
   return (
     <Animated.View
@@ -695,9 +818,7 @@ function SwimmingTropicalFish({
         movementStyle,
       ]}
     >
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.blue}
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
@@ -706,11 +827,21 @@ function SwimmingTropicalFish({
             top: 0,
             width: schoolWidth * 0.42,
           },
+          blueFishStyle,
         ]}
-      />
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.yellow}
+      >
+        <TropicalFishFrames
+          activeFrameIndex={forwardFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.blue}
+          secondFrameAdjustment={{
+            scaleX: 1.04,
+            scaleY: 0.957,
+            translateX: -schoolWidth * 0.003,
+            translateY: -schoolWidth * 0.011,
+          }}
+        />
+      </Animated.View>
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
@@ -719,25 +850,44 @@ function SwimmingTropicalFish({
             top: schoolHeight * 0.32,
             width: schoolWidth * 0.38,
           },
+          yellowFishStyle,
         ]}
-      />
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.green}
+      >
+        <TropicalFishFrames
+          activeFrameIndex={reverseFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.yellow}
+          secondFrameAdjustment={{
+            scaleX: 1.106,
+            scaleY: 1.185,
+            translateX: schoolWidth * 0.018,
+            translateY: 0,
+          }}
+        />
+      </Animated.View>
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
             height: schoolWidth * 0.36,
             left: schoolWidth * 0.34,
             top: schoolHeight * 0.48,
-            transform: [{ scaleX: -1 }],
             width: schoolWidth * 0.36,
           },
+          greenFishStyle,
         ]}
-      />
-      <Image
-        resizeMode="contain"
-        source={SEA_AMBIENT_ASSETS.tropicalFish.purple}
+      >
+        <TropicalFishFrames
+          activeFrameIndex={forwardFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.green}
+          secondFrameAdjustment={{
+            scaleX: 0.897,
+            scaleY: 0.986,
+            translateX: -schoolWidth * 0.005,
+            translateY: -schoolWidth * 0.005,
+          }}
+        />
+      </Animated.View>
+      <Animated.View
         style={[
           styles.tropicalFish,
           {
@@ -746,8 +896,20 @@ function SwimmingTropicalFish({
             top: schoolHeight * 0.27,
             width: schoolWidth * 0.36,
           },
+          purpleFishStyle,
         ]}
-      />
+      >
+        <TropicalFishFrames
+          activeFrameIndex={reverseFrameIndex}
+          frames={SEA_AMBIENT_ASSETS.tropicalFish.purple}
+          secondFrameAdjustment={{
+            scaleX: 0.92,
+            scaleY: 0.914,
+            translateX: schoolWidth * 0.024,
+            translateY: 0,
+          }}
+        />
+      </Animated.View>
     </Animated.View>
   );
 }
