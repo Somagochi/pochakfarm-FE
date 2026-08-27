@@ -4,7 +4,10 @@ import { useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
-import type { FarmCreatureListItem } from '@/src/entities/creature';
+import type {
+  CreatureEnvironment,
+  FarmCreatureListItem,
+} from '@/src/entities/creature';
 import { useUserProfile } from '@/src/entities/user';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { BattleActionBar } from '@/src/widgets/battle-action-bar';
@@ -14,6 +17,10 @@ import { BattleMatchSelection } from '@/src/widgets/battle-match-selection';
 const BATTLE_LINEUP_GUIDE = require('@/src/shared/assets/images/battle/battle-lineup-guide.png');
 const GUIDE_WIDTH = scaleByDeviceWidth(328);
 const LINEUP_GUIDE_HEIGHT = GUIDE_WIDTH * (470 / 1314);
+const MORU_RECOMMENDED_ENVIRONMENTS: readonly CreatureEnvironment[] = [
+  'land',
+  'sea',
+];
 
 export function BattleScreen() {
   const { profile } = useUserProfile();
@@ -57,6 +64,9 @@ export function BattleScreen() {
                     ),
                   )
                 }
+                recommendedCreatureEnvironments={
+                  MORU_RECOMMENDED_ENVIRONMENTS
+                }
                 selectedCreatures={selectedCreatures}
                 userLevel={profile?.level}
                 userNickname={profile?.nickname}
@@ -84,6 +94,7 @@ export function BattleScreen() {
               return [...currentCreatures, creature];
             })
           }
+          recommendedCreatureEnvironments={MORU_RECOMMENDED_ENVIRONMENTS}
           selectedCreatureIds={selectedCreatures.map(
             (creature) => creature.id,
           )}

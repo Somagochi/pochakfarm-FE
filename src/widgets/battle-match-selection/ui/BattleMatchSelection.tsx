@@ -17,7 +17,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { scheduleOnRN } from 'react-native-worklets';
 
-import type { FarmCreatureListItem } from '@/src/entities/creature';
+import type {
+  CreatureEnvironment,
+  FarmCreatureListItem,
+} from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const CREATURE_CARD_BACKGROUND = require('@/src/shared/assets/images/farm-search/creature-search-card-background.png');
@@ -38,10 +41,17 @@ const TIP_WIDTH = scaleByDeviceWidth(219);
 const TIP_HEIGHT = TIP_WIDTH * (68 / 876);
 const RECOMMENDATION_WIDTH = scaleByDeviceWidth(112);
 const RECOMMENDATION_HEIGHT = RECOMMENDATION_WIDTH * (450 / 448);
+const ENVIRONMENT_LABELS: Record<CreatureEnvironment, string> = {
+  land: '땅',
+  sea: '바다',
+  sky: '하늘',
+  space: '우주',
+};
 
 type BattleMatchSelectionProps = {
   onMoveCreature: (fromIndex: number, toIndex: number) => void;
   onRemoveCreature: (creatureId: string) => void;
+  recommendedCreatureEnvironments: readonly CreatureEnvironment[];
   selectedCreatures: FarmCreatureListItem[];
   userLevel?: number;
   userNickname?: string | null;
@@ -163,10 +173,15 @@ function DraggablePartySlot({
 export function BattleMatchSelection({
   onMoveCreature,
   onRemoveCreature,
+  recommendedCreatureEnvironments,
   selectedCreatures,
   userLevel,
   userNickname,
 }: BattleMatchSelectionProps) {
+  const recommendedTypeLabel = recommendedCreatureEnvironments
+    .map((environment) => ENVIRONMENT_LABELS[environment])
+    .join(' · ');
+
   return (
     <View style={styles.container}>
       <View style={styles.selectionColumn}>
@@ -225,7 +240,7 @@ export function BattleMatchSelection({
         />
       </View>
       <ImageBackground
-        accessibilityLabel={`관장 정보: 레벨 ${userLevel ?? ''}, 닉네임 ${userNickname ?? ''}, 추천 타입 땅과 바다`}
+        accessibilityLabel={`관장 정보: 레벨 ${userLevel ?? ''}, 닉네임 ${userNickname ?? ''}, 추천 타입 ${recommendedTypeLabel}`}
         resizeMode="contain"
         source={COACH_RECOMMENDATION_CARD}
         style={styles.recommendationCard}
@@ -240,7 +255,9 @@ export function BattleMatchSelection({
         </View>
         <View style={styles.recommendedType}>
           <Text style={styles.recommendedTypeLabel}>추천타입</Text>
-          <Text style={styles.recommendedTypeValue}>땅 · 바다</Text>
+          <Text style={styles.recommendedTypeValue}>
+            {recommendedTypeLabel}
+          </Text>
         </View>
       </ImageBackground>
     </View>
