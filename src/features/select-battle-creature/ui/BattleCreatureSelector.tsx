@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 
 import {
-  FarmCreatureCard,
   useSearchAnimals,
   type AnimalCardType,
   type CreatureEnvironment,
@@ -21,6 +20,8 @@ import {
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+
+import { BattleCreatureCard } from './BattleCreatureCard';
 
 const SEARCH_INPUT = require('@/src/shared/assets/images/battle/battle-search-input.png');
 const SEARCH_ICON = require('@/src/shared/assets/images/farm-search/search-icon.png');
@@ -64,6 +65,7 @@ type BattleCreatureSelectorProps = {
   onListInteractionEnd?: () => void;
   onListInteractionStart?: () => void;
   onToggleCreature?: (creature: FarmCreatureListItem) => void;
+  recommendedCreatureEnvironments?: readonly CreatureEnvironment[];
   selectedCreatureIds?: string[];
 };
 
@@ -72,6 +74,7 @@ export function BattleCreatureSelector({
   onListInteractionEnd,
   onListInteractionStart,
   onToggleCreature,
+  recommendedCreatureEnvironments = [],
   selectedCreatureIds = [],
 }: BattleCreatureSelectorProps) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -123,6 +126,23 @@ export function BattleCreatureSelector({
       ),
     [creatures],
   );
+  const recommendationEffectCreatureIds = useMemo(() => {
+    const recommendedCreatures = creatures
+      .filter((creature) =>
+        recommendedCreatureEnvironments.includes(creature.environment),
+      )
+      .sort(
+        (leftCreature, rightCreature) =>
+          TIER_PRIORITY[rightCreature.tier] -
+          TIER_PRIORITY[leftCreature.tier],
+      );
+
+    return new Set(
+      recommendedCreatures
+        .slice(0, 3)
+        .map((creature) => creature.id),
+    );
+  }, [creatures, recommendedCreatureEnvironments]);
 
   return (
     <>
@@ -232,8 +252,11 @@ export function BattleCreatureSelector({
 
             return (
               <View style={styles.creatureGridItem}>
-                <FarmCreatureCard
+                <BattleCreatureCard
                   creature={creature}
+                  hasRecommendationEffect={
+                    recommendationEffectCreatureIds.has(creature.id)
+                  }
                   onPress={() => onToggleCreature?.(creature)}
                   selectionOrder={
                     selectedIndex >= 0 ? selectedIndex + 1 : undefined
