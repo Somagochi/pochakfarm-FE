@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   statusControls: {
     position: 'absolute',
     left: scaleByDeviceWidth(12),
-    zIndex: 1,
+    zIndex: 2,
   },
   actionButton: {
     marginTop: scaleByDeviceWidth(4.4),
