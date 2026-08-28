@@ -1,10 +1,12 @@
 import { env } from '@/src/shared/config/env';
 import { beginApiRequest } from '@/src/shared/api/requestActivity';
 import {
+  clearServiceToken,
   getServiceToken,
   saveServiceToken,
   type ServiceToken,
 } from '@/src/shared/lib/auth/tokenStorage';
+import { notifySessionExpired } from '@/src/shared/lib/auth/sessionExpiration';
 
 type RequestOptions = {
   headers?: Record<string, string>;
@@ -129,6 +131,8 @@ async function refreshServiceToken() {
   const data = await parseResponse(response);
 
   if (!response.ok) {
+    await clearServiceToken().finally(notifySessionExpired);
+
     throw new Error(
       getErrorMessage(data) ?? '토큰을 재발급하지 못했습니다.',
     );

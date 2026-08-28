@@ -1,6 +1,6 @@
 import { useFonts } from 'expo-font';
 import * as NavigationBar from 'expo-navigation-bar';
-import { Stack } from 'expo-router';
+import { router, Stack } from 'expo-router';
 import * as NativeSplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useInitializeSocialLogin } from '@/src/features/social-login';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
+import { subscribeToSessionExpiration } from '@/src/shared/lib/auth/sessionExpiration';
 import { ScreenLoadingOverlay } from '@/src/shared/ui/ScreenLoadingOverlay';
 
 const MINIMUM_SPLASH_DURATION_MS = 1000;
@@ -37,6 +38,12 @@ export default function RootLayout() {
     );
 
     return () => clearTimeout(splashTimer);
+  }, []);
+
+  useEffect(() => {
+    return subscribeToSessionExpiration(() => {
+      router.replace('/login');
+    });
   }, []);
 
   useEffect(() => {
