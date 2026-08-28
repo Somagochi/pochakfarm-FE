@@ -24,6 +24,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="farm"
         options={{
+          freezeOnBlur: false,
           title: '농장',
         }}
       />
