@@ -52,6 +52,8 @@ export function FarmScreen() {
   } = useUserProfile();
   const [selectedEnvironment, setSelectedEnvironment] =
     useState<SelectableFarmEnvironment>('land');
+  const [pendingEnvironment, setPendingEnvironment] =
+    useState<SelectableFarmEnvironment | null>(null);
   const {
     clearError: clearFarmError,
     errorMessage: farmErrorMessage,
@@ -61,6 +63,8 @@ export function FarmScreen() {
   } = useFarm(FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]);
   const [isEnvironmentChanging, setIsEnvironmentChanging] = useState(false);
   const [isFarmBackgroundReady, setIsFarmBackgroundReady] = useState(true);
+  const [areFarmAnimalImagesReady, setAreFarmAnimalImagesReady] =
+    useState(true);
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
     useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<
@@ -91,9 +95,56 @@ export function FarmScreen() {
   }, [isReordering]);
 
   useEffect(() => {
+    if (!isEnvironmentChanging || pendingEnvironment === null) {
+      return;
+    }
+
+    let secondFrameId: number | null = null;
+    const firstFrameId = requestAnimationFrame(() => {
+      secondFrameId = requestAnimationFrame(() => {
+        setSelectedEnvironment(pendingEnvironment);
+        setPendingEnvironment(null);
+      });
+    });
+
+    return () => {
+      cancelAnimationFrame(firstFrameId);
+      if (secondFrameId !== null) cancelAnimationFrame(secondFrameId);
+    };
+  }, [isEnvironmentChanging, pendingEnvironment]);
+
+  useEffect(() => {
+    if (
+      !isEnvironmentChanging ||
+      pendingEnvironment !== null ||
+      farm?.type !== FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]
+    ) {
+      return;
+    }
+
+    let isCancelled = false;
+    const animalImageUrls = farm.floors.flatMap((floor) =>
+      floor.slots.flatMap((slot) =>
+        slot.animal?.animalImageUrl ? [slot.animal.animalImageUrl] : [],
+      ),
+    );
+
+    void Promise.allSettled(
+      animalImageUrls.map((imageUrl) => Image.prefetch(imageUrl)),
+    ).then(() => {
+      if (!isCancelled) setAreFarmAnimalImagesReady(true);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [farm, isEnvironmentChanging, pendingEnvironment, selectedEnvironment]);
+
+  useEffect(() => {
     if (
       isEnvironmentChanging &&
       isFarmBackgroundReady &&
+      (areFarmAnimalImagesReady || farmErrorMessage !== null) &&
       !isFarmLoading &&
       (farm?.type === FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment] ||
         farmErrorMessage !== null)
@@ -101,6 +152,7 @@ export function FarmScreen() {
       setIsEnvironmentChanging(false);
     }
   }, [
+    areFarmAnimalImagesReady,
     farm?.type,
     farmErrorMessage,
     isEnvironmentChanging,
@@ -197,7 +249,8 @@ export function FarmScreen() {
 
                 setIsEnvironmentChanging(true);
                 setIsFarmBackgroundReady(false);
-                setSelectedEnvironment(environment);
+                setAreFarmAnimalImagesReady(false);
+                setPendingEnvironment(environment);
               }}
               selectedEnvironment={selectedEnvironment}
             />
