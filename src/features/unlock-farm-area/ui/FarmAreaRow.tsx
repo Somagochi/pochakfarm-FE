@@ -22,7 +22,7 @@ const BASE_NAMEPLATE_WIDTH = 73;
 const BASE_NAMEPLATE_HEIGHT = 24;
 const BASE_NAMEPLATE_TOP_OFFSET = 5;
 const SLOT_COUNT = 4;
-const BASE_UNLOCK_IMAGE_WIDTH = 112;
+const BASE_UNLOCK_IMAGE_WIDTH = 112 * 1.3;
 
 type FarmAreaRowProps = {
   areaNumber: number;
