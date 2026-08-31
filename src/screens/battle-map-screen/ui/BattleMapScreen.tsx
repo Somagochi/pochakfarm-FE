@@ -1,5 +1,5 @@
-import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useRef, useState } from 'react';
 import {
   Image,
   ImageBackground,
@@ -9,10 +9,12 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, { BounceIn } from 'react-native-reanimated';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BATTLE_MAP = require('@/src/shared/assets/images/battle/battle-coach-map.png');
+const COACH_SELECTED_EXCLAMATION = require('@/src/shared/assets/images/battle/coach-selected-exclamation.png');
 const MORU_COACH = require('@/src/shared/assets/images/battle/moru-coach.png');
 const HARU_COACH = require('@/src/shared/assets/images/battle/haru-coach.png');
 const HARU_COACH_SILHOUETTE = require('@/src/shared/assets/images/battle/haru-coach-silhouette.png');
@@ -35,6 +37,9 @@ const MORU_CENTER_X = 720;
 const MORU_TOP = 6810;
 const MORU_TOP_OFFSET = 90;
 const COACH_DESIGN_WIDTH = 380;
+const COACH_SELECTION_DELAY = 700;
+const EXCLAMATION_WIDTH = scaleByDeviceWidth(65.52);
+const EXCLAMATION_HEIGHT = scaleByDeviceWidth(56.1);
 const COACHES = [
   {
     id: 'haru',
@@ -109,7 +114,9 @@ export function BattleMapScreen({
   clearedCoachIds = [],
 }: BattleMapScreenProps) {
   const scrollViewRef = useRef<ScrollView>(null);
+  const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [screenWidth, setScreenWidth] = useState(0);
+  const [isMoruSelected, setIsMoruSelected] = useState(false);
   const mapHeight = screenWidth * (MAP_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
   const moruWidth = screenWidth * (MORU_DESIGN_WIDTH / MAP_ORIGINAL_WIDTH);
   const moruLeft =
@@ -118,6 +125,32 @@ export function BattleMapScreen({
     mapHeight * (MORU_TOP / MAP_ORIGINAL_HEIGHT) -
     screenWidth * (MORU_TOP_OFFSET / 360);
   const coachWidth = screenWidth * (COACH_DESIGN_WIDTH / MAP_ORIGINAL_WIDTH);
+
+  useFocusEffect(
+    useCallback(() => {
+      setIsMoruSelected(false);
+
+      return () => {
+        if (navigationTimeoutRef.current) {
+          clearTimeout(navigationTimeoutRef.current);
+          navigationTimeoutRef.current = null;
+        }
+      };
+    }, []),
+  );
+
+  const handleMoruPress = () => {
+    if (isMoruSelected) {
+      return;
+    }
+
+    setIsMoruSelected(true);
+    navigationTimeoutRef.current = setTimeout(() => {
+      navigationTimeoutRef.current = null;
+      setIsMoruSelected(false);
+      router.push('/battle-moru');
+    }, COACH_SELECTION_DELAY);
+  };
 
   return (
     <View
@@ -183,7 +216,9 @@ export function BattleMapScreen({
             <Pressable
               accessibilityLabel="땅 관장 모루에게 도전하기"
               accessibilityRole="button"
-              onPress={() => router.push('/battle-moru')}
+              accessibilityState={{ selected: isMoruSelected }}
+              disabled={isMoruSelected}
+              onPress={handleMoruPress}
               style={({ pressed }) => [
                 styles.moruButton,
                 {
@@ -196,6 +231,17 @@ export function BattleMapScreen({
               ]}
             >
               <Image resizeMode="contain" source={MORU_COACH} style={styles.moruImage} />
+              {isMoruSelected && (
+                <View style={styles.coachSelectedExclamationPosition}>
+                  <Animated.View entering={BounceIn.duration(350)}>
+                    <Image
+                      resizeMode="contain"
+                      source={COACH_SELECTED_EXCLAMATION}
+                      style={styles.coachSelectedExclamation}
+                    />
+                  </Animated.View>
+                </View>
+              )}
             </Pressable>
           </ImageBackground>
         </ScrollView>
@@ -232,6 +278,16 @@ const styles = StyleSheet.create({
   moruImage: {
     width: '100%',
     height: '100%',
+  },
+  coachSelectedExclamationPosition: {
+    position: 'absolute',
+    top: -scaleByDeviceWidth(42),
+    left: '50%',
+    transform: [{ translateX: -EXCLAMATION_WIDTH / 2 }],
+  },
+  coachSelectedExclamation: {
+    width: EXCLAMATION_WIDTH,
+    height: EXCLAMATION_HEIGHT,
   },
   pressed: {
     opacity: 0.8,
