@@ -10,17 +10,17 @@ import type {
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { AutoSweepCardSkiaReflection } from '@/src/shared/ui/CardSkiaReflection';
 
-const CARD_BACKGROUND = require('@/src/shared/assets/images/battle/battle-creature-card.png');
-const SELECTED_CARD_BACKGROUND = require('@/src/shared/assets/images/battle/battle-creature-card-selected.png');
-const SKILL_PANEL = require('@/src/shared/assets/images/battle/battle-creature-skill-panel.png');
+const CARD_BACKGROUND = require('@/src/shared/assets/images/battle/battle-creature-card-2-column.png');
+const SELECTED_CARD_BACKGROUND = require('@/src/shared/assets/images/battle/battle-creature-card-selected-2-column.png');
+const SKILL_PANEL = require('@/src/shared/assets/images/battle/battle-creature-skill-panel-2-column.png');
 const CARD_DIVIDER = require('@/src/shared/assets/images/farm-search/creature-card-divider.png');
 const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 
 const TYPE_BADGES: Record<CreatureEnvironment, number> = {
-  land: require('@/src/shared/assets/images/farm-search/land-badge.png'),
-  sea: require('@/src/shared/assets/images/farm-search/sea-badge.png'),
-  sky: require('@/src/shared/assets/images/farm-search/sky-badge.png'),
-  space: require('@/src/shared/assets/images/farm-search/space-badge.png'),
+  land: require('@/src/shared/assets/images/battle/battle-type-land.png'),
+  sea: require('@/src/shared/assets/images/battle/battle-type-sea.png'),
+  sky: require('@/src/shared/assets/images/battle/battle-type-sky.png'),
+  space: require('@/src/shared/assets/images/battle/battle-type-space.png'),
 };
 
 const TIER_BADGES: Record<CreatureTier, number> = {
@@ -47,8 +47,14 @@ const SKILLS = [
   { name: '별빛 응원', type: SKILL_TYPES.competitive },
 ] as const;
 
-const CARD_WIDTH = scaleByDeviceWidth(100);
-const CARD_HEIGHT = scaleByDeviceWidth(187.41);
+const CARD_WIDTH = scaleByDeviceWidth(150);
+const CARD_HEIGHT = CARD_WIDTH * (1044 / 620);
+const SKILL_PANEL_HEIGHT = scaleByDeviceWidth(50);
+const SKILL_PANEL_TOP = CARD_HEIGHT - SKILL_PANEL_HEIGHT - scaleByDeviceWidth(18);
+const NAME_ROW_HEIGHT = scaleByDeviceWidth(24);
+const NAME_ROW_TOP = SKILL_PANEL_TOP - scaleByDeviceWidth(8) - NAME_ROW_HEIGHT;
+const DIVIDER_HEIGHT = scaleByDeviceWidth(1);
+const DIVIDER_TOP = NAME_ROW_TOP - scaleByDeviceWidth(8) - DIVIDER_HEIGHT;
 
 type BattleCreatureCardProps = {
   creature: FarmCreatureListItem;
@@ -162,96 +168,96 @@ const styles = StyleSheet.create({
   },
   tierBadge: {
     position: 'absolute',
-    top: scaleByDeviceWidth(12),
-    left: scaleByDeviceWidth(12),
-    width: scaleByDeviceWidth(21.91),
-    height: scaleByDeviceWidth(23.29),
+    top: scaleByDeviceWidth(12.5),
+    left: scaleByDeviceWidth(11.89),
+    width: scaleByDeviceWidth(30),
+    height: scaleByDeviceWidth(32),
   },
   typeBadge: {
     position: 'absolute',
-    top: scaleByDeviceWidth(4),
-    right: scaleByDeviceWidth(8),
-    width: scaleByDeviceWidth(22),
-    height: scaleByDeviceWidth(29),
+    top: scaleByDeviceWidth(2),
+    right: scaleByDeviceWidth(12),
+    width: scaleByDeviceWidth(34),
+    height: scaleByDeviceWidth(48),
   },
   creatureImage: {
     position: 'absolute',
-    top: scaleByDeviceWidth(37),
-    left: scaleByDeviceWidth(15),
-    width: scaleByDeviceWidth(70),
-    height: scaleByDeviceWidth(55),
+    top: scaleByDeviceWidth(43),
+    left: scaleByDeviceWidth(7.5),
+    width: scaleByDeviceWidth(135),
+    height: scaleByDeviceWidth(96),
   },
   divider: {
     position: 'absolute',
-    top: scaleByDeviceWidth(101),
-    left: scaleByDeviceWidth(11.5),
-    width: scaleByDeviceWidth(77),
-    height: scaleByDeviceWidth(1),
+    top: DIVIDER_TOP,
+    left: scaleByDeviceWidth(17.25),
+    width: scaleByDeviceWidth(115.5),
+    height: DIVIDER_HEIGHT,
   },
   nameRow: {
     position: 'absolute',
-    top: scaleByDeviceWidth(108),
-    left: scaleByDeviceWidth(8),
-    width: scaleByDeviceWidth(84),
-    height: scaleByDeviceWidth(18),
+    top: NAME_ROW_TOP,
+    left: scaleByDeviceWidth(12),
+    width: scaleByDeviceWidth(126),
+    height: NAME_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: scaleByDeviceWidth(3),
   },
   creatureName: {
-    maxWidth: scaleByDeviceWidth(65),
+    maxWidth: scaleByDeviceWidth(98),
     color: '#302F2A',
     fontFamily: 'Pretendard-SemiBold',
-    fontSize: scaleByDeviceWidth(13),
-    lineHeight: scaleByDeviceWidth(18),
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(22),
     textAlign: 'center',
   },
   selectionOrderBadge: {
-    width: scaleByDeviceWidth(16),
-    height: scaleByDeviceWidth(16),
+    width: scaleByDeviceWidth(20),
+    height: scaleByDeviceWidth(20),
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: scaleByDeviceWidth(8),
+    borderRadius: scaleByDeviceWidth(10),
     backgroundColor: '#FFD34E',
   },
   selectionOrderText: {
     color: '#FFFFFF',
     fontFamily: 'Pretendard-SemiBold',
-    fontSize: scaleByDeviceWidth(10),
-    lineHeight: scaleByDeviceWidth(13),
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(16),
     textAlign: 'center',
   },
   skillPanel: {
     position: 'absolute',
-    top: scaleByDeviceWidth(132),
-    left: scaleByDeviceWidth(11.5),
-    width: scaleByDeviceWidth(77),
-    height: scaleByDeviceWidth(40),
+    top: SKILL_PANEL_TOP,
+    left: scaleByDeviceWidth(12),
+    width: scaleByDeviceWidth(126),
+    height: SKILL_PANEL_HEIGHT,
   },
   skills: {
     position: 'absolute',
-    top: scaleByDeviceWidth(132),
-    left: scaleByDeviceWidth(16),
-    width: scaleByDeviceWidth(68),
-    height: scaleByDeviceWidth(40),
+    top: SKILL_PANEL_TOP,
+    left: scaleByDeviceWidth(22),
+    width: scaleByDeviceWidth(106),
+    height: SKILL_PANEL_HEIGHT,
   },
   skillRow: {
-    height: scaleByDeviceWidth(20),
+    height: scaleByDeviceWidth(25),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   skillName: {
-    width: scaleByDeviceWidth(39),
+    width: scaleByDeviceWidth(64),
     color: '#69583F',
-    fontFamily: 'Pretendard-SemiBold',
-    fontSize: scaleByDeviceWidth(8),
-    lineHeight: scaleByDeviceWidth(11),
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: scaleByDeviceWidth(14),
   },
   skillType: {
-    width: scaleByDeviceWidth(28),
-    height: scaleByDeviceWidth(12),
+    width: scaleByDeviceWidth(39),
+    height: scaleByDeviceWidth(17),
   },
   pressed: {
     opacity: 0.8,

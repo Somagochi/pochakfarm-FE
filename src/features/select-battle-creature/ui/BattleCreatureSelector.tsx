@@ -226,7 +226,7 @@ export function BattleCreatureSelector({
           }
           maxToRenderPerBatch={6}
           nestedScrollEnabled
-          numColumns={3}
+          numColumns={2}
           onTouchCancel={onListInteractionEnd}
           onTouchEnd={onListInteractionEnd}
           onTouchStart={onListInteractionStart}
@@ -355,11 +355,11 @@ const styles = StyleSheet.create({
   creatureRow: {
     width: scaleByDeviceWidth(328),
     paddingLeft: scaleByDeviceWidth(10),
+    gap: scaleByDeviceWidth(8),
     backgroundColor: '#FFFDF8',
   },
   creatureGridItem: {
-    marginBottom: scaleByDeviceWidth(4),
-    marginRight: scaleByDeviceWidth(4),
+    marginBottom: scaleByDeviceWidth(8),
   },
   listFooter: {
     width: scaleByDeviceWidth(328),
