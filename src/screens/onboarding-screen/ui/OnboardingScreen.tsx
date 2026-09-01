@@ -1,7 +1,16 @@
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { useRef, useState } from 'react';
+import {
+  FlatList,
+  Image,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import {
   SafeAreaView,
   useSafeAreaInsets,
@@ -26,9 +35,15 @@ const ONBOARDING_VISUAL_IMAGES = [
 ] as const;
 
 const LAST_PAGE_INDEX = 2;
+const ONBOARDING_PAGES = ONBOARDING_TEXT_IMAGES.map((textImage, index) => ({
+  textImage,
+  visualImage: ONBOARDING_VISUAL_IMAGES[index],
+}));
 
 export function OnboardingScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const pagerRef = useRef<FlatList<(typeof ONBOARDING_PAGES)[number]>>(null);
   const [pageIndex, setPageIndex] = useState(0);
 
   const finishOnboarding = async () => {
@@ -42,7 +57,25 @@ export function OnboardingScreen() {
       return;
     }
 
-    setPageIndex((currentPageIndex) => currentPageIndex + 1);
+    pagerRef.current?.scrollToIndex({
+      animated: true,
+      index: pageIndex + 1,
+    });
+  };
+
+  const moveToPreviousPage = () => {
+    pagerRef.current?.scrollToIndex({
+      animated: true,
+      index: pageIndex - 1,
+    });
+  };
+
+  const handlePageChange = (
+    event: NativeSyntheticEvent<NativeScrollEvent>,
+  ) => {
+    setPageIndex(
+      Math.round(event.nativeEvent.contentOffset.x / screenWidth),
+    );
   };
 
   const isLastPage = pageIndex === LAST_PAGE_INDEX;
@@ -56,9 +89,7 @@ export function OnboardingScreen() {
           accessibilityLabel="이전 온보딩 페이지로 돌아가기"
           accessibilityRole="button"
           hitSlop={scaleByDeviceWidth(12)}
-          onPress={() =>
-            setPageIndex((currentPageIndex) => currentPageIndex - 1)
-          }
+          onPress={moveToPreviousPage}
           style={({ pressed }) => [
             styles.backButton,
             { top: insets.top + scaleByDeviceWidth(19) },
@@ -69,33 +100,52 @@ export function OnboardingScreen() {
         </Pressable>
       )}
 
-      <View style={styles.content}>
-        <Image
-          accessibilityLabel={`${pageIndex + 1}번째 온보딩 안내`}
-          resizeMode="contain"
-          source={ONBOARDING_TEXT_IMAGES[pageIndex]}
-          style={styles.textImage}
-        />
-        <Image
-          accessibilityLabel={`${pageIndex + 1}번째 온보딩 예시`}
-          resizeMode="contain"
-          source={ONBOARDING_VISUAL_IMAGES[pageIndex]}
-          style={styles.visualImage}
-        />
-        <View
-          accessibilityLabel={`총 3단계 중 ${pageIndex + 1}단계`}
-          style={styles.progressBar}
-        >
-          {ONBOARDING_VISUAL_IMAGES.map((_, dotIndex) => (
-            <View
-              key={dotIndex}
-              style={[
-                styles.progressDot,
-                dotIndex === pageIndex && styles.activeProgressDot,
-              ]}
+      <FlatList
+        ref={pagerRef}
+        data={ONBOARDING_PAGES}
+        decelerationRate="fast"
+        getItemLayout={(_, index) => ({
+          index,
+          length: screenWidth,
+          offset: screenWidth * index,
+        })}
+        horizontal
+        keyExtractor={(_, index) => `onboarding-page-${index}`}
+        onMomentumScrollEnd={handlePageChange}
+        pagingEnabled
+        renderItem={({ item, index }) => (
+          <View style={[styles.page, { width: screenWidth }]}>
+            <Image
+              accessibilityLabel={`${index + 1}번째 온보딩 안내`}
+              resizeMode="contain"
+              source={item.textImage}
+              style={styles.textImage}
             />
-          ))}
-        </View>
+            <Image
+              accessibilityLabel={`${index + 1}번째 온보딩 예시`}
+              resizeMode="contain"
+              source={item.visualImage}
+              style={styles.visualImage}
+            />
+          </View>
+        )}
+        showsHorizontalScrollIndicator={false}
+        style={styles.pager}
+      />
+
+      <View
+        accessibilityLabel={`총 3단계 중 ${pageIndex + 1}단계`}
+        style={styles.progressBar}
+      >
+        {ONBOARDING_PAGES.map((_, dotIndex) => (
+          <View
+            key={dotIndex}
+            style={[
+              styles.progressDot,
+              dotIndex === pageIndex && styles.activeProgressDot,
+            ]}
+          />
+        ))}
       </View>
 
       <View style={styles.bottomActions}>
@@ -135,7 +185,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAF5EB',
   },
-  content: {
+  pager: {
+    flexGrow: 0,
+  },
+  page: {
     alignItems: 'center',
   },
   textImage: {
@@ -153,6 +206,7 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(10),
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignSelf: 'center',
     marginTop: scaleByDeviceWidth(24),
   },
   progressDot: {
