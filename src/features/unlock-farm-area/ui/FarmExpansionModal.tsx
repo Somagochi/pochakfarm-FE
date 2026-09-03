@@ -19,7 +19,7 @@ const TEXT_WIDTH = scaleByDeviceWidth(191);
 const TEXT_HEIGHT = scaleByDeviceWidth(86);
 const TEXT_TOP = scaleByDeviceWidth(30);
 const TEXT_BUTTON_GAP = scaleByDeviceWidth(16);
-const BUTTON_WIDTH = scaleByDeviceWidth(126);
+const BUTTON_WIDTH = scaleByDeviceWidth(105.15);
 const BUTTON_HEIGHT = scaleByDeviceWidth(42);
 
 type FarmExpansionModalProps = {
