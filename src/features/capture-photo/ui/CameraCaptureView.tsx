@@ -29,7 +29,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
 import { CreatureNameConfirmModal } from './CreatureNameConfirmModal';
-import { getSupportedImageContentType } from '../lib/getSupportedImageContentType';
+import { convertHeicImageToJpeg } from '../lib/convertHeicImageToJpeg';
+import {
+  getSupportedImageContentType,
+  isHeicImageFile,
+} from '../lib/getSupportedImageContentType';
 import { useCaptureAvailability } from '../model/useCaptureAvailability';
 import { subscribeCaptureFlowReset } from '../model/captureFlowReset';
 import { useCaptureOverview } from '../model/useCaptureOverview';
@@ -566,11 +570,33 @@ export function CameraCaptureView() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         quality: 1,
       });
       const selectedPhoto = result.assets?.[0];
 
       if (!result.canceled && selectedPhoto?.uri) {
+        if (isHeicImageFile(selectedPhoto)) {
+          let convertedPhotoUri: string;
+
+          try {
+            convertedPhotoUri = await convertHeicImageToJpeg(
+              selectedPhoto.uri,
+            );
+          } catch {
+            setLocalErrorMessage(
+              'HEIC/HEIF 사진을 JPG로 변환하지 못했습니다.',
+            );
+            return;
+          }
+
+          setCapturedPhotoContentType('image/jpeg');
+          selectCapturePaymentMethod();
+          await developPhoto(convertedPhotoUri);
+          return;
+        }
+
         const contentType = getSupportedImageContentType(selectedPhoto);
 
         if (!contentType) {

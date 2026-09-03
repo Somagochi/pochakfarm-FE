@@ -15,6 +15,27 @@ type ImageFileInfo = {
   uri: string;
 };
 
+const HEIC_CONTENT_TYPES = new Set(['image/heic', 'image/heif']);
+const HEIC_EXTENSIONS = new Set(['heic', 'heif']);
+
+function getFileExtension({ fileName, uri }: ImageFileInfo) {
+  const filePath = (fileName ?? uri).split(/[?#]/)[0];
+
+  return filePath.split('.').pop()?.toLowerCase() ?? null;
+}
+
+export function isHeicImageFile(imageFile: ImageFileInfo) {
+  const normalizedMimeType = imageFile.mimeType
+    ?.toLowerCase()
+    .split(';')[0]
+    .trim();
+
+  return (
+    (normalizedMimeType ? HEIC_CONTENT_TYPES.has(normalizedMimeType) : false) ||
+    HEIC_EXTENSIONS.has(getFileExtension(imageFile) ?? '')
+  );
+}
+
 export function getSupportedImageContentType({
   fileName,
   mimeType,
@@ -32,8 +53,7 @@ export function getSupportedImageContentType({
       : null;
   }
 
-  const filePath = (fileName ?? uri).split(/[?#]/)[0];
-  const extension = filePath.split('.').pop()?.toLowerCase();
+  const extension = getFileExtension({ fileName, mimeType, uri });
 
   return extension ? CONTENT_TYPE_BY_EXTENSION[extension] ?? null : null;
 }
