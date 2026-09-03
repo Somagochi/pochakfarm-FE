@@ -27,6 +27,7 @@ type FarmExpansionModalProps = {
   isConfirming?: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onDismiss?: () => void;
 };
 
 export function FarmExpansionModal({
@@ -34,10 +35,12 @@ export function FarmExpansionModal({
   isConfirming = false,
   onClose,
   onConfirm,
+  onDismiss,
 }: FarmExpansionModalProps) {
   return (
     <Modal
       animationType="fade"
+      onDismiss={onDismiss}
       onRequestClose={onClose}
       statusBarTranslucent
       transparent
