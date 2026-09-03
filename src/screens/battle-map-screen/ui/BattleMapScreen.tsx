@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import Animated, { BounceIn } from 'react-native-reanimated';
 
+import { useGymLeaders, type GymLeader } from '@/src/entities/battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BATTLE_MAP = require('@/src/shared/assets/images/battle/battle-coach-map.png');
@@ -40,11 +41,16 @@ const COACH_DESIGN_WIDTH = 380;
 const COACH_SELECTION_DELAY = 700;
 const EXCLAMATION_WIDTH = scaleByDeviceWidth(65.52);
 const EXCLAMATION_HEIGHT = scaleByDeviceWidth(56.1);
-const COACHES = [
+const COACH_PLACEMENTS = [
+  {
+    id: 'moru',
+    centerX: MORU_CENTER_X,
+    top: MORU_TOP,
+    image: MORU_COACH,
+    silhouette: MORU_COACH,
+  },
   {
     id: 'haru',
-    name: '하루',
-    order: 2,
     centerX: 310,
     top: 5530,
     image: HARU_COACH,
@@ -52,8 +58,6 @@ const COACHES = [
   },
   {
     id: 'nio',
-    name: '니오',
-    order: 3,
     centerX: 720,
     top: 4600,
     image: NIO_COACH,
@@ -61,8 +65,6 @@ const COACHES = [
   },
   {
     id: 'raon',
-    name: '라온',
-    order: 4,
     centerX: 336,
     top: 3690,
     image: RAON_COACH,
@@ -70,8 +72,6 @@ const COACHES = [
   },
   {
     id: 'byeoli',
-    name: '별이',
-    order: 5,
     centerX: 720,
     top: 2800,
     image: BYEOLI_COACH,
@@ -79,8 +79,6 @@ const COACHES = [
   },
   {
     id: 'gaon',
-    name: '가온',
-    order: 6,
     centerX: 1104,
     top: 1910,
     image: GAON_COACH,
@@ -88,8 +86,6 @@ const COACHES = [
   },
   {
     id: 'daon',
-    name: '다온',
-    order: 7,
     centerX: 336,
     top: 1020,
     image: DAON_COACH,
@@ -97,8 +93,6 @@ const COACHES = [
   },
   {
     id: 'ion',
-    name: '이온',
-    order: 8,
     centerX: 720,
     top: 100,
     image: ION_COACH,
@@ -106,21 +100,16 @@ const COACHES = [
   },
 ] as const;
 
-type BattleMapScreenProps = {
-  clearedCoachIds?: readonly string[];
-};
-
-export function BattleMapScreen({
-  clearedCoachIds = [],
-}: BattleMapScreenProps) {
+export function BattleMapScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [screenWidth, setScreenWidth] = useState(0);
-  const [isMoruSelected, setIsMoruSelected] = useState(false);
+  const [selectedGymLeaderId, setSelectedGymLeaderId] = useState<number | null>(
+    null,
+  );
+  const { gymLeaders, reload } = useGymLeaders();
   const mapHeight = screenWidth * (MAP_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
   const moruWidth = screenWidth * (MORU_DESIGN_WIDTH / MAP_ORIGINAL_WIDTH);
-  const moruLeft =
-    screenWidth * (MORU_CENTER_X / MAP_ORIGINAL_WIDTH) - moruWidth / 2;
   const moruTop =
     mapHeight * (MORU_TOP / MAP_ORIGINAL_HEIGHT) -
     screenWidth * (MORU_TOP_OFFSET / 360);
@@ -128,7 +117,8 @@ export function BattleMapScreen({
 
   useFocusEffect(
     useCallback(() => {
-      setIsMoruSelected(false);
+      setSelectedGymLeaderId(null);
+      void reload();
 
       return () => {
         if (navigationTimeoutRef.current) {
@@ -136,19 +126,27 @@ export function BattleMapScreen({
           navigationTimeoutRef.current = null;
         }
       };
-    }, []),
+    }, [reload]),
   );
 
-  const handleMoruPress = () => {
-    if (isMoruSelected) {
+  const handleGymLeaderPress = (gymLeader: GymLeader) => {
+    if (selectedGymLeaderId !== null || !gymLeader.unlock.unlocked) {
       return;
     }
 
-    setIsMoruSelected(true);
+    setSelectedGymLeaderId(gymLeader.gymLeaderId);
     navigationTimeoutRef.current = setTimeout(() => {
       navigationTimeoutRef.current = null;
-      setIsMoruSelected(false);
-      router.push('/battle-moru');
+      setSelectedGymLeaderId(null);
+      router.push({
+        pathname: '/battle-moru',
+        params: {
+          coach: COACH_PLACEMENTS[gymLeader.challengeOrder - 1]?.id ?? 'moru',
+          gymLeaderCode: gymLeader.code,
+          gymLeaderId: String(gymLeader.gymLeaderId),
+          gymLeaderName: gymLeader.name,
+        },
+      });
     }, COACH_SELECTION_DELAY);
   };
 
@@ -177,72 +175,76 @@ export function BattleMapScreen({
             source={BATTLE_MAP}
             style={{ width: screenWidth, height: mapHeight }}
           >
-            {COACHES.map((coach) => {
-              const isCleared = clearedCoachIds.includes(coach.id);
+            {gymLeaders.map((gymLeader) => {
+              const coach = COACH_PLACEMENTS[gymLeader.challengeOrder - 1];
+
+              if (!coach) {
+                return null;
+              }
+
+              const isSelected = selectedGymLeaderId === gymLeader.gymLeaderId;
+              const isUnlocked = gymLeader.unlock.unlocked;
               const left =
                 screenWidth * (coach.centerX / MAP_ORIGINAL_WIDTH) -
-                coachWidth / 2;
-              const top = mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
+                (gymLeader.challengeOrder === 1 ? moruWidth : coachWidth) / 2;
+              const top =
+                gymLeader.challengeOrder === 1
+                  ? moruTop
+                  : mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
+              const size =
+                gymLeader.challengeOrder === 1 ? moruWidth : coachWidth;
 
               return (
-                <View
+                <Pressable
                   accessibilityLabel={
-                    isCleared
-                      ? `${coach.order}번째 관장 ${coach.name}`
-                      : `잠긴 ${coach.order}번째 관장`
+                    isUnlocked
+                      ? `${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}에게 도전하기`
+                      : `잠긴 ${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}`
                   }
-                  key={coach.id}
-                  style={[
-                    styles.coach,
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: !isUnlocked, selected: isSelected }}
+                  disabled={!isUnlocked || selectedGymLeaderId !== null}
+                  key={gymLeader.gymLeaderId}
+                  onPress={() => handleGymLeaderPress(gymLeader)}
+                  style={({ pressed }) => [
+                    styles.coachButton,
                     {
                       top,
                       left,
-                      width: coachWidth,
-                      height: coachWidth,
+                      width: size,
+                      height: size,
                     },
+                    pressed && styles.pressed,
                   ]}
                 >
                   <Image
                     resizeMode="contain"
-                    source={isCleared ? coach.image : coach.silhouette}
+                    source={
+                      isUnlocked
+                        ? gymLeader.imageUrl
+                          ? { uri: gymLeader.imageUrl }
+                          : coach.image
+                        : coach.silhouette
+                    }
                     style={styles.coachImage}
                   />
-                  {!isCleared && (
+                  {!isUnlocked && (
                     <Text style={styles.lockedCoachQuestionMark}>?</Text>
                   )}
-                </View>
+                  {isSelected && (
+                    <View style={styles.coachSelectedExclamationPosition}>
+                      <Animated.View entering={BounceIn.duration(350)}>
+                        <Image
+                          resizeMode="contain"
+                          source={COACH_SELECTED_EXCLAMATION}
+                          style={styles.coachSelectedExclamation}
+                        />
+                      </Animated.View>
+                    </View>
+                  )}
+                </Pressable>
               );
             })}
-            <Pressable
-              accessibilityLabel="땅 관장 모루에게 도전하기"
-              accessibilityRole="button"
-              accessibilityState={{ selected: isMoruSelected }}
-              disabled={isMoruSelected}
-              onPress={handleMoruPress}
-              style={({ pressed }) => [
-                styles.moruButton,
-                {
-                  top: moruTop,
-                  left: moruLeft,
-                  width: moruWidth,
-                  height: moruWidth,
-                },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Image resizeMode="contain" source={MORU_COACH} style={styles.moruImage} />
-              {isMoruSelected && (
-                <View style={styles.coachSelectedExclamationPosition}>
-                  <Animated.View entering={BounceIn.duration(350)}>
-                    <Image
-                      resizeMode="contain"
-                      source={COACH_SELECTED_EXCLAMATION}
-                      style={styles.coachSelectedExclamation}
-                    />
-                  </Animated.View>
-                </View>
-              )}
-            </Pressable>
           </ImageBackground>
         </ScrollView>
       )}
@@ -255,10 +257,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1189E3',
   },
-  moruButton: {
-    position: 'absolute',
-  },
-  coach: {
+  coachButton: {
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
@@ -274,10 +273,6 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(21),
     textAlign: 'center',
-  },
-  moruImage: {
-    width: '100%',
-    height: '100%',
   },
   coachSelectedExclamationPosition: {
     position: 'absolute',

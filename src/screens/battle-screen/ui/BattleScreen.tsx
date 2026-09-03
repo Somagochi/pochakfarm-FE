@@ -1,45 +1,109 @@
-import { Image, StyleSheet, View } from 'react-native';
-import { router } from 'expo-router';
-import { useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
+import {
+  GymLeaderDetailCard,
+  isBattleCoachId,
+  useGymLeaderDetail,
+} from '@/src/entities/battle';
 import type {
   CreatureEnvironment,
   FarmCreatureListItem,
 } from '@/src/entities/creature';
 import { useUserProfile } from '@/src/entities/user';
+import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { BattleActionBar } from '@/src/widgets/battle-action-bar';
 import { BattleHeader } from '@/src/widgets/battle-header';
 import { BattleMatchSelection } from '@/src/widgets/battle-match-selection';
 
-const BATTLE_LINEUP_GUIDE = require('@/src/shared/assets/images/battle/battle-lineup-guide.png');
-const GUIDE_WIDTH = scaleByDeviceWidth(328);
-const LINEUP_GUIDE_HEIGHT = GUIDE_WIDTH * (470 / 1314);
 const MORU_RECOMMENDED_ENVIRONMENTS: readonly CreatureEnvironment[] = [
   'land',
   'sea',
 ];
 
 export function BattleScreen() {
+  const params = useLocalSearchParams<{
+    coach?: string | string[];
+    gymLeaderCode?: string | string[];
+    gymLeaderId?: string | string[];
+    gymLeaderName?: string | string[];
+  }>();
+  const gymLeaderIdParam = Array.isArray(params.gymLeaderId)
+    ? params.gymLeaderId[0]
+    : params.gymLeaderId;
+  const parsedGymLeaderId = Number(gymLeaderIdParam);
+  const gymLeaderId =
+    gymLeaderIdParam &&
+    Number.isSafeInteger(parsedGymLeaderId) &&
+    parsedGymLeaderId > 0
+      ? parsedGymLeaderId
+      : undefined;
+  const coachParam = Array.isArray(params.coach)
+    ? params.coach[0]
+    : params.coach;
+  const coach = coachParam && isBattleCoachId(coachParam) ? coachParam : 'moru';
+  const { errorMessage, gymLeaderDetail, isLoading, reload } =
+    useGymLeaderDetail(gymLeaderId);
   const { profile } = useUserProfile();
   const [selectedCreatures, setSelectedCreatures] = useState<
     FarmCreatureListItem[]
   >([]);
+  const recommendedCreatureEnvironments = useMemo(() => {
+    if (!gymLeaderDetail) {
+      return MORU_RECOMMENDED_ENVIRONMENTS;
+    }
+
+    const environmentByCardType: Record<string, CreatureEnvironment> = {
+      GROUND: 'land',
+      SEA: 'sea',
+      SKY: 'sky',
+      SPACE: 'space',
+    };
+
+    return Array.from(
+      new Set(
+        gymLeaderDetail.animals.map(
+          (animal) => environmentByCardType[animal.cardType],
+        ),
+      ),
+    ).filter((environment): environment is CreatureEnvironment =>
+      Boolean(environment),
+    );
+  }, [gymLeaderDetail]);
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
-      <BattleHeader />
+      <BattleHeader
+        subtitle={
+          gymLeaderDetail
+            ? `${gymLeaderDetail.gymLeader.name} 관장`
+            : undefined
+        }
+      />
       <BattleCreatureSelector
-          headerContent={
-            <View style={styles.matchup}>
-              <Image
-                accessibilityLabel="땅 관장 모루의 동물 라인업"
-                resizeMode="contain"
-                source={BATTLE_LINEUP_GUIDE}
-                style={styles.lineupGuide}
-              />
+        headerContent={
+          <View style={styles.matchup}>
+              {gymLeaderDetail ? (
+                <GymLeaderDetailCard detail={gymLeaderDetail} />
+              ) : (
+                <View style={styles.detailStatus}>
+                  <Text style={styles.detailStatusText}>
+                    {errorMessage ??
+                      (isLoading ? '관장 정보를 불러오는 중...' : '')}
+                  </Text>
+                  {errorMessage && (
+                    <Pressable
+                      onPress={() => void reload()}
+                      style={styles.retryButton}
+                    >
+                      <Text style={styles.retryButtonText}>다시 시도</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
               <BattleMatchSelection
                 onMoveCreature={(fromIndex, toIndex) =>
                   setSelectedCreatures((currentCreatures) => {
@@ -65,15 +129,15 @@ export function BattleScreen() {
                   )
                 }
                 recommendedCreatureEnvironments={
-                  MORU_RECOMMENDED_ENVIRONMENTS
+                  recommendedCreatureEnvironments
                 }
                 selectedCreatures={selectedCreatures}
                 userLevel={profile?.level}
                 userNickname={profile?.nickname}
               />
-            </View>
-          }
-          onToggleCreature={(creature) =>
+          </View>
+        }
+        onToggleCreature={(creature) =>
             setSelectedCreatures((currentCreatures) => {
               const isAlreadySelected = currentCreatures.some(
                 (selectedCreature) =>
@@ -93,19 +157,27 @@ export function BattleScreen() {
 
               return [...currentCreatures, creature];
             })
-          }
-          recommendedCreatureEnvironments={MORU_RECOMMENDED_ENVIRONMENTS}
-          selectedCreatureIds={selectedCreatures.map(
-            (creature) => creature.id,
-          )}
+        }
+        recommendedCreatureEnvironments={recommendedCreatureEnvironments}
+        selectedCreatureIds={selectedCreatures.map(
+          (creature) => creature.id,
+        )}
       />
       <BattleActionBar
-        isEnabled={selectedCreatures.length === 3}
+        isEnabled={
+          selectedCreatures.length === 3 &&
+          Boolean(gymLeaderDetail?.gymLeader.unlock.unlocked)
+        }
         onPress={() =>
           router.push({
             pathname: '/battle-arena',
             params: {
-              coach: 'moru',
+              coach,
+              gymLeaderCode: gymLeaderDetail?.gymLeader.code,
+              gymLeaderId: gymLeaderDetail
+                ? String(gymLeaderDetail.gymLeader.gymLeaderId)
+                : undefined,
+              gymLeaderName: gymLeaderDetail?.gymLeader.name,
               party: JSON.stringify(
                 selectedCreatures.map((creature) => ({
                   environment: creature.environment,
@@ -127,13 +199,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAF5EB',
   },
-  lineupGuide: {
-    width: GUIDE_WIDTH,
-    height: LINEUP_GUIDE_HEIGHT,
+  detailStatus: {
+    width: scaleByDeviceWidth(328),
+    minHeight: scaleByDeviceWidth(120),
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scaleByDeviceWidth(10),
+  },
+  detailStatusText: {
+    color: '#8B704D',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(17),
+  },
+  retryButton: {
+    paddingVertical: scaleByDeviceWidth(7),
+    paddingHorizontal: scaleByDeviceWidth(12),
+    borderRadius: scaleByDeviceWidth(8),
+    backgroundColor: '#E8D5B4',
+  },
+  retryButtonText: {
+    color: '#675744',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(16),
   },
   matchup: {
     position: 'relative',
-    width: GUIDE_WIDTH,
+    width: scaleByDeviceWidth(328),
     alignItems: 'center',
     gap: scaleByDeviceWidth(8),
     marginBottom: scaleByDeviceWidth(16),
