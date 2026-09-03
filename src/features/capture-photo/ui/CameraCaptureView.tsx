@@ -707,6 +707,7 @@ export function CameraCaptureView() {
         cardType={createCaptureResult?.cardType}
         onCloseApiError={() => {
           clearCreateCaptureError();
+          resetCaptureFlow();
           router.replace('/(tabs)/farm');
         }}
         onClose={() => {
