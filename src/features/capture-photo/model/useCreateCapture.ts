@@ -127,8 +127,17 @@ export function useCreateCapture() {
           `GET /api/captures/${capture.captureId}`,
           () => getCaptureGenerationApi(capture.captureId),
         );
+        const generationStatus = generation.generationStatus
+          ?.trim()
+          .toUpperCase();
 
-        if (generation.generationStatus === 'SUCCEEDED') {
+        if (generationStatus === 'FAILED') {
+          pollingRunIdRef.current += 1;
+          setErrorMessage('카드 변환에 실패했습니다.');
+          return false;
+        }
+
+        if (generationStatus === 'SUCCEEDED') {
           if (!generation.cardImageUrl) {
             throw new Error('생성된 카드 이미지 주소가 없습니다.');
           }
