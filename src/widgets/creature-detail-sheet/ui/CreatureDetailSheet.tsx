@@ -35,7 +35,7 @@ import {
   ReanimatedCardSkiaReflection,
   type CardReflectionVariant,
 } from '@/src/shared/ui/CardSkiaReflection';
-import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 import { ReleaseCreatureAlert } from '@/src/shared/ui/ReleaseCreatureAlert';
 
 const BOTTOM_SHEET_IMAGE = require('@/src/shared/assets/images/farm/creature-detail-bottom-sheet.png');
@@ -155,14 +155,18 @@ const SHEET_EDGE_GESTURE_WIDTH = scaleByDeviceWidth(20);
 
 type CreatureDetailSheetProps = {
   animalId?: number;
+  externalErrorMessage?: string | null;
   onClose: () => void;
+  onExternalErrorClose?: () => void;
   onReleaseSuccess?: () => Promise<void>;
   width: number;
 };
 
 export function CreatureDetailSheet({
   animalId,
+  externalErrorMessage = null,
   onClose,
+  onExternalErrorClose,
   onReleaseSuccess,
   width,
 }: CreatureDetailSheetProps) {
@@ -435,7 +439,6 @@ export function CreatureDetailSheet({
   }, [translateY, visibleSheetHeight]);
 
   return (
-    <>
     <Modal
       animationType="none"
       hardwareAccelerated
@@ -966,16 +969,18 @@ export function CreatureDetailSheet({
             variant="journey"
           />
         )}
+        <ErrorDialog
+          message={
+            releaseErrorMessage ?? errorMessage ?? externalErrorMessage
+          }
+          onClose={() => {
+            setReleaseErrorMessage(null);
+            clearError();
+            onExternalErrorClose?.();
+          }}
+        />
       </GestureHandlerRootView>
     </Modal>
-    <ErrorModal
-      message={releaseErrorMessage ?? errorMessage}
-      onClose={() => {
-        setReleaseErrorMessage(null);
-        clearError();
-      }}
-    />
-    </>
   );
 }
 

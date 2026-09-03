@@ -23,7 +23,7 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { ErrorDialog, ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { CoinShopComingSoonModal } from '@/src/shared/ui/CoinShopComingSoonModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -608,7 +608,6 @@ export function CameraCaptureView() {
     }
 
     if (coinBalance < extraCaptureCost) {
-      setIsCoinDialogVisible(false);
       setLocalErrorMessage(
         `포착에는 ${extraCaptureCost.toLocaleString('ko-KR')}코인이 필요해요.`,
       );
@@ -1133,6 +1132,7 @@ export function CameraCaptureView() {
 
       <CreatureNameConfirmModal
         creatureName={creatureName.trim()}
+        errorMessage={createCaptureError}
         isConfirming={isCreatingCapture}
         onClose={() => setIsNameConfirmModalVisible(false)}
         onConfirm={async () => {
@@ -1148,7 +1148,6 @@ export function CameraCaptureView() {
           });
 
           if (!isCreated) {
-            setIsNameConfirmModalVisible(false);
             return;
           }
 
@@ -1168,11 +1167,17 @@ export function CameraCaptureView() {
           setShouldStartGameAfterModalDismiss(false);
           setHasConfirmedName(true);
         }}
+        onErrorClose={() => {
+          clearCreateCaptureError();
+          setIsNameConfirmModalVisible(false);
+          resetCaptureFlow();
+          router.replace('/(tabs)/farm');
+        }}
         visible={isNameConfirmModalVisible}
       />
 
       <ErrorModal
-        message={createCaptureError}
+        message={isNameConfirmModalVisible ? null : createCaptureError}
         onClose={() => {
           clearCreateCaptureError();
           resetCaptureFlow();
@@ -1181,12 +1186,18 @@ export function CameraCaptureView() {
       />
 
       <ErrorModal
-        message={purchaseAttemptError}
+        message={isCoinDialogVisible ? null : purchaseAttemptError}
         onClose={clearPurchaseAttemptError}
       />
 
       <ErrorModal
-        message={captureAvailabilityError ?? captureOverviewError ?? localErrorMessage}
+        message={
+          isCoinDialogVisible
+            ? null
+            : captureAvailabilityError ??
+              captureOverviewError ??
+              localErrorMessage
+        }
         onClose={() => {
           clearCaptureAvailabilityError();
           clearCaptureOverviewError();
@@ -1275,6 +1286,20 @@ export function CameraCaptureView() {
               ]}
             />
           </View>
+          <ErrorDialog
+            message={
+              purchaseAttemptError ??
+              captureAvailabilityError ??
+              captureOverviewError ??
+              localErrorMessage
+            }
+            onClose={() => {
+              clearPurchaseAttemptError();
+              clearCaptureAvailabilityError();
+              clearCaptureOverviewError();
+              setLocalErrorMessage(null);
+            }}
+          />
         </View>
       </Modal>
 

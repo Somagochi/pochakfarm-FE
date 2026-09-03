@@ -8,7 +8,7 @@ import {
 import { useState } from 'react';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 
 import { useLogout } from '../model/useLogout';
 
@@ -17,13 +17,17 @@ const CANCEL_BUTTON_IMAGE = require('@/src/shared/assets/images/account-manageme
 const CONFIRM_BUTTON_IMAGE = require('@/src/shared/assets/images/account-management/logout-confirm-button.png');
 
 type LogoutConfirmModalProps = {
+  errorMessage?: string | null;
   onClose: () => void;
+  onErrorClose?: () => void;
   onLoggedOut: () => void;
   visible: boolean;
 };
 
 export function LogoutConfirmModal({
+  errorMessage: externalErrorMessage = null,
   onClose,
+  onErrorClose,
   onLoggedOut,
   visible,
 }: LogoutConfirmModalProps) {
@@ -45,7 +49,6 @@ export function LogoutConfirmModal({
   }
 
   return (
-    <>
     <Modal
       animationType="fade"
       onRequestClose={onClose}
@@ -111,10 +114,15 @@ export function LogoutConfirmModal({
             </Pressable>
           </View>
         </View>
+        <ErrorDialog
+          message={errorMessage ?? externalErrorMessage}
+          onClose={() => {
+            setErrorMessage(null);
+            onErrorClose?.();
+          }}
+        />
       </View>
     </Modal>
-    <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
-    </>
   );
 }
 

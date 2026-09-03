@@ -7,6 +7,7 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 
 const MODAL_IMAGE = require('@/src/shared/assets/images/farm/save-confirm-modal.png');
 const TEXT_IMAGE = require('@/src/shared/assets/images/farm/save-confirm-text.png');
@@ -24,16 +25,20 @@ const BUTTON_GAP = scaleByDeviceWidth(4);
 const CLOSE_SIZE = scaleByDeviceWidth(36);
 
 type SaveCreatureConfirmModalProps = {
+  errorMessage?: string | null;
   isConfirming: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onErrorClose?: () => void;
   visible: boolean;
 };
 
 export function SaveCreatureConfirmModal({
+  errorMessage = null,
   isConfirming,
   onClose,
   onConfirm,
+  onErrorClose = onClose,
   visible,
 }: SaveCreatureConfirmModalProps) {
   return (
@@ -106,6 +111,7 @@ export function SaveCreatureConfirmModal({
             ]}
           />
         </View>
+        <ErrorDialog message={errorMessage} onClose={onErrorClose} />
       </View>
     </Modal>
   );

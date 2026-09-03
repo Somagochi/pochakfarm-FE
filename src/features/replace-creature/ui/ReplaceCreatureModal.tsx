@@ -9,6 +9,7 @@ import { useState } from 'react';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 
 const MODAL_IMAGE = require('@/src/shared/assets/images/farm/replace-creature-modal.png');
 const TEXT_IMAGE = require('@/src/shared/assets/images/farm/replace-creature-text.png');
@@ -42,17 +43,21 @@ const CLOSE_SIZE = scaleByDeviceWidth(40);
 type ReplaceCreatureModalProps = {
   animal: FarmAnimal | null;
   capturedCardImageUrl?: string;
+  errorMessage?: string | null;
   isConfirming: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  onErrorClose?: () => void;
 };
 
 export function ReplaceCreatureModal({
   animal,
   capturedCardImageUrl,
+  errorMessage = null,
   isConfirming,
   onClose,
   onConfirm,
+  onErrorClose = onClose,
 }: ReplaceCreatureModalProps) {
   const [failedExistingCardUri, setFailedExistingCardUri] =
     useState<string | null>(null);
@@ -194,6 +199,7 @@ export function ReplaceCreatureModal({
             ]}
           />
         </View>
+        <ErrorDialog message={errorMessage} onClose={onErrorClose} />
       </View>
     </Modal>
   );
