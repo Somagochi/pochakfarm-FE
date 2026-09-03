@@ -3,6 +3,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from 'react-native';
 
@@ -19,7 +20,7 @@ const TEXT_WIDTH = scaleByDeviceWidth(179);
 const TEXT_HEIGHT = TEXT_WIDTH * (256 / 716);
 const TEXT_TOP = scaleByDeviceWidth(30);
 const TEXT_BUTTON_GAP = scaleByDeviceWidth(16);
-const BUTTON_WIDTH = scaleByDeviceWidth(126);
+const BUTTON_WIDTH = scaleByDeviceWidth(105.15);
 const BUTTON_HEIGHT = scaleByDeviceWidth(42);
 const BUTTON_GAP = scaleByDeviceWidth(4);
 const CLOSE_SIZE = scaleByDeviceWidth(36);
@@ -97,6 +98,7 @@ export function SaveCreatureConfirmModal({
                 source={CONFIRM_BUTTON_IMAGE}
                 style={styles.actionButtonImage}
               />
+              <Text style={styles.confirmButtonText}>저장하기</Text>
             </Pressable>
           </View>
           <Pressable
@@ -149,10 +151,19 @@ const styles = StyleSheet.create({
   actionButton: {
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   actionButtonImage: {
+    ...StyleSheet.absoluteFillObject,
     width: BUTTON_WIDTH,
     height: BUTTON_HEIGHT,
+  },
+  confirmButtonText: {
+    color: '#685A48',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(13.2),
   },
   closeButton: {
     position: 'absolute',
