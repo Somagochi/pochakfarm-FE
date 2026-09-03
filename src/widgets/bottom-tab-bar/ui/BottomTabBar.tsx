@@ -11,7 +11,8 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { useIsBottomTabBarHidden } from '@/src/shared/lib/navigation/bottomTabBarVisibility';
 
 const TAB_BAR_CONTENT_HEIGHT = scaleByDeviceWidth(80);
-const TAB_BAR_BACKGROUND_WIDTH = scaleByDeviceWidth(368);
+const TAB_BAR_BACKGROUND_WIDTH = scaleByDeviceWidth(376);
+const TAB_BAR_BACKGROUND_OVERLAP = scaleByDeviceWidth(1);
 const TAB_BAR_BACKGROUND = require('@/src/shared/assets/images/bottom-tab-bar/nav-bottom.png');
 const CAPTURE_LABEL_IMAGE = require('@/src/shared/assets/images/bottom-tab-bar/capture-label.png');
 
@@ -162,9 +163,9 @@ const styles = StyleSheet.create({
   },
   backgroundClip: {
     position: 'absolute',
-    top: 0,
-    width: scaleByDeviceWidth(368),
-    height: TAB_BAR_CONTENT_HEIGHT,
+    top: -TAB_BAR_BACKGROUND_OVERLAP,
+    width: TAB_BAR_BACKGROUND_WIDTH,
+    height: TAB_BAR_CONTENT_HEIGHT + TAB_BAR_BACKGROUND_OVERLAP,
     alignItems: 'center',
     overflow: 'hidden',
   },
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     width: TAB_BAR_BACKGROUND_WIDTH,
-    height: TAB_BAR_CONTENT_HEIGHT,
+    height: TAB_BAR_CONTENT_HEIGHT + TAB_BAR_BACKGROUND_OVERLAP,
   },
   buttonGroup: {
     width: '100%',
