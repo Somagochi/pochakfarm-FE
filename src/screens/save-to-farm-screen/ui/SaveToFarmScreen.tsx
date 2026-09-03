@@ -269,6 +269,9 @@ export function SaveToFarmScreen() {
       </View>
 
       <SaveCreatureConfirmModal
+        errorMessage={
+          isSaveConfirmVisible ? placementError ?? errorMessage : null
+        }
         isConfirming={isPlacingAnimal}
         onClose={() => setIsSaveConfirmVisible(false)}
         onConfirm={() => {
@@ -280,11 +283,18 @@ export function SaveToFarmScreen() {
             );
           }
         }}
+        onErrorClose={() => {
+          setPlacementError(null);
+          clearError();
+        }}
         visible={isSaveConfirmVisible}
       />
       <ReplaceCreatureModal
         animal={replacementTarget?.animal ?? null}
         capturedCardImageUrl={cardImageUrl}
+        errorMessage={
+          replacementTarget ? placementError ?? errorMessage : null
+        }
         isConfirming={isPlacingAnimal}
         onClose={() => setReplacementTarget(null)}
         onConfirm={() => {
@@ -296,9 +306,17 @@ export function SaveToFarmScreen() {
             );
           }
         }}
+        onErrorClose={() => {
+          setPlacementError(null);
+          clearError();
+        }}
       />
       <ErrorModal
-        message={placementError ?? errorMessage}
+        message={
+          isSaveConfirmVisible || replacementTarget
+            ? null
+            : placementError ?? errorMessage
+        }
         onClose={() => {
           setPlacementError(null);
           clearError();

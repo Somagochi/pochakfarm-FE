@@ -135,12 +135,21 @@ export function AccountManagementScreen() {
         </Pressable>
       </ImageBackground>
       <LogoutConfirmModal
+        errorMessage={accountErrorMessage ?? profileErrorMessage}
         onClose={() => setIsLogoutModalVisible(false)}
+        onErrorClose={() => {
+          clearAccountError();
+          clearProfileError();
+        }}
         onLoggedOut={() => router.replace('/login')}
         visible={isLogoutModalVisible}
       />
       <ErrorModal
-        message={accountErrorMessage ?? profileErrorMessage}
+        message={
+          isLogoutModalVisible
+            ? null
+            : accountErrorMessage ?? profileErrorMessage
+        }
         onClose={() => {
           clearAccountError();
           clearProfileError();

@@ -13,6 +13,29 @@ type ErrorModalProps = {
   onClose: () => void;
 };
 
+export function ErrorDialog({ message, onClose }: ErrorModalProps) {
+  if (message === null) return null;
+
+  return (
+    <View accessibilityViewIsModal style={styles.overlay}>
+      <View style={styles.modal}>
+        <Text style={styles.message}>{message}</Text>
+        <Pressable
+          accessibilityLabel="오류 메시지 닫기"
+          accessibilityRole="button"
+          onPress={onClose}
+          style={({ pressed }) => [
+            styles.button,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={styles.buttonText}>확인</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
 export function ErrorModal({ message, onClose }: ErrorModalProps) {
   return (
     <Modal
@@ -21,33 +44,21 @@ export function ErrorModal({ message, onClose }: ErrorModalProps) {
       transparent
       visible={message !== null}
     >
-      <View accessibilityViewIsModal style={styles.overlay}>
-        <View style={styles.modal}>
-          <Text style={styles.message}>{message}</Text>
-          <Pressable
-            accessibilityLabel="오류 메시지 닫기"
-            accessibilityRole="button"
-            onPress={onClose}
-            style={({ pressed }) => [
-              styles.button,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.buttonText}>확인</Text>
-          </Pressable>
-        </View>
-      </View>
+      <ErrorDialog message={message} onClose={onClose} />
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: {
+    ...StyleSheet.absoluteFillObject,
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: scaleByDeviceWidth(24),
     backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    zIndex: 100,
+    elevation: 100,
   },
   modal: {
     width: '100%',

@@ -20,7 +20,7 @@ import {
   type FarmCreatureListItem,
 } from '@/src/entities/creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 
 import { useSearchAnimals } from '../model/useSearchAnimals';
 
@@ -65,13 +65,17 @@ const TIER_PRIORITY: Record<CreatureTier, number> = {
 };
 
 type FarmCreatureSearchModalProps = {
+  externalErrorMessage?: string | null;
   onClose: () => void;
+  onExternalErrorClose?: () => void;
   onSelectAnimal: (animalId: number) => void;
   visible: boolean;
 };
 
 export function FarmCreatureSearchModal({
+  externalErrorMessage = null,
   onClose,
+  onExternalErrorClose,
   onSelectAnimal,
   visible,
 }: FarmCreatureSearchModalProps) {
@@ -127,7 +131,6 @@ export function FarmCreatureSearchModal({
   );
 
   return (
-    <>
     <Modal
       animationType="fade"
       onRequestClose={onClose}
@@ -255,10 +258,15 @@ export function FarmCreatureSearchModal({
             style={styles.creatureList}
           />
         </ImageBackground>
+        <ErrorDialog
+          message={errorMessage ?? externalErrorMessage}
+          onClose={() => {
+            clearError();
+            onExternalErrorClose?.();
+          }}
+        />
       </View>
     </Modal>
-    <ErrorModal message={errorMessage} onClose={clearError} />
-    </>
   );
 }
 

@@ -75,16 +75,22 @@ export function AchievementCardList() {
         style={styles.list}
       />
       <ErrorModal
-        message={claimErrorMessage ?? errorMessage}
+        message={
+          claimedAchievement === null
+            ? claimErrorMessage ?? errorMessage
+            : null
+        }
         onClose={claimErrorMessage ? clearClaimError : clearError}
       />
       <AchievementClaimRewardModal
         badgeImageUrl={claimedAchievement?.imageUrl}
         coinAmount={claimedCoinReward?.amount ?? 300}
+        errorMessage={claimErrorMessage ?? errorMessage}
         onClose={() => {
           setClaimedAchievement(null);
           void reload();
         }}
+        onErrorClose={claimErrorMessage ? clearClaimError : clearError}
         title={claimedBadgeReward?.badgeName ?? '첫 보금자리'}
         visible={claimedAchievement !== null}
       />

@@ -1,6 +1,7 @@
 import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 
 const MODAL_BACKGROUND_IMAGE = require('@/src/shared/assets/images/capture/name-confirm-modal.png');
 const NAME_WARNING_IMAGE = require('@/src/shared/assets/images/capture/name-confirm-warning.png');
@@ -16,19 +17,23 @@ const BUTTON_HEIGHT = BUTTON_WIDTH * (168 / 421);
 
 type CreatureNameConfirmModalProps = {
   creatureName: string;
+  errorMessage?: string | null;
   isConfirming: boolean;
   onClose: () => void;
   onConfirm: () => void;
   onDismiss?: () => void;
+  onErrorClose?: () => void;
   visible: boolean;
 };
 
 export function CreatureNameConfirmModal({
   creatureName,
+  errorMessage = null,
   isConfirming,
   onClose,
   onConfirm,
   onDismiss,
+  onErrorClose = onClose,
   visible,
 }: CreatureNameConfirmModalProps) {
   return (
@@ -107,6 +112,7 @@ export function CreatureNameConfirmModal({
             ]}
           />
         </View>
+        <ErrorDialog message={errorMessage} onClose={onErrorClose} />
       </View>
     </Modal>
   );
