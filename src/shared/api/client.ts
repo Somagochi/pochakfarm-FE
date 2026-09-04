@@ -17,13 +17,20 @@ export type ApiResponse<TData> = {
   status: number;
 };
 
+const UNKNOWN_SERVER_ERROR_MESSAGE =
+  '서버에 알 수 없는 에러가 발생했습니다.';
+
 export class ApiError extends Error {
   constructor(
     message: string,
     public readonly status: number,
     public readonly code: string | null = null,
   ) {
-    super(message);
+    super(
+      status >= 500 && status < 600
+        ? UNKNOWN_SERVER_ERROR_MESSAGE
+        : message,
+    );
     this.name = 'ApiError';
   }
 }

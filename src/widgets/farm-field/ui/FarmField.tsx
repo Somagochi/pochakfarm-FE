@@ -4,6 +4,7 @@ import {
   Animated,
   Image,
   type ImageSourcePropType,
+  Platform,
   StyleSheet,
   View,
 } from 'react-native';
@@ -105,6 +106,8 @@ export function FarmField({
   const [hasDraggedCreatureImageFailed, setHasDraggedCreatureImageFailed] =
     useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [pendingExpansionErrorMessage, setPendingExpansionErrorMessage] =
+    useState<string | null>(null);
   const [expansionFloorNumber, setExpansionFloorNumber] = useState<
     number | null
   >(null);
@@ -208,11 +211,18 @@ export function FarmField({
         setExpansionFloorNumber(null);
       }
     } catch (error) {
-      setErrorMessage(
+      const message =
         error instanceof Error
           ? error.message
-          : '농장 공간을 확장하지 못했습니다.',
-      );
+          : '농장 공간을 확장하지 못했습니다.';
+
+      setExpansionFloorNumber(null);
+
+      if (Platform.OS === 'ios') {
+        setPendingExpansionErrorMessage(message);
+      } else {
+        setErrorMessage(message);
+      }
     }
   };
 
@@ -416,6 +426,12 @@ export function FarmField({
         isConfirming={isExpanding}
         onClose={() => setExpansionFloorNumber(null)}
         onConfirm={() => void handleExpandFloor()}
+        onDismiss={() => {
+          if (pendingExpansionErrorMessage === null) return;
+
+          setErrorMessage(pendingExpansionErrorMessage);
+          setPendingExpansionErrorMessage(null);
+        }}
       />
       <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
     </View>

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -25,13 +25,49 @@ function formatMarketingConsentDate(date: Date) {
 
 export function TermsOfServiceScreen() {
   const insets = useSafeAreaInsets();
-  const { isLoading, updateMarketingConsent } =
+  const { getTermsAgreement, isLoading, updateMarketingConsent } =
     useUpdateMarketingConsent();
+  const [isMarketingConsentEnabled, setIsMarketingConsentEnabled] =
+    useState(false);
   const [marketingConsentDate, setMarketingConsentDate] = useState<
     string | null
   >(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const isMarketingConsentEnabled = marketingConsentDate !== null;
+
+  useEffect(() => {
+    let isActive = true;
+
+    void getTermsAgreement()
+      .then((agreement) => {
+        if (!isActive) {
+          return;
+        }
+
+        setIsMarketingConsentEnabled(agreement.marketingAgreed);
+        setMarketingConsentDate(
+          agreement.marketingAgreed && agreement.marketingAgreedAt
+            ? formatMarketingConsentDate(
+                new Date(agreement.marketingAgreedAt),
+              )
+            : null,
+        );
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        setErrorMessage(
+          error instanceof Error
+            ? error.message
+            : '잠시 후 다시 시도해 주세요.',
+        );
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [getTermsAgreement]);
 
   async function handleMarketingConsentPress() {
     const nextMarketingConsentEnabled = !isMarketingConsentEnabled;
@@ -45,6 +81,7 @@ export function TermsOfServiceScreen() {
         return;
       }
 
+      setIsMarketingConsentEnabled(nextMarketingConsentEnabled);
       setMarketingConsentDate(
         nextMarketingConsentEnabled
           ? formatMarketingConsentDate(new Date())
@@ -139,7 +176,9 @@ export function TermsOfServiceScreen() {
           />
           <Text style={styles.marketingConsentDescription}>
             {isMarketingConsentEnabled
-              ? `${marketingConsentDate} 마케팅 알림 수신을 동의했습니다`
+              ? marketingConsentDate
+                ? `${marketingConsentDate} 마케팅 알림 수신을 동의했습니다`
+                : '마케팅 알림 수신을 동의했습니다'
               : '현재 마케팅 수신 거부 상태입니다'}
           </Text>
         </View>

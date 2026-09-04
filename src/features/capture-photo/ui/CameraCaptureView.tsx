@@ -1,10 +1,13 @@
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+import { useIsFocused } from '@react-navigation/native';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  AppState,
+  type AppStateStatus,
   Easing,
   Image,
   Keyboard,
@@ -20,12 +23,17 @@ import {
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
-import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { ErrorDialog, ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { CoinShopComingSoonModal } from '@/src/shared/ui/CoinShopComingSoonModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CaptureGame } from './CaptureGame';
 import { CreatureNameConfirmModal } from './CreatureNameConfirmModal';
+import { convertHeicImageToJpeg } from '../lib/convertHeicImageToJpeg';
+import {
+  getSupportedImageContentType,
+  isHeicImageFile,
+} from '../lib/getSupportedImageContentType';
 import { useCaptureAvailability } from '../model/useCaptureAvailability';
 import { subscribeCaptureFlowReset } from '../model/captureFlowReset';
 import { useCaptureOverview } from '../model/useCaptureOverview';
@@ -106,7 +114,15 @@ export function CameraCaptureView() {
   const { height: screenHeight, width: screenWidth } =
     useWindowDimensions();
   const cameraRef = useRef<CameraView>(null);
-  const [permission, requestPermission] = useCameraPermissions();
+  const isScreenFocused = useIsFocused();
+  const [permission, requestPermission, getPermission] =
+    useCameraPermissions();
+  const [appState, setAppState] = useState<AppStateStatus>(
+    AppState.currentState,
+  );
+  const [cameraSessionKey, setCameraSessionKey] = useState(0);
+  const [isCameraReady, setIsCameraReady] = useState(false);
+  const [hasCameraError, setHasCameraError] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [cameraZoom, setCameraZoom] = useState(0);
   const [isSelectingPhoto, setIsSelectingPhoto] = useState(false);
@@ -282,6 +298,12 @@ export function CameraCaptureView() {
     (remainingCaptureCount > 0 || isPaidCaptureSessionActive);
   const isNamingCreature =
     capturedPhotoUri !== null && !hasConfirmedName;
+  const isCameraActive =
+    appState === 'active' &&
+    isScreenFocused &&
+    permission?.granted === true &&
+    !isNamingCreature &&
+    !isCoinDialogVisible;
   const pinchGesture = useMemo(
     () =>
       Gesture.Pinch()
@@ -305,6 +327,43 @@ export function CameraCaptureView() {
         }),
     [hasCaptureOpportunity, isNamingCreature],
   );
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      setAppState(nextState);
+      setIsCameraReady(false);
+      setIsCapturing(false);
+
+      if (nextState === 'active') {
+        void (async () => {
+          try {
+            await getPermission();
+          } catch {
+            setLocalErrorMessage(
+              '카메라 권한 상태를 확인하지 못했습니다. 다시 시도해 주세요.',
+            );
+          } finally {
+            setCameraSessionKey((current) => current + 1);
+          }
+        })();
+      }
+    });
+
+    return () => subscription.remove();
+  }, [getPermission]);
+
+  useEffect(() => {
+    if (!isScreenFocused) {
+      setIsCameraReady(false);
+      setIsCapturing(false);
+    }
+  }, [isScreenFocused]);
+
+  useEffect(() => {
+    if (!isCameraActive) {
+      setIsCameraReady(false);
+    }
+  }, [isCameraActive]);
 
   useEffect(() => {
     if (!captureAvailability) {
@@ -460,6 +519,8 @@ export function CameraCaptureView() {
   const handleCapture = async () => {
     if (
       !cameraRef.current ||
+      !isCameraActive ||
+      !isCameraReady ||
       isCapturing ||
       !hasCaptureOpportunity
     ) {
@@ -492,6 +553,7 @@ export function CameraCaptureView() {
         await developPhoto(photo.uri);
       }
     } catch {
+      setHasCameraError(true);
       setLocalErrorMessage('사진을 촬영하지 못했습니다. 다시 시도해 주세요.');
     } finally {
       setIsCapturing(false);
@@ -508,14 +570,41 @@ export function CameraCaptureView() {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
+        preferredAssetRepresentationMode:
+          ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
         quality: 1,
       });
       const selectedPhoto = result.assets?.[0];
 
       if (!result.canceled && selectedPhoto?.uri) {
-        setCapturedPhotoContentType(
-          selectedPhoto.mimeType ?? 'image/jpeg',
-        );
+        if (isHeicImageFile(selectedPhoto)) {
+          let convertedPhotoUri: string;
+
+          try {
+            convertedPhotoUri = await convertHeicImageToJpeg(
+              selectedPhoto.uri,
+            );
+          } catch {
+            setLocalErrorMessage(
+              'HEIC/HEIF 사진을 JPG로 변환하지 못했습니다.',
+            );
+            return;
+          }
+
+          setCapturedPhotoContentType('image/jpeg');
+          selectCapturePaymentMethod();
+          await developPhoto(convertedPhotoUri);
+          return;
+        }
+
+        const contentType = getSupportedImageContentType(selectedPhoto);
+
+        if (!contentType) {
+          setLocalErrorMessage('지원하지 않는 파일형식입니다.');
+          return;
+        }
+
+        setCapturedPhotoContentType(contentType);
         selectCapturePaymentMethod();
         await developPhoto(selectedPhoto.uri);
       }
@@ -545,7 +634,6 @@ export function CameraCaptureView() {
     }
 
     if (coinBalance < extraCaptureCost) {
-      setIsCoinDialogVisible(false);
       setLocalErrorMessage(
         `포착에는 ${extraCaptureCost.toLocaleString('ko-KR')}코인이 필요해요.`,
       );
@@ -619,6 +707,7 @@ export function CameraCaptureView() {
         cardType={createCaptureResult?.cardType}
         onCloseApiError={() => {
           clearCreateCaptureError();
+          resetCaptureFlow();
           router.replace('/(tabs)/farm');
         }}
         onClose={() => {
@@ -864,11 +953,24 @@ export function CameraCaptureView() {
             ) : (
               <GestureDetector gesture={pinchGesture}>
                 <View style={StyleSheet.absoluteFill}>
-                  {!isCoinDialogVisible && (
+                  {isCameraActive && (
                     <CameraView
+                      active={isCameraActive}
                       animateShutter={false}
                       facing="back"
                       flash="off"
+                      key={cameraSessionKey}
+                      onCameraReady={() => {
+                        setHasCameraError(false);
+                        setIsCameraReady(true);
+                      }}
+                      onMountError={() => {
+                        setHasCameraError(true);
+                        setIsCameraReady(false);
+                        setLocalErrorMessage(
+                          '카메라를 실행하지 못했습니다. 다시 시도해 주세요.',
+                        );
+                      }}
                       ref={cameraRef}
                       style={StyleSheet.absoluteFill}
                       zoom={cameraZoom}
@@ -1014,12 +1116,20 @@ export function CameraCaptureView() {
           <Pressable
             accessibilityLabel="사진 촬영"
             accessibilityRole="button"
-            disabled={isCapturing || !hasCaptureOpportunity}
+            disabled={
+              isCapturing ||
+              !isCameraActive ||
+              !isCameraReady ||
+              !hasCaptureOpportunity
+            }
             onPress={handleCapture}
             style={({ pressed }) => [
               styles.shutterButton,
               (pressed || isCapturing) && styles.buttonPressed,
-              !hasCaptureOpportunity && styles.disabledButton,
+              (!isCameraActive ||
+                !isCameraReady ||
+                !hasCaptureOpportunity) &&
+                styles.disabledButton,
             ]}
           >
             <Image
@@ -1049,6 +1159,7 @@ export function CameraCaptureView() {
 
       <CreatureNameConfirmModal
         creatureName={creatureName.trim()}
+        errorMessage={createCaptureError}
         isConfirming={isCreatingCapture}
         onClose={() => setIsNameConfirmModalVisible(false)}
         onConfirm={async () => {
@@ -1064,7 +1175,6 @@ export function CameraCaptureView() {
           });
 
           if (!isCreated) {
-            setIsNameConfirmModalVisible(false);
             return;
           }
 
@@ -1084,28 +1194,47 @@ export function CameraCaptureView() {
           setShouldStartGameAfterModalDismiss(false);
           setHasConfirmedName(true);
         }}
+        onErrorClose={() => {
+          clearCreateCaptureError();
+          setIsNameConfirmModalVisible(false);
+          resetCaptureFlow();
+          router.replace('/(tabs)/farm');
+        }}
         visible={isNameConfirmModalVisible}
       />
 
       <ErrorModal
-        message={createCaptureError}
+        message={isNameConfirmModalVisible ? null : createCaptureError}
         onClose={() => {
           clearCreateCaptureError();
+          resetCaptureFlow();
           router.replace('/(tabs)/farm');
         }}
       />
 
       <ErrorModal
-        message={purchaseAttemptError}
+        message={isCoinDialogVisible ? null : purchaseAttemptError}
         onClose={clearPurchaseAttemptError}
       />
 
       <ErrorModal
-        message={captureAvailabilityError ?? captureOverviewError ?? localErrorMessage}
+        message={
+          isCoinDialogVisible
+            ? null
+            : captureAvailabilityError ??
+              captureOverviewError ??
+              localErrorMessage
+        }
         onClose={() => {
           clearCaptureAvailabilityError();
           clearCaptureOverviewError();
           setLocalErrorMessage(null);
+
+          if (hasCameraError) {
+            setHasCameraError(false);
+            setIsCameraReady(false);
+            setCameraSessionKey((current) => current + 1);
+          }
         }}
       />
 
@@ -1184,6 +1313,20 @@ export function CameraCaptureView() {
               ]}
             />
           </View>
+          <ErrorDialog
+            message={
+              purchaseAttemptError ??
+              captureAvailabilityError ??
+              captureOverviewError ??
+              localErrorMessage
+            }
+            onClose={() => {
+              clearPurchaseAttemptError();
+              clearCaptureAvailabilityError();
+              clearCaptureOverviewError();
+              setLocalErrorMessage(null);
+            }}
+          />
         </View>
       </Modal>
 

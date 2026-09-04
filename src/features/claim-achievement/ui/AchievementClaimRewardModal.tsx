@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { REWARD_BUTTON_IMAGE } from '@/src/shared/assets/images/coupon-result/rewardButtonImage';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorDialog } from '@/src/shared/ui/ErrorModal';
 
 const COIN_IMAGE = require('@/src/shared/assets/images/farm-status/coin.png');
 const DEFAULT_BADGE_IMAGE = require('@/src/shared/assets/images/collection/unregistered-achievement-badge.png');
@@ -35,7 +36,9 @@ const COIN_REWARD_HEIGHT = 22;
 type AchievementClaimRewardModalProps = {
   badgeImageUrl?: string;
   coinAmount: number;
+  errorMessage?: string | null;
   onClose: () => void;
+  onErrorClose?: () => void;
   title: string;
   visible: boolean;
 };
@@ -43,7 +46,9 @@ type AchievementClaimRewardModalProps = {
 export function AchievementClaimRewardModal({
   badgeImageUrl,
   coinAmount,
+  errorMessage = null,
   onClose,
+  onErrorClose = onClose,
   title,
   visible,
 }: AchievementClaimRewardModalProps) {
@@ -155,6 +160,7 @@ export function AchievementClaimRewardModal({
             style={styles.rewardButtonImage}
           />
         </Pressable>
+        <ErrorDialog message={errorMessage} onClose={onErrorClose} />
       </View>
     </Modal>
   );

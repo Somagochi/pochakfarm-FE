@@ -302,7 +302,15 @@ export function FarmScreen() {
         </View>
       )}
       <FarmCreatureSearchModal
+        externalErrorMessage={
+          moveErrorMessage ?? farmErrorMessage ?? errorMessage
+        }
         onClose={() => setIsCreatureSearchVisible(false)}
+        onExternalErrorClose={() => {
+          clearMoveError();
+          clearFarmError();
+          clearError();
+        }}
         onSelectAnimal={(animalId) => {
           setSelectedAnimalId(animalId);
           setIsCreatureSearchVisible(false);
@@ -318,6 +326,9 @@ export function FarmScreen() {
       {isCreatureDetailVisible && (
         <CreatureDetailSheet
           animalId={selectedAnimalId}
+          externalErrorMessage={
+            moveErrorMessage ?? farmErrorMessage ?? errorMessage
+          }
           onClose={() => {
             setIsCreatureDetailVisible(false);
             setSelectedAnimalId(undefined);
@@ -325,11 +336,20 @@ export function FarmScreen() {
           onReleaseSuccess={async () => {
             await reloadFarm();
           }}
+          onExternalErrorClose={() => {
+            clearMoveError();
+            clearFarmError();
+            clearError();
+          }}
           width={contentSize.width}
         />
       )}
       <ErrorModal
-        message={moveErrorMessage ?? farmErrorMessage ?? errorMessage}
+        message={
+          isCreatureSearchVisible || isCreatureDetailVisible
+            ? null
+            : moveErrorMessage ?? farmErrorMessage ?? errorMessage
+        }
         onClose={
           moveErrorMessage
             ? clearMoveError
