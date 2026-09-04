@@ -77,6 +77,7 @@ export function BattleCreatureSelector({
   recommendedCreatureEnvironments = [],
   selectedCreatureIds = [],
 }: BattleCreatureSelectorProps) {
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [selectedAnimalType, setSelectedAnimalType] = useState<
@@ -113,10 +114,27 @@ export function BattleCreatureSelector({
         environment: ENVIRONMENT_BY_CARD_TYPE[animal.cardType],
         id: String(animal.animalId),
         name: animal.animalName,
+        restEndsAt: animal.restEndsAt,
         tier: animal.tier,
       })),
     [animals],
   );
+  const hasRestingCreature = creatures.some((creature) => {
+    if (!creature.restEndsAt) {
+      return false;
+    }
+
+    const restEndMs = Date.parse(creature.restEndsAt);
+    return Number.isFinite(restEndMs) && restEndMs > nowMs;
+  });
+  useEffect(() => {
+    if (!hasRestingCreature) {
+      return;
+    }
+
+    const intervalId = setInterval(() => setNowMs(Date.now()), 1000);
+    return () => clearInterval(intervalId);
+  }, [hasRestingCreature]);
   const sortedCreatures = useMemo(
     () =>
       [...creatures].sort(
@@ -257,6 +275,7 @@ export function BattleCreatureSelector({
                   hasRecommendationEffect={
                     recommendationEffectCreatureIds.has(creature.id)
                   }
+                  nowMs={nowMs}
                   onPress={() => onToggleCreature?.(creature)}
                   selectionOrder={
                     selectedIndex >= 0 ? selectedIndex + 1 : undefined

@@ -9,23 +9,30 @@ const BUTTON_HEIGHT = BUTTON_WIDTH * (60 / 280);
 
 type BattleActionBarProps = {
   isEnabled: boolean;
+  isLoading?: boolean;
   onPress: () => void;
 };
 
-export function BattleActionBar({ isEnabled, onPress }: BattleActionBarProps) {
+export function BattleActionBar({
+  isEnabled,
+  isLoading = false,
+  onPress,
+}: BattleActionBarProps) {
+  const isDisabled = !isEnabled || isLoading;
+
   return (
     <View style={styles.container}>
       <Pressable
-        accessibilityState={{ disabled: !isEnabled }}
+        accessibilityState={{ busy: isLoading, disabled: isDisabled }}
         accessibilityLabel="대전 시작"
         accessibilityRole="button"
-        disabled={!isEnabled}
+        disabled={isDisabled}
         onPress={onPress}
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       >
         <Image
           resizeMode="contain"
-          source={isEnabled ? START_BATTLE_BUTTON_ACTIVE : START_BATTLE_BUTTON}
+          source={isDisabled ? START_BATTLE_BUTTON : START_BATTLE_BUTTON_ACTIVE}
           style={styles.buttonImage}
         />
       </Pressable>

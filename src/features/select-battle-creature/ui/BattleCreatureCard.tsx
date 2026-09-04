@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 
 import type {
@@ -59,6 +66,7 @@ const DIVIDER_TOP = NAME_ROW_TOP - scaleByDeviceWidth(8) - DIVIDER_HEIGHT;
 type BattleCreatureCardProps = {
   creature: FarmCreatureListItem;
   hasRecommendationEffect?: boolean;
+  nowMs?: number;
   onPress?: () => void;
   selectionOrder?: number;
 };
@@ -66,10 +74,21 @@ type BattleCreatureCardProps = {
 export function BattleCreatureCard({
   creature,
   hasRecommendationEffect = false,
+  nowMs = Date.now(),
   onPress,
   selectionOrder,
 }: BattleCreatureCardProps) {
   const isSelected = selectionOrder !== undefined;
+  const restEndMs = creature.restEndsAt
+    ? Date.parse(creature.restEndsAt)
+    : Number.NaN;
+  const remainingRestSeconds = Number.isFinite(restEndMs)
+    ? Math.max(0, Math.ceil((restEndMs - nowMs) / 1000))
+    : 0;
+  const isResting = remainingRestSeconds > 0;
+  const remainingRestTime = `${String(
+    Math.floor(remainingRestSeconds / 60),
+  ).padStart(2, '0')}:${String(remainingRestSeconds % 60).padStart(2, '0')}`;
   const [failedCreatureImageUri, setFailedCreatureImageUri] =
     useState<string | null>(null);
   const hasCreatureImageFailed =
@@ -84,8 +103,14 @@ export function BattleCreatureCard({
 
   return (
     <Pressable
-      accessibilityLabel={`${creature.name}, ${creature.tier} 티어`}
+      accessibilityLabel={
+        isResting
+          ? `${creature.name}, 휴식 중, 남은 시간 ${remainingRestTime}`
+          : `${creature.name}, ${creature.tier} 티어`
+      }
       accessibilityRole="button"
+      accessibilityState={{ disabled: isResting, selected: isSelected }}
+      disabled={isResting}
       onPress={onPress}
       style={({ pressed }) => [styles.card, pressed && styles.pressed]}
     >
@@ -151,6 +176,17 @@ export function BattleCreatureCard({
           centerLabel="추천!"
           variant="tier-ss"
         />
+      )}
+      {isResting && (
+        <View pointerEvents="none" style={styles.restOverlay}>
+          <ActivityIndicator
+            color="#FFFFFF"
+            size="small"
+            style={styles.restIndicator}
+          />
+          <Text style={styles.restLabel}>휴식중</Text>
+          <Text style={styles.restTime}>{remainingRestTime}</Text>
+        </View>
       )}
     </Pressable>
   );
@@ -258,6 +294,34 @@ const styles = StyleSheet.create({
   skillType: {
     width: scaleByDeviceWidth(39),
     height: scaleByDeviceWidth(17),
+  },
+  restOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'center',
+    paddingTop: CARD_HEIGHT * (390 / 1044),
+    borderRadius: scaleByDeviceWidth(8),
+    backgroundColor: 'rgba(0, 0, 0, 0.92)',
+    overflow: 'hidden',
+  },
+  restIndicator: {
+    marginBottom: scaleByDeviceWidth(20),
+  },
+  restLabel: {
+    color: '#858585',
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(20),
+  },
+  restTime: {
+    marginTop: scaleByDeviceWidth(13),
+    color: '#FFFFFF',
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: scaleByDeviceWidth(25),
+    lineHeight: scaleByDeviceWidth(32),
   },
   pressed: {
     opacity: 0.8,
