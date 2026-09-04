@@ -11,6 +11,7 @@ import {
   Easing,
   Image,
   Keyboard,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -480,10 +481,21 @@ export function CameraCaptureView() {
   );
 
   const handleRequestPermission = async () => {
-    const nextPermission = await requestPermission();
+    try {
+      if (permission?.canAskAgain === false) {
+        await Linking.openSettings();
+        return;
+      }
 
-    if (nextPermission.granted) {
-      setIsPermissionToastVisible(true);
+      const nextPermission = await requestPermission();
+
+      if (nextPermission.granted) {
+        setIsPermissionToastVisible(true);
+      }
+    } catch {
+      setLocalErrorMessage(
+        '카메라 권한 설정을 열지 못했습니다. 다시 시도해 주세요.',
+      );
     }
   };
 
