@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
   ImageBackground,
   Pressable,
@@ -20,8 +21,17 @@ import {
   getBattleArenaType,
   isBattleCoachId,
   type BattleArenaType,
+  type BattleBroadcastEvent,
+  type BattleEntry,
+  type BattleState,
 } from '@/src/entities/battle';
 import type { CreatureEnvironment } from '@/src/entities/creature';
+import {
+  useSubmitBattleAction,
+  type BattleActionResult,
+} from '@/src/features/select-battle-skill';
+import { useStartBattleFinalRound } from '@/src/features/start-battle-final-round';
+import { useSubmitBattleFinalRound } from '@/src/features/submit-battle-final-round';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const ARENA_BACKGROUNDS: Record<BattleArenaType, number> = {
@@ -44,7 +54,6 @@ const BALANCE_SKILL_TYPE = require('@/src/shared/assets/images/battle/balance-sk
 const COMPETITIVE_SKILL_TYPE = require('@/src/shared/assets/images/battle/competitive-skill-type.png');
 const STABLE_SKILL_TYPE = require('@/src/shared/assets/images/battle/stable-skill-type.png');
 const CHEER_BUTTON = require('@/src/shared/assets/images/battle/cheer-button.png');
-const BATTLE_LOG_COUNT = 4;
 const BATTLE_PROGRESS_INNER_WIDTH = scaleByDeviceWidth(310);
 const BATTLE_PROGRESS_FILL_WIDTH = scaleByDeviceWidth(310);
 const BATTLE_PROGRESS_FILL_HEIGHT = scaleByDeviceWidth(26);
@@ -57,13 +66,15 @@ const BATTLE_PROGRESS_FILL_IMAGE_LEFT =
 const BATTLE_PROGRESS_FILL_IMAGE_TOP =
   -BATTLE_PROGRESS_FILL_HEIGHT * (303 / 144);
 const BATTLE_STATUS_BADGE_SIZE = scaleByDeviceWidth(62);
-const FINAL_CLASH_DURATION_MS = 6000;
+const BROADCAST_EVENT_INTERVAL_MS = 2000;
+const SKILL_SELECTION_DURATION_MS = 3000;
 
 type BattlePartyMember = {
   environment: CreatureEnvironment;
   id: string;
   imageUri?: string;
   name: string;
+  orderNo?: number;
 };
 
 const TYPE_BADGES: Record<CreatureEnvironment, number> = {
@@ -73,11 +84,17 @@ const TYPE_BADGES: Record<CreatureEnvironment, number> = {
   space: require('@/src/shared/assets/images/farm-search/space-badge.png'),
 };
 
-const SKILLS_BY_ENVIRONMENT: Record<CreatureEnvironment, [string, string]> = {
-  land: ['균형잡기', '몸통박치기'],
-  sky: ['바람돌진', '구름 숨기'],
-  sea: ['물결타기', '진주 방패'],
-  space: ['별빛파동', '중력 뒤집기'],
+const ENVIRONMENT_BY_CARD_TYPE = {
+  GROUND: 'land',
+  SKY: 'sky',
+  SEA: 'sea',
+  SPACE: 'space',
+} as const;
+const SKILL_TYPE_SOURCES: Record<string, number> = {
+  BALANCE: BALANCE_SKILL_TYPE,
+  COMPETITIVE: COMPETITIVE_SKILL_TYPE,
+  GAMBLE: COMPETITIVE_SKILL_TYPE,
+  STABLE: STABLE_SKILL_TYPE,
 };
 
 function parseParty(value?: string | string[]): BattlePartyMember[] {
@@ -110,24 +127,112 @@ function parseParty(value?: string | string[]): BattlePartyMember[] {
   }
 }
 
+function parseBattleState(value?: string | string[]) {
+  const serializedState = Array.isArray(value) ? value[0] : value;
+
+  if (!serializedState) {
+    return null;
+  }
+
+  try {
+    const state = JSON.parse(serializedState) as BattleState;
+
+    if (
+      typeof state !== 'object' ||
+      state === null ||
+      !Number.isSafeInteger(state.battleId) ||
+      !Array.isArray(state.broadcastEvents)
+    ) {
+      return null;
+    }
+
+    return state;
+  } catch {
+    return null;
+  }
+}
+
+function getBattleProgress(state: BattleState) {
+  const range = state.maxBarPosition - state.minBarPosition;
+
+  if (range <= 0) {
+    return 0.5;
+  }
+
+  return Math.max(
+    0,
+    Math.min(1, (state.barPosition - state.minBarPosition) / range),
+  );
+}
+
+function getEventAnimalName(
+  event: BattleBroadcastEvent,
+  state: BattleState,
+  userParty: BattlePartyMember[],
+  npcParty: BattlePartyMember[],
+) {
+  const party = event.animalSide === 'NPC' ? npcParty : userParty;
+  const partyMember = party.find(
+    (member, index) => (member.orderNo ?? index + 1) === event.entryOrder,
+  );
+
+  if (partyMember) {
+    return partyMember.name;
+  }
+
+  const entry = event.animalSide === 'NPC' ? state.npcEntry : state.userEntry;
+  return entry.animalName;
+}
+
+function getEventMessage(
+  event: BattleBroadcastEvent,
+  state: BattleState,
+  userParty: BattlePartyMember[],
+  npcParty: BattlePartyMember[],
+) {
+  const animalName = getEventAnimalName(event, state, userParty, npcParty);
+
+  switch (event.eventCode) {
+    case 'TIER_ADVANTAGE':
+      return `${animalName}이(가) 티어 우위를 점했어요.`;
+    case 'TYPE_ADVANTAGE':
+      return `${animalName}이(가) 타입 상성 우위를 점했어요.`;
+    case 'SKILL_NOT_SELECTED':
+      return `${animalName}은 스킬을 사용하지 못했어요.`;
+    case 'SKILL_TRIGGERED':
+      return `${animalName}의 ${event.skillName ?? '스킬'}!`;
+    case 'SKILL_FAILED':
+      return `${animalName}은 스킬을 사용하지 못했어요.`;
+    case 'SKILL_OFFSET':
+      return '양쪽 스킬이 서로 상쇄됐어요.';
+    case 'BATTLE_POINT_APPLIED':
+      return `${event.winnerSide === 'USER' ? '유저' : '관장'} 진영이 승부 바를 ${event.point ?? 0}포인트 밀어냅니다!`;
+  }
+}
+
 type CreatureInfoCardProps = {
-  environment: CreatureEnvironment;
+  entry: BattleEntry;
   isOpponent?: boolean;
-  name: string;
+  isSkillSelectionDisabled?: boolean;
+  onSkillPress?: (skill: string) => void;
+  selectedSkill?: string | null;
 };
 
 function CreatureInfoCard({
-  environment,
+  entry,
   isOpponent = false,
-  name,
+  isSkillSelectionDisabled = false,
+  onSkillPress,
+  selectedSkill,
 }: CreatureInfoCardProps) {
-  const skills = SKILLS_BY_ENVIRONMENT[environment];
-  const skillTypeSources = isOpponent
-    ? [STABLE_SKILL_TYPE, BALANCE_SKILL_TYPE]
-    : [BALANCE_SKILL_TYPE, COMPETITIVE_SKILL_TYPE];
+  const environment = ENVIRONMENT_BY_CARD_TYPE[entry.cardType];
+  const visibleSkills = Array.isArray(entry.skills)
+    ? entry.skills.slice(0, 2)
+    : [];
 
   return (
     <ImageBackground
+      accessibilityLabel={`${entry.animalName}, ${entry.tier} 티어, ${entry.cardType} 타입`}
       resizeMode="stretch"
       source={CREATURE_INFO_CARD}
       style={[
@@ -135,21 +240,38 @@ function CreatureInfoCard({
         isOpponent ? styles.opponentInfo : styles.playerInfo,
       ]}
     >
-      <Text numberOfLines={1} style={styles.creatureName}>{name}</Text>
+      <Text numberOfLines={1} style={styles.creatureName}>{entry.animalName}</Text>
       <Image
         resizeMode="contain"
         source={TYPE_BADGES[environment]}
         style={styles.typeBadge}
       />
-      {skills.map((skill, index) => (
-        <View key={skill} style={[styles.skillRow, index === 0 ? styles.firstSkillRow : styles.secondSkillRow]}>
-          <Text style={styles.skillName}>{skill}</Text>
+      {visibleSkills.map((skill, index) => (
+        <Pressable
+          accessibilityLabel={`${skill.name} 선택, 발동 확률 ${skill.triggerPercentage}%, ${skill.point}포인트`}
+          accessibilityRole={isOpponent ? undefined : 'button'}
+          accessibilityState={{
+            disabled:
+              isOpponent || isSkillSelectionDisabled || !onSkillPress,
+            selected: selectedSkill === skill.skill,
+          }}
+          disabled={isOpponent || isSkillSelectionDisabled || !onSkillPress}
+          key={skill.skill}
+          onPress={() => onSkillPress?.(skill.skill)}
+          style={({ pressed }) => [
+            styles.skillRow,
+            index === 0 ? styles.firstSkillRow : styles.secondSkillRow,
+            selectedSkill === skill.skill && styles.selectedSkillRow,
+            pressed && styles.pressedSkillRow,
+          ]}
+        >
+          <Text style={styles.skillName}>{skill.name}</Text>
           <Image
             resizeMode="contain"
-            source={skillTypeSources[index]}
+            source={SKILL_TYPE_SOURCES[skill.battleType] ?? BALANCE_SKILL_TYPE}
             style={styles.skillType}
           />
-        </View>
+        </Pressable>
       ))}
     </ImageBackground>
   );
@@ -157,72 +279,536 @@ function CreatureInfoCard({
 
 export function BattleArenaScreen() {
   const logScrollViewRef = useRef<ScrollView>(null);
-  const battleProgress = useSharedValue(0.5);
-  const finalClashProgress = useSharedValue(0.5);
-  const { coach, party } = useLocalSearchParams<{
+  const hasRequestedFinalRoundStartRef = useRef(false);
+  const hasSubmittedFinalRoundResultRef = useRef(false);
+  const finalTapCountRef = useRef(0);
+  const selectionTimerActionSeqRef = useRef<number | null>(null);
+  const submittedActionRef = useRef<{
+    actionSeq: number;
+    skill: string | null;
+  } | null>(null);
+  const { isLoading: isSubmittingAction, submitBattleAction } =
+    useSubmitBattleAction();
+  const {
+    isLoading: isStartingFinalRound,
+    startBattleFinalRound,
+  } = useStartBattleFinalRound();
+  const {
+    isLoading: isSubmittingFinalRound,
+    submitBattleFinalRound,
+  } = useSubmitBattleFinalRound();
+  const { coach, initialBattleState, npcParty, party } = useLocalSearchParams<{
     coach?: string | string[];
+    initialBattleState?: string | string[];
+    npcParty?: string | string[];
     party?: string | string[];
   }>();
   const coachParam = Array.isArray(coach) ? coach[0] : coach;
   const coachId = coachParam && isBattleCoachId(coachParam) ? coachParam : 'moru';
   const [arenaType] = useState(() => getBattleArenaType(coachId));
   const [partyMembers] = useState(() => parseParty(party));
-  const [round, setRound] = useState(1);
-  const [visibleLogCount, setVisibleLogCount] = useState(0);
-  const [isFinalClashVisible, setIsFinalClashVisible] = useState(false);
-  const fallbackPlayer = {
-    environment: 'land' as const,
-    id: 'preview-player',
-    name: '다라미',
-  };
-  const player = partyMembers[round - 1] ?? partyMembers[0] ?? fallbackPlayer;
-  const opponent = {
-    environment: 'sky' as const,
-    name: '꼬미우르스야',
-  };
-  const playerSkills = SKILLS_BY_ENVIRONMENT[player.environment];
-  const battleLogs = [
-    {
-      message: `${player.name}(이)가 타입 상성에서 유리합니다!`,
-      side: 'player',
-    },
-    {
-      message: `${player.name}(이)가 선공권을 가져갑니다!`,
-      side: 'player',
-    },
-    {
-      message: `${player.name}의 ${playerSkills[0]}이(가) 발동했어요!`,
-      side: 'player',
-    },
-    {
-      message: `${opponent.name}의 구름 숨기는 발동하지 않았어요.`,
-      side: 'opponent',
-    },
-  ];
-
-  useEffect(() => {
-    setVisibleLogCount(0);
-
-    const logTimers = Array.from({ length: BATTLE_LOG_COUNT }, (_, index) =>
-      setTimeout(() => setVisibleLogCount(index + 1), 300 + index * 1000),
-    );
-
-    return () => logTimers.forEach(clearTimeout);
-  }, [round]);
-
-  useEffect(() => {
-    if (visibleLogCount === 3) {
-      battleProgress.value = withTiming(
-        Math.min(0.92, battleProgress.value + 0.2),
-        { duration: 650 },
-      );
-    } else if (visibleLogCount === 4) {
-      battleProgress.value = withTiming(
-        Math.max(0.08, battleProgress.value - 0.15),
-        { duration: 650 },
-      );
+  const [npcPartyMembers] = useState(() => parseParty(npcParty));
+  const [battleState, setBattleState] = useState(() =>
+    parseBattleState(initialBattleState),
+  );
+  const [lastAction, setLastAction] = useState<BattleActionResult | null>(null);
+  const [finalTapCount, setFinalTapCount] = useState(0);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  const [skillSelectionDeadlineMs, setSkillSelectionDeadlineMs] = useState<
+    number | null
+  >(null);
+  const [initialBroadcastEvents] = useState(
+    () =>
+      [...(battleState?.broadcastEvents ?? [])].sort(
+        (firstEvent, secondEvent) =>
+          firstEvent.eventSeq - secondEvent.eventSeq,
+      ),
+  );
+  const knownEventSequencesRef = useRef(
+    new Set(initialBroadcastEvents.map((event) => event.eventSeq)),
+  );
+  const playedEventSequencesRef = useRef(new Set<number>());
+  const lastPlayedEventSequenceRef = useRef(0);
+  const [broadcastQueue, setBroadcastQueue] = useState(
+    initialBroadcastEvents,
+  );
+  const [activeBroadcastEvent, setActiveBroadcastEvent] =
+    useState<BattleBroadcastEvent | null>(null);
+  const [displayedBroadcastEvents, setDisplayedBroadcastEvents] = useState<
+    BattleBroadcastEvent[]
+  >([]);
+  const initialProgress = battleState ? getBattleProgress(battleState) : 0.5;
+  const battleProgress = useSharedValue(initialProgress);
+  const finalClashProgress = useSharedValue(initialProgress);
+  const player = battleState
+    ? partyMembers.find(
+        (member, index) =>
+          (member.orderNo ?? index + 1) === battleState.userEntry.orderNo,
+      )
+    : undefined;
+  const opponent = battleState
+    ? npcPartyMembers.find(
+        (member, index) =>
+          (member.orderNo ?? index + 1) === battleState.npcEntry.orderNo,
+      )
+    : undefined;
+  const battleLogs = useMemo(() => {
+    if (!battleState) {
+      return [];
     }
-  }, [battleProgress, visibleLogCount]);
+
+    return displayedBroadcastEvents
+      .map((event) => ({
+        eventSeq: event.eventSeq,
+        message: getEventMessage(
+          event,
+          battleState,
+          partyMembers,
+          npcPartyMembers,
+        ),
+        side:
+          (event.animalSide ?? event.winnerSide) === 'NPC'
+            ? ('opponent' as const)
+            : ('player' as const),
+      }));
+  }, [battleState, displayedBroadcastEvents, npcPartyMembers, partyMembers]);
+  const serverTimeOffsetMs = battleState?.serverTimeOffsetMs ?? 0;
+  const currentServerTimeMs = nowMs + serverTimeOffsetMs;
+  const selectionRemainingSeconds = skillSelectionDeadlineMs !== null
+    ? Math.max(0, Math.ceil((skillSelectionDeadlineMs - nowMs) / 1000))
+    : 0;
+  const isFinalClashVisible = Boolean(
+    battleState?.status === 'IN_PROGRESS' &&
+      battleState.finalRound.required &&
+      battleState.finalRound.started,
+  );
+  const finalInputEndMs = battleState?.finalRound.inputExpiresAt
+    ? Date.parse(battleState.finalRound.inputExpiresAt)
+    : Number.NaN;
+  const finalInputRemainingMs = Number.isFinite(finalInputEndMs)
+    ? Math.max(0, finalInputEndMs - currentServerTimeMs)
+    : 0;
+  const isBroadcasting =
+    activeBroadcastEvent !== null || broadcastQueue.length > 0;
+  const isSkillSelectionReady = Boolean(
+    battleState?.status === 'IN_PROGRESS' &&
+      battleState.nextActionSeq !== null &&
+      !isSubmittingAction &&
+      !isBroadcasting,
+  );
+  const canSelectSkill = Boolean(
+    isSkillSelectionReady &&
+      skillSelectionDeadlineMs !== null &&
+      skillSelectionDeadlineMs > nowMs,
+  );
+  const enqueueBroadcastEvents = useCallback(
+    (events: BattleBroadcastEvent[]) => {
+      const nextEvents = [...events]
+        .sort(
+          (firstEvent, secondEvent) =>
+            firstEvent.eventSeq - secondEvent.eventSeq,
+        )
+        .filter(
+          (event) =>
+            event.eventSeq > lastPlayedEventSequenceRef.current &&
+            !knownEventSequencesRef.current.has(event.eventSeq),
+        );
+
+      if (nextEvents.length === 0) {
+        return;
+      }
+
+      nextEvents.forEach((event) => {
+        knownEventSequencesRef.current.add(event.eventSeq);
+      });
+      setBroadcastQueue((currentQueue) =>
+        [...currentQueue, ...nextEvents].sort(
+          (firstEvent, secondEvent) =>
+            firstEvent.eventSeq - secondEvent.eventSeq,
+        ),
+      );
+    },
+    [],
+  );
+  const handleSubmitAction = useCallback(
+    async (skill: string | null, isRetry = false) => {
+      if (
+        !battleState ||
+        battleState.status !== 'IN_PROGRESS' ||
+        battleState.nextActionSeq === null
+      ) {
+        return;
+      }
+
+      const actionSeq = battleState.nextActionSeq;
+
+      if (
+        !Number.isSafeInteger(actionSeq) ||
+        actionSeq < 1 ||
+        actionSeq > 9
+      ) {
+        Alert.alert(
+          '행동 순서 오류',
+          '서버에서 올바르지 않은 행동 순서를 받았습니다.',
+        );
+        return;
+      }
+
+      const submittedAction = submittedActionRef.current;
+
+      if (
+        !isRetry &&
+        submittedAction?.actionSeq === actionSeq
+      ) {
+        return;
+      }
+
+      const requestedSkill =
+        isRetry && submittedAction?.actionSeq === actionSeq
+          ? submittedAction.skill
+          : skill;
+      const selectedSkill =
+        !isRetry &&
+        requestedSkill !== null &&
+        skillSelectionDeadlineMs !== null &&
+        Date.now() >= skillSelectionDeadlineMs
+          ? null
+          : requestedSkill;
+      submittedActionRef.current = { actionSeq, skill: selectedSkill };
+      setSkillSelectionDeadlineMs(null);
+      const result = await submitBattleAction({
+        actionSeq,
+        battleId: battleState.battleId,
+        skill: selectedSkill,
+      });
+
+      if (!result) {
+        Alert.alert(
+          '행동 처리 실패',
+          '대전 행동을 처리하지 못했습니다. 다시 시도해 주세요.',
+          [
+            { text: '취소', style: 'cancel' },
+            {
+              text: '다시 시도',
+              onPress: () => void handleSubmitAction(selectedSkill, true),
+            },
+          ],
+        );
+        return;
+      }
+
+      if (result.action) {
+        enqueueBroadcastEvents(result.action.broadcastEvents);
+        setLastAction(result.action);
+      }
+      enqueueBroadcastEvents(result.state.broadcastEvents);
+
+      if (
+        !result.action &&
+        result.state.nextActionSeq === actionSeq
+      ) {
+        submittedActionRef.current = null;
+      }
+
+      setBattleState(result.state);
+    },
+    [
+      battleState,
+      enqueueBroadcastEvents,
+      skillSelectionDeadlineMs,
+      submitBattleAction,
+    ],
+  );
+  const handleStartFinalRound = useCallback(
+    async (isRetry = false) => {
+      if (
+        !battleState ||
+        battleState.status !== 'IN_PROGRESS' ||
+        !battleState.finalRound.required ||
+        battleState.finalRound.started ||
+        (hasRequestedFinalRoundStartRef.current && !isRetry)
+      ) {
+        return;
+      }
+
+      hasRequestedFinalRoundStartRef.current = true;
+      const result = await startBattleFinalRound(battleState.battleId);
+
+      if (!result) {
+        Alert.alert(
+          '최종 승부 시작 실패',
+          '최종 승부를 시작하지 못했습니다. 다시 시도해 주세요.',
+          [
+            { text: '취소', style: 'cancel' },
+            {
+              text: '다시 시도',
+              onPress: () => void handleStartFinalRound(true),
+            },
+          ],
+        );
+        return;
+      }
+
+      setNowMs(Date.now());
+      setBattleState((currentState) =>
+        currentState
+          ? {
+              ...currentState,
+              status: result.battleStatus,
+              result: result.battleResult,
+              finalRound: result.finalRound,
+              reward: result.reward,
+              serverTimeOffsetMs: result.serverTimeOffsetMs,
+            }
+          : currentState,
+      );
+    },
+    [battleState, startBattleFinalRound],
+  );
+  const handleSubmitFinalRound = useCallback(
+    async (isRetry = false) => {
+      if (
+        !battleState ||
+        !battleState.finalRound.required ||
+        !battleState.finalRound.started ||
+        (hasSubmittedFinalRoundResultRef.current && !isRetry)
+      ) {
+        return;
+      }
+
+      hasSubmittedFinalRoundResultRef.current = true;
+      const result = await submitBattleFinalRound({
+        battleId: battleState.battleId,
+        serverTimeOffsetMs: battleState.serverTimeOffsetMs,
+        submissionExpiresAt:
+          battleState.finalRound.submissionExpiresAt,
+        tapCount: finalTapCountRef.current,
+      });
+
+      if (!result) {
+        Alert.alert(
+          '최종 승부 결과 제출 실패',
+          '최종 승부 결과를 제출하지 못했습니다. 다시 시도해 주세요.',
+          [
+            {
+              text: '다시 시도',
+              onPress: () => void handleSubmitFinalRound(true),
+            },
+          ],
+          { cancelable: false },
+        );
+        return;
+      }
+
+      router.replace({
+        pathname: '/battle-result',
+        params: {
+          battleId: String(result.battleId),
+          battleResult: result.battleResult ?? undefined,
+          coach: coachId,
+          finalRoundResult: JSON.stringify(result),
+          party: typeof party === 'string' ? party : party?.[0],
+          reward: result.reward ? JSON.stringify(result.reward) : undefined,
+        },
+      });
+    },
+    [battleState, coachId, party, submitBattleFinalRound],
+  );
+
+  useEffect(() => {
+    if (activeBroadcastEvent || broadcastQueue.length === 0) {
+      return;
+    }
+
+    const [nextEvent, ...remainingEvents] = broadcastQueue;
+    setBroadcastQueue(remainingEvents);
+    setActiveBroadcastEvent(nextEvent ?? null);
+  }, [activeBroadcastEvent, broadcastQueue]);
+
+  useEffect(() => {
+    if (!activeBroadcastEvent) {
+      return;
+    }
+
+    if (!playedEventSequencesRef.current.has(activeBroadcastEvent.eventSeq)) {
+      playedEventSequencesRef.current.add(activeBroadcastEvent.eventSeq);
+      lastPlayedEventSequenceRef.current = activeBroadcastEvent.eventSeq;
+      setDisplayedBroadcastEvents((currentEvents) => [
+        ...currentEvents,
+        activeBroadcastEvent,
+      ]);
+    }
+
+    const timeoutId = setTimeout(
+      () => setActiveBroadcastEvent(null),
+      BROADCAST_EVENT_INTERVAL_MS,
+    );
+    return () => clearTimeout(timeoutId);
+  }, [activeBroadcastEvent]);
+
+  useEffect(() => {
+    if (!battleState) {
+      return;
+    }
+
+    battleProgress.value = withTiming(getBattleProgress(battleState), {
+      duration: 650,
+    });
+  }, [battleProgress, battleState]);
+
+  useEffect(() => {
+    const actionSeq = battleState?.nextActionSeq;
+
+    if (
+      !isSkillSelectionReady ||
+      actionSeq === null ||
+      actionSeq === undefined ||
+      selectionTimerActionSeqRef.current === actionSeq
+    ) {
+      return;
+    }
+
+    const selectionStartedAt = Date.now();
+    selectionTimerActionSeqRef.current = actionSeq;
+    setNowMs(selectionStartedAt);
+    setSkillSelectionDeadlineMs(
+      selectionStartedAt + SKILL_SELECTION_DURATION_MS,
+    );
+  }, [battleState?.nextActionSeq, isSkillSelectionReady]);
+
+  useEffect(() => {
+    if (skillSelectionDeadlineMs === null) {
+      return;
+    }
+
+    setNowMs(Date.now());
+    const intervalId = setInterval(() => {
+      const currentTimeMs = Date.now();
+      setNowMs(currentTimeMs);
+
+      if (currentTimeMs >= skillSelectionDeadlineMs) {
+        clearInterval(intervalId);
+      }
+    }, 100);
+    return () => clearInterval(intervalId);
+  }, [skillSelectionDeadlineMs]);
+
+  useEffect(() => {
+    if (
+      !battleState ||
+      battleState.status !== 'IN_PROGRESS' ||
+      battleState.nextActionSeq === null ||
+      skillSelectionDeadlineMs === null
+    ) {
+      return;
+    }
+
+    const actionSeq = battleState.nextActionSeq;
+    const submitTimeoutAction = () => {
+      if (submittedActionRef.current?.actionSeq !== actionSeq) {
+        void handleSubmitAction(null);
+      }
+    };
+    const remainingMs =
+      skillSelectionDeadlineMs - Date.now();
+
+    if (remainingMs <= 0) {
+      submitTimeoutAction();
+      return;
+    }
+
+    const timeoutId = setTimeout(submitTimeoutAction, remainingMs);
+    return () => clearTimeout(timeoutId);
+  }, [
+    battleState,
+    handleSubmitAction,
+    skillSelectionDeadlineMs,
+  ]);
+
+  useEffect(() => {
+    if (
+      battleState?.status === 'IN_PROGRESS' &&
+      battleState.finalRound.required &&
+      !battleState.finalRound.started &&
+      !isBroadcasting
+    ) {
+      void handleStartFinalRound();
+    }
+  }, [battleState, handleStartFinalRound, isBroadcasting]);
+
+  useEffect(() => {
+    if (
+      !isFinalClashVisible ||
+      !Number.isFinite(finalInputEndMs) ||
+      finalInputEndMs <= Date.now() + serverTimeOffsetMs
+    ) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      const currentTimeMs = Date.now();
+      setNowMs(currentTimeMs);
+
+      if (currentTimeMs + serverTimeOffsetMs >= finalInputEndMs) {
+        clearInterval(intervalId);
+      }
+    }, 50);
+    return () => clearInterval(intervalId);
+  }, [finalInputEndMs, isFinalClashVisible, serverTimeOffsetMs]);
+
+  useEffect(() => {
+    if (
+      !isFinalClashVisible ||
+      !Number.isFinite(finalInputEndMs)
+    ) {
+      return;
+    }
+
+    const submitResult = () => void handleSubmitFinalRound();
+    const remainingInputMs =
+      finalInputEndMs - (Date.now() + serverTimeOffsetMs);
+
+    if (remainingInputMs <= 0) {
+      submitResult();
+      return;
+    }
+
+    const timeoutId = setTimeout(submitResult, remainingInputMs);
+    return () => clearTimeout(timeoutId);
+  }, [
+    finalInputEndMs,
+    handleSubmitFinalRound,
+    isFinalClashVisible,
+    serverTimeOffsetMs,
+  ]);
+
+  useEffect(() => {
+    if (
+      !battleState ||
+      battleState.status === 'IN_PROGRESS' ||
+      isBroadcasting
+    ) {
+      return;
+    }
+
+    if (battleState.status === 'ABANDONED') {
+      router.back();
+      return;
+    }
+
+    router.replace({
+      pathname: '/battle-result',
+      params: {
+        battleId: String(battleState.battleId),
+        battleResult: battleState.result ?? undefined,
+        coach: coachId,
+        party: typeof party === 'string' ? party : party?.[0],
+        reward: battleState.reward
+          ? JSON.stringify(battleState.reward)
+          : undefined,
+      },
+    });
+  }, [battleState, coachId, isBroadcasting, party]);
 
   const battleProgressStyle = useAnimatedStyle(() => ({
     width: BATTLE_PROGRESS_FILL_WIDTH * battleProgress.value,
@@ -250,44 +836,39 @@ export function BattleArenaScreen() {
   }));
 
   useEffect(() => {
-    const roundTimer = setTimeout(() => {
-      if (round < 3) {
-        setRound((currentRound) => currentRound + 1);
-        return;
-      }
-
-      setIsFinalClashVisible(true);
-    }, 4000);
-
-    return () => clearTimeout(roundTimer);
-  }, [coachId, party, round]);
-
-  useEffect(() => {
     if (!isFinalClashVisible) {
       return;
     }
 
     finalClashProgress.value = battleProgress.value;
-
-    const finalClashTimer = setTimeout(() => {
-      router.replace({
-        pathname: '/battle-result',
-        params: {
-          coach: coachId,
-          party: typeof party === 'string' ? party : party?.[0],
-        },
-      });
-    }, FINAL_CLASH_DURATION_MS);
-
-    return () => clearTimeout(finalClashTimer);
-  }, [battleProgress, coachId, finalClashProgress, isFinalClashVisible, party]);
+  }, [battleProgress, finalClashProgress, isFinalClashVisible]);
 
   const handleCheerPress = () => {
+    if (Date.now() + serverTimeOffsetMs >= finalInputEndMs) {
+      setNowMs(Date.now());
+      return;
+    }
+
+    finalTapCountRef.current += 1;
+    setFinalTapCount(finalTapCountRef.current);
     finalClashProgress.value = withTiming(
       Math.min(0.92, finalClashProgress.value + 0.035),
       { duration: 100 },
     );
   };
+
+  if (!battleState) {
+    return (
+      <View style={styles.stateError}>
+        <Text style={styles.stateErrorText}>
+          대전 상태를 불러오지 못했습니다.
+        </Text>
+        <Pressable onPress={() => router.back()} style={styles.stateErrorButton}>
+          <Text style={styles.stateErrorButtonText}>돌아가기</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   return (
     <ImageBackground
@@ -303,22 +884,49 @@ export function BattleArenaScreen() {
             source={BATTLE_ROUND_LABEL}
             style={styles.roundLabel}
           >
-            <Text style={styles.roundText}>{round}라운드</Text>
+            <Text style={styles.roundText}>
+              {battleState.currentEntryOrder}라운드
+            </Text>
           </ImageBackground>
+          <Text style={styles.actionStatusText}>
+            {battleState.completedActionCount}/{battleState.totalActionCount}
+            {battleState.nextActionSeq !== null
+              ? ` · 행동 ${battleState.nextActionSeq}${
+                  skillSelectionDeadlineMs !== null
+                    ? ` · ${selectionRemainingSeconds}초`
+                    : ''
+                }`
+              : ''}
+            {lastAction
+              ? ` · ${lastAction.netPoint >= 0 ? '+' : ''}${lastAction.netPoint}`
+              : ''}
+            {isStartingFinalRound ? ' · 최종 승부 준비 중' : ''}
+          </Text>
 
           <View style={styles.battleField}>
             <CreatureInfoCard
-              environment={opponent.environment}
+              entry={battleState.npcEntry}
               isOpponent
-              name={opponent.name}
             />
-            <Image resizeMode="contain" source={OPPONENT_CREATURE} style={styles.opponentCreature} />
             <Image
               resizeMode="contain"
-              source={player.imageUri ? { uri: player.imageUri } : OPPONENT_CREATURE}
+              source={
+                opponent?.imageUri
+                  ? { uri: opponent.imageUri }
+                  : OPPONENT_CREATURE
+              }
+              style={styles.opponentCreature}
+            />
+            <Image
+              resizeMode="contain"
+              source={
+                player?.imageUri ? { uri: player.imageUri } : OPPONENT_CREATURE
+              }
               style={styles.playerCreature}
             />
-            <CreatureInfoCard environment={player.environment} name={player.name} />
+            <CreatureInfoCard
+              entry={battleState.userEntry}
+            />
           </View>
 
           <View accessibilityLabel="결투 진행도" style={styles.statusBar}>
@@ -339,6 +947,45 @@ export function BattleArenaScreen() {
               source={BATTLE_STATUS_BADGE}
               style={[styles.battleStatusBadge, battleStatusBadgeStyle]}
             />
+          </View>
+
+          <View style={styles.skillSelectionArea}>
+            {canSelectSkill && (
+              <View style={styles.skillSelectionPanel}>
+                <Text style={styles.skillSelectionTitle}>
+                  사용할 스킬을 선택하세요
+                </Text>
+                <View style={styles.skillSelectionButtons}>
+                  {(battleState.userEntry.skills ?? [])
+                    .slice(0, 2)
+                    .map((skill) => (
+                      <Pressable
+                        accessibilityLabel={`${skill.name}, 발동 확률 ${skill.triggerPercentage}%, ${skill.point}포인트`}
+                        accessibilityRole="button"
+                        key={skill.skill}
+                        onPress={() => void handleSubmitAction(skill.skill)}
+                        style={({ pressed }) => [
+                          styles.skillSelectionButton,
+                          pressed && styles.pressedSkillSelectionButton,
+                        ]}
+                      >
+                        <Text
+                          numberOfLines={1}
+                          style={styles.skillSelectionName}
+                        >
+                          {skill.name}
+                        </Text>
+                        <Text style={styles.skillSelectionMeta}>
+                          {skill.triggerPercentage}% · {skill.point}P
+                        </Text>
+                      </Pressable>
+                    ))}
+                </View>
+              </View>
+            )}
+            {isSubmittingAction && (
+              <Text style={styles.skillSelectionStatus}>행동 처리 중...</Text>
+            )}
           </View>
 
           <ScrollView
@@ -364,9 +1011,9 @@ export function BattleArenaScreen() {
                 showsVerticalScrollIndicator
                 style={styles.logScroll}
               >
-                {battleLogs.slice(0, visibleLogCount).map((log, index) => (
+                {battleLogs.map((log) => (
                   <ImageBackground
-                    key={`${round}-${index}-${log.message}`}
+                    key={log.eventSeq}
                     resizeMode="stretch"
                     source={
                       log.side === 'player'
@@ -395,6 +1042,11 @@ export function BattleArenaScreen() {
             <Text style={styles.finalClashDescription}>
               버튼을 연타해서 승부를 결판지어보세요!
             </Text>
+            <Text style={styles.finalClashTimer}>
+              {isSubmittingFinalRound
+                ? '결과 전송 중'
+                : `${(finalInputRemainingMs / 1000).toFixed(1)}초 · ${finalTapCount}회`}
+            </Text>
             <View accessibilityLabel="마지막 승부 진행도" style={styles.finalClashProgressBar}>
               <Image
                 resizeMode="stretch"
@@ -417,6 +1069,11 @@ export function BattleArenaScreen() {
             <Pressable
               accessibilityLabel="응원하기"
               accessibilityRole="button"
+              accessibilityState={{
+                disabled:
+                  finalInputRemainingMs <= 0 || isSubmittingFinalRound,
+              }}
+              disabled={finalInputRemainingMs <= 0 || isSubmittingFinalRound}
               onPress={handleCheerPress}
               style={({ pressed }) => [
                 styles.cheerButton,
@@ -438,6 +1095,31 @@ export function BattleArenaScreen() {
 }
 
 const styles = StyleSheet.create({
+  stateError: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scaleByDeviceWidth(12),
+    backgroundColor: '#FAF5EB',
+  },
+  stateErrorText: {
+    color: '#675744',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(20),
+  },
+  stateErrorButton: {
+    paddingHorizontal: scaleByDeviceWidth(16),
+    paddingVertical: scaleByDeviceWidth(8),
+    borderRadius: scaleByDeviceWidth(8),
+    backgroundColor: '#E8D5B4',
+  },
+  stateErrorButtonText: {
+    color: '#675744',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(17),
+  },
   screen: {
     flex: 1,
     backgroundColor: '#000000',
@@ -462,6 +1144,13 @@ const styles = StyleSheet.create({
     fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(19),
+  },
+  actionStatusText: {
+    height: scaleByDeviceWidth(18),
+    color: '#FFFFFF',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: scaleByDeviceWidth(14),
   },
   battleField: {
     position: 'relative',
@@ -507,6 +1196,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  selectedSkillRow: {
+    borderRadius: scaleByDeviceWidth(5),
+    backgroundColor: 'rgba(255, 211, 78, 0.32)',
+  },
+  pressedSkillRow: {
+    opacity: 0.7,
+  },
   firstSkillRow: {
     top: scaleByDeviceWidth(45),
   },
@@ -541,6 +1237,60 @@ const styles = StyleSheet.create({
     position: 'relative',
     width: scaleByDeviceWidth(336),
     height: scaleByDeviceWidth(54),
+  },
+  skillSelectionArea: {
+    width: scaleByDeviceWidth(336),
+    height: scaleByDeviceWidth(82),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skillSelectionPanel: {
+    width: '100%',
+    alignItems: 'center',
+    gap: scaleByDeviceWidth(6),
+  },
+  skillSelectionTitle: {
+    color: '#FFFFFF',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(15),
+  },
+  skillSelectionButtons: {
+    flexDirection: 'row',
+    gap: scaleByDeviceWidth(8),
+  },
+  skillSelectionButton: {
+    width: scaleByDeviceWidth(150),
+    height: scaleByDeviceWidth(48),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: scaleByDeviceWidth(2),
+    borderColor: '#E8D5B4',
+    borderRadius: scaleByDeviceWidth(10),
+    backgroundColor: '#FFF8ED',
+  },
+  pressedSkillSelectionButton: {
+    opacity: 0.75,
+    transform: [{ scale: 0.97 }],
+  },
+  skillSelectionName: {
+    maxWidth: scaleByDeviceWidth(136),
+    color: '#675744',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(13),
+    lineHeight: scaleByDeviceWidth(18),
+  },
+  skillSelectionMeta: {
+    color: '#9B805D',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(9),
+    lineHeight: scaleByDeviceWidth(13),
+  },
+  skillSelectionStatus: {
+    color: '#FFFFFF',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(12),
+    lineHeight: scaleByDeviceWidth(17),
   },
   battleProgressFill: {
     position: 'absolute',
@@ -598,6 +1348,13 @@ const styles = StyleSheet.create({
     fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(12),
     lineHeight: scaleByDeviceWidth(17),
+  },
+  finalClashTimer: {
+    marginTop: scaleByDeviceWidth(10),
+    color: '#FFFFFF',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(18),
+    lineHeight: scaleByDeviceWidth(25),
   },
   finalClashProgressBar: {
     position: 'relative',
