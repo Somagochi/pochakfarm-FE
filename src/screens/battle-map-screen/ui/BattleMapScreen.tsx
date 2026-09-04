@@ -130,7 +130,7 @@ export function BattleMapScreen() {
   );
 
   const handleGymLeaderPress = (gymLeader: GymLeader) => {
-    if (selectedGymLeaderId !== null || !gymLeader.unlock.unlocked) {
+    if (selectedGymLeaderId !== null || !gymLeader.unlocked) {
       return;
     }
 
@@ -142,7 +142,6 @@ export function BattleMapScreen() {
         pathname: '/battle-moru',
         params: {
           coach: COACH_PLACEMENTS[gymLeader.challengeOrder - 1]?.id ?? 'moru',
-          gymLeaderCode: gymLeader.code,
           gymLeaderId: String(gymLeader.gymLeaderId),
           gymLeaderName: gymLeader.name,
         },
@@ -183,7 +182,7 @@ export function BattleMapScreen() {
               }
 
               const isSelected = selectedGymLeaderId === gymLeader.gymLeaderId;
-              const isUnlocked = gymLeader.unlock.unlocked;
+              const isUnlocked = gymLeader.unlocked;
               const left =
                 screenWidth * (coach.centerX / MAP_ORIGINAL_WIDTH) -
                 (gymLeader.challengeOrder === 1 ? moruWidth : coachWidth) / 2;
@@ -221,8 +220,8 @@ export function BattleMapScreen() {
                     resizeMode="contain"
                     source={
                       isUnlocked
-                        ? gymLeader.imageUrl
-                          ? { uri: gymLeader.imageUrl }
+                        ? gymLeader.thumbnailUrl
+                          ? { uri: gymLeader.thumbnailUrl }
                           : coach.image
                         : coach.silhouette
                     }
