@@ -16,8 +16,10 @@ import { BattleHeader } from '@/src/widgets/battle-header';
 
 const VIEW_BADGES_BUTTON = require('@/src/shared/assets/images/battle/view-badges-button.png');
 const NEXT_COACH_BUTTON = require('@/src/shared/assets/images/battle/next-coach-button.png');
+const NEXT_COACH_BUTTON_DISABLED = require('@/src/shared/assets/images/battle/next-coach-button-disabled.png');
 const VICTORY_REWARD_PANEL = require('@/src/shared/assets/images/battle/victory-reward-panel.png');
 const VICTORY_REWARD_TITLE = require('@/src/shared/assets/images/battle/victory-reward-title.png');
+const DEFEAT_REWARD_TITLE = require('@/src/shared/assets/images/battle/defeat-reward-title.png');
 const COIN_REWARD_ICON = require('@/src/shared/assets/images/battle/coin-reward-icon.png');
 const EXPERIENCE_REWARD_ICON = require('@/src/shared/assets/images/battle/experience-reward-icon.png');
 const FIRST_CLEAR_REWARD_PANEL = require('@/src/shared/assets/images/battle/first-clear-reward-panel.png');
@@ -51,7 +53,14 @@ const COACH_TYPE_LABELS: Record<BattleCoachId, string> = {
 };
 
 export function BattleResultScreen() {
-  const { coach } = useLocalSearchParams<{ coach?: string | string[] }>();
+  const { battleResult, coach } = useLocalSearchParams<{
+    battleResult?: string | string[];
+    coach?: string | string[];
+  }>();
+  const battleResultParam = Array.isArray(battleResult)
+    ? battleResult[0]
+    : battleResult;
+  const isVictory = battleResultParam !== 'LOSE';
   const coachParam = Array.isArray(coach) ? coach[0] : coach;
   const coachId = coachParam && isBattleCoachId(coachParam) ? coachParam : 'moru';
   const coachName = COACH_NAMES[coachId];
@@ -61,8 +70,12 @@ export function BattleResultScreen() {
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <BattleHeader
         showRewardBanner={false}
-        subtitle={`${coachType} 관장 ${coachName}를 격파했어요!`}
-        title="관장 격파!"
+        subtitle={
+          isVictory
+            ? `${coachType} 관장 ${coachName}를 격파했어요!`
+            : `${coachType} 관장 ${coachName}를 격파하지 못했어요`
+        }
+        title={isVictory ? '관장 격파!' : '격파 실패'}
       />
       <ScrollView
         bounces={false}
@@ -94,8 +107,10 @@ export function BattleResultScreen() {
         >
           <Image
             resizeMode="contain"
-            source={VICTORY_REWARD_TITLE}
-            style={styles.victoryRewardTitle}
+            source={
+              isVictory ? VICTORY_REWARD_TITLE : DEFEAT_REWARD_TITLE
+            }
+            style={styles.rewardTitle}
           />
           <View style={styles.rewardRow}>
             <View style={styles.rewardItem}>
@@ -154,10 +169,17 @@ export function BattleResultScreen() {
           <Pressable
             accessibilityLabel="다음 관장"
             accessibilityRole="button"
+            accessibilityState={{ disabled: !isVictory }}
+            disabled={!isVictory}
             onPress={() => router.replace('/(tabs)/battle')}
             style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
           >
-            <Image source={NEXT_COACH_BUTTON} style={styles.actionButtonImage} />
+            <Image
+              source={
+                isVictory ? NEXT_COACH_BUTTON : NEXT_COACH_BUTTON_DISABLED
+              }
+              style={styles.actionButtonImage}
+            />
           </Pressable>
         </View>
       </View>
@@ -207,7 +229,7 @@ const styles = StyleSheet.create({
     marginTop: scaleByDeviceWidth(30),
     justifyContent: 'center',
   },
-  victoryRewardTitle: {
+  rewardTitle: {
     position: 'absolute',
     top: scaleByDeviceWidth(-16),
     left: scaleByDeviceWidth(110),
