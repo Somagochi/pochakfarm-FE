@@ -51,7 +51,10 @@ export function useStartBattleFinalRound() {
     }
   }, []);
 
+  const clearError = useCallback(() => setErrorMessage(null), []);
+
   return {
+    clearError,
     errorMessage,
     isLoading,
     startBattleFinalRound,

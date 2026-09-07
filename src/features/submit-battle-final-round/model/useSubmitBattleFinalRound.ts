@@ -139,8 +139,10 @@ export function useSubmitBattleFinalRound() {
     },
     [],
   );
+  const clearError = useCallback(() => setErrorMessage(null), []);
 
   return {
+    clearError,
     errorMessage,
     isLoading,
     submitBattleFinalRound,

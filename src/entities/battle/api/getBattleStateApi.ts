@@ -1,4 +1,5 @@
 import { apiClient } from '@/src/shared/api/client';
+import { parseApiDatetime } from '@/src/shared/lib/date/parseApiDatetime';
 
 import type { BattleState } from '../model/types';
 
@@ -13,7 +14,7 @@ export async function getBattleStateApi(battleId: number) {
     `/api/battles/${battleId}`,
   );
   const receivedAtMs = Date.now();
-  const serverDatetimeMs = Date.parse(response.datetime);
+  const serverDatetimeMs = parseApiDatetime(response.datetime);
   const estimatedClientTimeAtResponseMs =
     requestedAtMs + (receivedAtMs - requestedAtMs) / 2;
 

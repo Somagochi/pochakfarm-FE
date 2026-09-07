@@ -99,9 +99,10 @@ export function useSubmitBattleAction() {
     },
     [],
   );
+  const clearError = useCallback(() => setErrorMessage(null), []);
 
   return {
-    clearError: () => setErrorMessage(null),
+    clearError,
     errorMessage,
     isLoading,
     submitBattleAction,

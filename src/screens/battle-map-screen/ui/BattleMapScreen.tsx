@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Image,
   ImageBackground,
   Pressable,
@@ -12,6 +13,7 @@ import {
 import Animated, { BounceIn } from 'react-native-reanimated';
 
 import { useGymLeaders, type GymLeader } from '@/src/entities/battle';
+import { useResumeBattle } from '@/src/features/resume-battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const BATTLE_MAP = require('@/src/shared/assets/images/battle/battle-coach-map.png');
@@ -108,6 +110,13 @@ export function BattleMapScreen() {
     null,
   );
   const { gymLeaders, reload } = useGymLeaders();
+  const {
+    clearBattleSession,
+    clearError: clearResumeBattleError,
+    errorMessage: resumeBattleErrorMessage,
+    isLoading: isResumingBattle,
+    resumeBattle,
+  } = useResumeBattle();
   const mapHeight = screenWidth * (MAP_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
   const moruWidth = screenWidth * (MORU_DESIGN_WIDTH / MAP_ORIGINAL_WIDTH);
   const moruTop =
@@ -117,20 +126,88 @@ export function BattleMapScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      let isActive = true;
+
       setSelectedGymLeaderId(null);
       void reload();
+      void resumeBattle().then(async (resumedBattle) => {
+        if (!isActive || !resumedBattle?.session) {
+          return;
+        }
+
+        const { session, state } = resumedBattle;
+
+        if (state.status === 'ABANDONED') {
+          await clearBattleSession();
+          return;
+        }
+
+        if (!isActive) {
+          return;
+        }
+
+        if (state.status === 'FINISHED') {
+          await clearBattleSession();
+
+          if (!isActive) {
+            return;
+          }
+
+          router.replace({
+            pathname: '/battle-result',
+            params: {
+              battleId: String(state.battleId),
+              battleResult: state.result ?? undefined,
+              coach: session.coach,
+              gymLeaderId: String(state.gymLeaderId),
+              npcParty: session.npcParty,
+              party: session.party,
+              reward: state.reward
+                ? JSON.stringify(state.reward)
+                : undefined,
+            },
+          });
+          return;
+        }
+
+        router.replace({
+          pathname: '/battle-arena',
+          params: {
+            battleId: String(state.battleId),
+            coach: session.coach,
+            initialBattleState: JSON.stringify(state),
+            npcParty: session.npcParty,
+            party: session.party,
+          },
+        });
+      });
 
       return () => {
+        isActive = false;
+
         if (navigationTimeoutRef.current) {
           clearTimeout(navigationTimeoutRef.current);
           navigationTimeoutRef.current = null;
         }
       };
-    }, [reload]),
+    }, [clearBattleSession, reload, resumeBattle]),
   );
 
+  useEffect(() => {
+    if (!resumeBattleErrorMessage) {
+      return;
+    }
+
+    clearResumeBattleError();
+    Alert.alert('대전 복구 실패', resumeBattleErrorMessage);
+  }, [clearResumeBattleError, resumeBattleErrorMessage]);
+
   const handleGymLeaderPress = (gymLeader: GymLeader) => {
-    if (selectedGymLeaderId !== null || !gymLeader.unlocked) {
+    if (
+      selectedGymLeaderId !== null ||
+      !gymLeader.unlocked ||
+      isResumingBattle
+    ) {
       return;
     }
 
@@ -202,7 +279,11 @@ export function BattleMapScreen() {
                   }
                   accessibilityRole="button"
                   accessibilityState={{ disabled: !isUnlocked, selected: isSelected }}
-                  disabled={!isUnlocked || selectedGymLeaderId !== null}
+                  disabled={
+                    !isUnlocked ||
+                    selectedGymLeaderId !== null ||
+                    isResumingBattle
+                  }
                   key={gymLeader.gymLeaderId}
                   onPress={() => handleGymLeaderPress(gymLeader)}
                   style={({ pressed }) => [

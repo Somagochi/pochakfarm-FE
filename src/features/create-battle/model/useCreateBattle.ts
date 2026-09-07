@@ -20,6 +20,7 @@ export function useCreateBattle() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const attemptRef = useRef<BattleRequestAttempt | null>(null);
+  const lastErrorRef = useRef<unknown>(null);
   const isRequestingRef = useRef(false);
 
   const createBattle = useCallback(async (params: CreateBattleParams) => {
@@ -46,6 +47,7 @@ export function useCreateBattle() {
     isRequestingRef.current = true;
     setIsLoading(true);
     setErrorMessage(null);
+    lastErrorRef.current = null;
 
     try {
       const createdBattle = await createBattleApi({
@@ -60,6 +62,7 @@ export function useCreateBattle() {
       attempt.result = result;
       return result;
     } catch (error) {
+      lastErrorRef.current = error;
       setErrorMessage(
         error instanceof Error
           ? error.message
@@ -72,9 +75,14 @@ export function useCreateBattle() {
     }
   }, []);
 
+  const clearError = useCallback(() => setErrorMessage(null), []);
+  const getLastError = useCallback(() => lastErrorRef.current, []);
+
   return {
+    clearError,
     createBattle,
     errorMessage,
+    getLastError,
     isLoading,
   };
 }

@@ -1,6 +1,6 @@
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -15,9 +15,11 @@ import type {
 } from '@/src/entities/creature';
 import { useUserProfile } from '@/src/entities/user';
 import { useCreateBattle } from '@/src/features/create-battle';
+import { useResumeBattle } from '@/src/features/resume-battle';
 import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { BattleActionBar } from '@/src/widgets/battle-action-bar';
+import { ApiError } from '@/src/shared/api/client';
 import { BattleHeader } from '@/src/widgets/battle-header';
 import { BattleMatchSelection } from '@/src/widgets/battle-match-selection';
 
@@ -25,6 +27,7 @@ const MORU_RECOMMENDED_ENVIRONMENTS: readonly CreatureEnvironment[] = [
   'land',
   'sea',
 ];
+const LEGACY_ACTIVE_BATTLE_ID = 4;
 const ENVIRONMENT_BY_CARD_TYPE: Record<
   AnimalCardType,
   CreatureEnvironment
@@ -59,10 +62,24 @@ export function BattleScreen() {
   const { errorMessage, gymLeaderDetail, isLoading, reload } =
     useGymLeaderDetail(gymLeaderId);
   const { profile } = useUserProfile();
-  const { createBattle, isLoading: isCreatingBattle } = useCreateBattle();
+  const {
+    clearError: clearCreateBattleError,
+    createBattle,
+    getLastError: getCreateBattleError,
+    isLoading: isCreatingBattle,
+  } = useCreateBattle();
+  const {
+    clearBattleSession,
+    clearError: clearResumeBattleError,
+    errorMessage: resumeBattleErrorMessage,
+    isLoading: isResumingBattle,
+    resumeBattle,
+    saveBattleSession,
+  } = useResumeBattle();
   const [selectedCreatures, setSelectedCreatures] = useState<
     FarmCreatureListItem[]
   >([]);
+  const [creatureListRefreshKey, setCreatureListRefreshKey] = useState(0);
   const recommendedCreatureEnvironments = useMemo(() => {
     if (!gymLeaderDetail) {
       return MORU_RECOMMENDED_ENVIRONMENTS;
@@ -79,6 +96,87 @@ export function BattleScreen() {
     );
   }, [gymLeaderDetail]);
 
+  useEffect(() => {
+    if (!resumeBattleErrorMessage) {
+      return;
+    }
+
+    clearResumeBattleError();
+    Alert.alert('대전 복구 실패', resumeBattleErrorMessage);
+  }, [
+    clearResumeBattleError,
+    resumeBattleErrorMessage,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+      setSelectedCreatures([]);
+      setCreatureListRefreshKey((currentKey) => currentKey + 1);
+      void reload();
+
+      void resumeBattle().then(async (resumedBattle) => {
+        if (!isActive || !resumedBattle) {
+          return;
+        }
+
+        const { session, state } = resumedBattle;
+
+        if (!session) {
+          return;
+        }
+
+        if (state.status === 'ABANDONED') {
+          await clearBattleSession();
+          return;
+        }
+
+        if (!isActive) {
+          return;
+        }
+
+        if (state.status === 'FINISHED') {
+          await clearBattleSession();
+
+          if (!isActive) {
+            return;
+          }
+
+          router.replace({
+            pathname: '/battle-result',
+            params: {
+              battleId: String(state.battleId),
+              battleResult: state.result ?? undefined,
+              coach: session.coach,
+              gymLeaderId: String(state.gymLeaderId),
+              npcParty: session.npcParty,
+              party: session.party,
+              reward: state.reward
+                ? JSON.stringify(state.reward)
+                : undefined,
+            },
+          });
+          return;
+        }
+
+        router.replace({
+          pathname: '/battle-arena',
+          params: {
+            battleId: String(state.battleId),
+            coach: session.coach,
+            initialBattleState: JSON.stringify(state),
+            npcParty: session.npcParty,
+            party: session.party,
+          },
+        });
+      });
+
+      return () => {
+        isActive = false;
+      };
+    }, [clearBattleSession, reload, resumeBattle]),
+  );
+
   const handleStartBattle = async () => {
     if (!gymLeaderDetail || selectedCreatures.length !== 3) {
       return;
@@ -94,18 +192,102 @@ export function BattleScreen() {
       return;
     }
 
+    const serializedSelectedParty = JSON.stringify(
+      selectedCreatures.map((creature, index) => ({
+        environment: creature.environment,
+        id: creature.id,
+        imageUri: creature.creatureImageUri,
+        name: creature.name,
+        orderNo: index + 1,
+      })),
+    );
+    const serializedGymLeaderParty = JSON.stringify(
+      gymLeaderDetail.animals.map((animal) => ({
+        environment: ENVIRONMENT_BY_CARD_TYPE[animal.cardType],
+        id: String(animal.orderNo),
+        imageUri: animal.animalImageUrl,
+        name: animal.animalName,
+        orderNo: animal.orderNo,
+      })),
+    );
+
     const battle = await createBattle({
       gymLeaderId: gymLeaderDetail.gymLeader.gymLeaderId,
       entries,
     });
 
     if (!battle) {
-      Alert.alert(
-        '대전 시작 실패',
-        '대전을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.',
-      );
+      const createError = getCreateBattleError();
+      const isActiveBattleConflict =
+        createError instanceof ApiError &&
+        createError.status === 409 &&
+        createError.message.replace(/\s/g, '').includes('진행중');
+
+      if (!isActiveBattleConflict) {
+        clearCreateBattleError();
+        Alert.alert(
+          '대전 시작 실패',
+          createError instanceof Error
+            ? createError.message
+            : '대전을 시작하지 못했습니다.',
+        );
+        return;
+      }
+
+      clearCreateBattleError();
+      const resumedBattle = await resumeBattle(LEGACY_ACTIVE_BATTLE_ID);
+
+      if (!resumedBattle || resumedBattle.state.status !== 'IN_PROGRESS') {
+        return;
+      }
+
+      const { state } = resumedBattle;
+      const serializedRecoveredUserParty = JSON.stringify([
+        {
+          environment: ENVIRONMENT_BY_CARD_TYPE[state.userEntry.cardType],
+          id: String(state.userEntry.captureId),
+          name: state.userEntry.animalName,
+          orderNo: state.userEntry.orderNo,
+        },
+      ]);
+      const serializedRecoveredNpcParty =
+        gymLeaderDetail.gymLeader.gymLeaderId === state.gymLeaderId
+          ? serializedGymLeaderParty
+          : JSON.stringify([
+              {
+                environment:
+                  ENVIRONMENT_BY_CARD_TYPE[state.npcEntry.cardType],
+                id: String(state.npcEntry.captureId),
+                name: state.npcEntry.animalName,
+                orderNo: state.npcEntry.orderNo,
+              },
+            ]);
+
+      await saveBattleSession({
+        battleId: state.battleId,
+        coach,
+        npcParty: serializedRecoveredNpcParty,
+        party: serializedRecoveredUserParty,
+      });
+      router.replace({
+        pathname: '/battle-arena',
+        params: {
+          battleId: String(state.battleId),
+          coach,
+          initialBattleState: JSON.stringify(state),
+          npcParty: serializedRecoveredNpcParty,
+          party: serializedRecoveredUserParty,
+        },
+      });
       return;
     }
+
+    await saveBattleSession({
+      battleId: battle.battleId,
+      coach,
+      npcParty: serializedGymLeaderParty,
+      party: serializedSelectedParty,
+    });
 
     router.push({
       pathname: '/battle-arena',
@@ -115,25 +297,10 @@ export function BattleScreen() {
         coach,
         gymLeaderCode: gymLeaderDetail.gymLeader.code,
         gymLeaderId: String(gymLeaderDetail.gymLeader.gymLeaderId),
+        gymLeaderImageUrl: gymLeaderDetail.gymLeader.imageUrl,
         gymLeaderName: gymLeaderDetail.gymLeader.name,
-        party: JSON.stringify(
-          selectedCreatures.map((creature, index) => ({
-            environment: creature.environment,
-            id: creature.id,
-            imageUri: creature.creatureImageUri,
-            name: creature.name,
-            orderNo: index + 1,
-          })),
-        ),
-        npcParty: JSON.stringify(
-          gymLeaderDetail.animals.map((animal) => ({
-            environment: ENVIRONMENT_BY_CARD_TYPE[animal.cardType],
-            id: String(animal.orderNo),
-            imageUri: animal.animalImageUrl,
-            name: animal.animalName,
-            orderNo: animal.orderNo,
-          })),
-        ),
+        party: serializedSelectedParty,
+        npcParty: serializedGymLeaderParty,
       },
     });
   };
@@ -217,6 +384,7 @@ export function BattleScreen() {
             })
         }
         recommendedCreatureEnvironments={recommendedCreatureEnvironments}
+        refreshKey={creatureListRefreshKey}
         selectedCreatureIds={selectedCreatures.map(
           (creature) => creature.id,
         )}
@@ -226,7 +394,7 @@ export function BattleScreen() {
           selectedCreatures.length === 3 &&
           Boolean(gymLeaderDetail?.gymLeader.unlock.unlocked)
         }
-        isLoading={isCreatingBattle}
+        isLoading={isCreatingBattle || isResumingBattle}
         onPress={() => void handleStartBattle()}
       />
     </SafeAreaView>
