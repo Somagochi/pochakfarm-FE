@@ -28,7 +28,6 @@ const COACH_RECOMMENDATION_CARD = require('@/src/shared/assets/images/battle/coa
 const EMPTY_PARTY_SLOT = require('@/src/shared/assets/images/battle/empty-party-slot.png');
 const PARTY_SEQUENCE_ARROW = require('@/src/shared/assets/images/battle/party-sequence-arrow.png');
 const REMOVE_PARTY_SLOT_BUTTON = require('@/src/shared/assets/images/battle/remove-party-slot-button.png');
-const TYPE_SELECTION_TIP = require('@/src/shared/assets/images/battle/type-selection-tip.png');
 const PARTY_SLOT_WIDTH = scaleByDeviceWidth(58);
 const PARTY_SLOT_HEIGHT = PARTY_SLOT_WIDTH * (564 / 404);
 const PARTY_SLOT_GAP = scaleByDeviceWidth(3.5);
@@ -52,6 +51,7 @@ type BattleMatchSelectionProps = {
   onMoveCreature: (fromIndex: number, toIndex: number) => void;
   onRemoveCreature: (creatureId: string) => void;
   recommendedCreatureEnvironments: readonly CreatureEnvironment[];
+  tipDescription?: string;
   selectedCreatures: FarmCreatureListItem[];
   userLevel?: number;
   userNickname?: string | null;
@@ -175,6 +175,7 @@ export function BattleMatchSelection({
   onRemoveCreature,
   recommendedCreatureEnvironments,
   selectedCreatures,
+  tipDescription,
   userLevel,
   userNickname,
 }: BattleMatchSelectionProps) {
@@ -232,12 +233,9 @@ export function BattleMatchSelection({
             );
           })}
         </View>
-        <Image
-          accessibilityLabel="공격형 타입의 동물을 선택해보세요"
-          resizeMode="contain"
-          source={TYPE_SELECTION_TIP}
-          style={styles.tip}
-        />
+        <Text numberOfLines={1} style={styles.tip}>
+          {tipDescription ?? ''}
+        </Text>
       </View>
       <ImageBackground
         accessibilityLabel={`관장 정보: 레벨 ${userLevel ?? ''}, 닉네임 ${userNickname ?? ''}, 추천 타입 ${recommendedTypeLabel}`}
@@ -343,6 +341,10 @@ const styles = StyleSheet.create({
   tip: {
     width: TIP_WIDTH,
     height: TIP_HEIGHT,
+    color: '#8B704D',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: TIP_HEIGHT,
   },
   recommendationCard: {
     width: RECOMMENDATION_WIDTH,

@@ -37,6 +37,13 @@ const ENVIRONMENT_BY_CARD_TYPE: Record<
   SKY: 'sky',
   SPACE: 'space',
 };
+const ENVIRONMENT_BY_SUGGEST_TYPE: Record<string, CreatureEnvironment> = {
+  ...ENVIRONMENT_BY_CARD_TYPE,
+  '땅': 'land',
+  '바다': 'sea',
+  '하늘': 'sky',
+  '우주': 'space',
+};
 
 export function BattleScreen() {
   const params = useLocalSearchParams<{
@@ -85,15 +92,10 @@ export function BattleScreen() {
       return MORU_RECOMMENDED_ENVIRONMENTS;
     }
 
-    return Array.from(
-      new Set(
-        gymLeaderDetail.animals.map(
-          (animal) => ENVIRONMENT_BY_CARD_TYPE[animal.cardType],
-        ),
-      ),
-    ).filter((environment): environment is CreatureEnvironment =>
-      Boolean(environment),
-    );
+    const suggestedEnvironment =
+      ENVIRONMENT_BY_SUGGEST_TYPE[gymLeaderDetail.gymLeader.suggestType];
+
+    return suggestedEnvironment ? [suggestedEnvironment] : [];
   }, [gymLeaderDetail]);
 
   useEffect(() => {
@@ -357,6 +359,7 @@ export function BattleScreen() {
                   recommendedCreatureEnvironments
                 }
                 selectedCreatures={selectedCreatures}
+                tipDescription={gymLeaderDetail?.gymLeader.tipDescription}
                 userLevel={profile?.level}
                 userNickname={profile?.nickname}
               />

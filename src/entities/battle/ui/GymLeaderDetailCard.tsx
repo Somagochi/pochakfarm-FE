@@ -31,16 +31,6 @@ const TIER_BADGES: Record<string, number> = {
   SS: require('@/src/shared/assets/images/capture/capture-tier-ss.png'),
   SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
 };
-const DIFFICULTIES = [
-  '초보',
-  '초급',
-  '중급',
-  '중상급',
-  '상급',
-  '최상급',
-  '달인',
-  '챔피언',
-] as const;
 const WIDTH = scaleByDeviceWidth(328);
 const HEIGHT = scaleByDeviceWidth(111.5);
 const CARD_WIDTH = scaleByDeviceWidth(64);
@@ -51,9 +41,9 @@ type Props = { detail: GymLeaderDetail };
 
 export function GymLeaderProfileCard({ detail }: Props) {
   const { gymLeader } = detail;
-  const difficulty = DIFFICULTIES[gymLeader.challengeOrder - 1] ?? '챔피언';
+  const difficulty = gymLeader.difficulty.trim();
   const leaderType =
-    LEADER_TYPE_LABELS[gymLeader.leaderType.toUpperCase()] ?? '';
+    LEADER_TYPE_LABELS[gymLeader.leaderType.toUpperCase()] ?? gymLeader.leaderType;
 
   return (
     <ImageBackground
@@ -71,7 +61,9 @@ export function GymLeaderProfileCard({ detail }: Props) {
         style={styles.leaderImage}
       />
       <View style={styles.difficulty}>
-        <Text style={styles.difficultyValue}>{difficulty}</Text>
+        <Text numberOfLines={1} style={styles.difficultyValue}>
+          {difficulty}
+        </Text>
       </View>
     </ImageBackground>
   );
@@ -79,7 +71,7 @@ export function GymLeaderProfileCard({ detail }: Props) {
 
 export function GymLeaderDetailCard({ detail }: Props) {
   const { gymLeader, animals } = detail;
-  const difficulty = DIFFICULTIES[gymLeader.challengeOrder - 1] ?? '챔피언';
+  const difficulty = gymLeader.difficulty.trim();
   const visibleAnimals = animals.slice(0, 3);
 
   return (
@@ -90,7 +82,7 @@ export function GymLeaderDetailCard({ detail }: Props) {
       <GymLeaderProfileCard detail={detail} />
 
       <Text numberOfLines={1} style={styles.description}>
-        {gymLeader.name} 관장이 선택한 동물들이에요
+        {gymLeader.leaderDescription}
       </Text>
 
       <View style={styles.animalList}>
@@ -155,7 +147,10 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(86), height: scaleByDeviceWidth(139),
   },
   difficulty: {
-    position: 'absolute', left: scaleByDeviceWidth(12), bottom: scaleByDeviceWidth(10),
+    position: 'absolute',
+    left: scaleByDeviceWidth(12),
+    bottom: scaleByDeviceWidth(7),
+    width: scaleByDeviceWidth(48),
   },
   difficultyValue: {
     color: '#907550', fontFamily: 'EliceDXNeolli-Bold',

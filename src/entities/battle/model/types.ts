@@ -120,7 +120,11 @@ export type GymLeaderDetailLeader = {
   name: string;
   challengeOrder: number;
   imageUrl: string;
-  leaderType: GymLeaderAnimalCardType | 'MIXED';
+  leaderType: string;
+  difficulty: string;
+  leaderDescription: string;
+  tipDescription: string;
+  suggestType: string;
   badgeCode: string;
   cleared: boolean;
   unlock: GymLeaderUnlock;
