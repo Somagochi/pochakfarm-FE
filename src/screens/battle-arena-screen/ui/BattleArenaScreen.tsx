@@ -4,7 +4,14 @@ import {
   useLocalSearchParams,
 } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   AppState,
@@ -540,6 +547,8 @@ export function BattleArenaScreen() {
       skillSelectionDeadlineMs !== null &&
       skillSelectionDeadlineMs > nowMs,
   );
+  const isSkillSelectionOverlayVisible =
+    IS_SKILL_SELECTION_UI_PREVIEW_ENABLED || canSelectSkill;
   const selectableSkills = battleState?.userEntry.skills?.slice(0, 2) ?? [];
   const recommendedSkill = selectableSkills.reduce<BattleEntrySkill | null>(
     (recommended, skill) =>
@@ -1095,7 +1104,7 @@ export function BattleArenaScreen() {
     });
   }, [battleProgress, battleState]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const actionSeq = battleState?.nextActionSeq;
 
     if (
@@ -1128,7 +1137,7 @@ export function BattleArenaScreen() {
       if (currentTimeMs >= skillSelectionDeadlineMs) {
         clearInterval(intervalId);
       }
-    }, 100);
+    }, 1000);
     return () => clearInterval(intervalId);
   }, [skillSelectionDeadlineMs]);
 
@@ -1444,45 +1453,6 @@ export function BattleArenaScreen() {
             />
           </View>
 
-          <View style={styles.skillSelectionArea}>
-            {IS_BATTLE_ACTION_SUBMISSION_ENABLED && canSelectSkill && (
-              <View style={styles.skillSelectionPanel}>
-                <Text style={styles.skillSelectionTitle}>
-                  사용할 스킬을 선택하세요
-                </Text>
-                <View style={styles.skillSelectionButtons}>
-                  {(battleState.userEntry.skills ?? [])
-                    .slice(0, 2)
-                    .map((skill) => (
-                      <Pressable
-                        accessibilityLabel={`${skill.name}, 발동 확률 ${skill.triggerPercentage}%, ${skill.point}포인트`}
-                        accessibilityRole="button"
-                        key={skill.skill}
-                        onPress={() => void handleSubmitAction(skill.skill)}
-                        style={({ pressed }) => [
-                          styles.skillSelectionButton,
-                          pressed && styles.pressedSkillSelectionButton,
-                        ]}
-                      >
-                        <Text
-                          numberOfLines={1}
-                          style={styles.skillSelectionName}
-                        >
-                          {skill.name}
-                        </Text>
-                        <Text style={styles.skillSelectionMeta}>
-                          {skill.triggerPercentage}% · {skill.point}P
-                        </Text>
-                      </Pressable>
-                    ))}
-                </View>
-              </View>
-            )}
-            {isSubmittingAction && (
-              <Text style={styles.skillSelectionStatus}>행동 처리 중...</Text>
-            )}
-          </View>
-
           <View style={styles.autoPlayControl}>
             <Text style={styles.autoPlayLabel}>자동 재생</Text>
             <Switch
@@ -1578,9 +1548,21 @@ export function BattleArenaScreen() {
           </View>
         </View>
       )}
-      {(IS_SKILL_SELECTION_UI_PREVIEW_ENABLED || canSelectSkill) && (
-        <View style={styles.skillSelectionOverlay}>
-          <SafeAreaView edges={['top', 'bottom']} style={styles.skillSelectionModal}>
+      <View
+        accessibilityElementsHidden={!isSkillSelectionOverlayVisible}
+        importantForAccessibility={
+          isSkillSelectionOverlayVisible ? 'yes' : 'no-hide-descendants'
+        }
+        pointerEvents={isSkillSelectionOverlayVisible ? 'auto' : 'none'}
+        style={[
+          styles.skillSelectionOverlay,
+          !isSkillSelectionOverlayVisible && styles.hiddenSkillSelectionOverlay,
+        ]}
+      >
+        <SafeAreaView
+          edges={['top', 'bottom']}
+          style={styles.skillSelectionModal}
+        >
             <Text style={styles.skillSelectionOverlayTitle}>
               스킬을 선택해주세요
             </Text>
@@ -1676,9 +1658,8 @@ export function BattleArenaScreen() {
             {isSubmittingAction && (
               <Text style={styles.skillSelectionStatus}>행동 처리 중...</Text>
             )}
-          </SafeAreaView>
-        </View>
-      )}
+        </SafeAreaView>
+      </View>
     </ImageBackground>
   );
 }
@@ -1838,56 +1819,6 @@ const styles = StyleSheet.create({
     height: scaleByDeviceWidth(44.9),
     zIndex: 2,
   },
-  skillSelectionArea: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(500),
-    width: scaleByDeviceWidth(336),
-    height: scaleByDeviceWidth(64),
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  skillSelectionPanel: {
-    width: '100%',
-    alignItems: 'center',
-    gap: scaleByDeviceWidth(6),
-  },
-  skillSelectionTitle: {
-    color: '#FFFFFF',
-    fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(11),
-    lineHeight: scaleByDeviceWidth(15),
-  },
-  skillSelectionButtons: {
-    flexDirection: 'row',
-    gap: scaleByDeviceWidth(8),
-  },
-  skillSelectionButton: {
-    width: scaleByDeviceWidth(150),
-    height: scaleByDeviceWidth(48),
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: scaleByDeviceWidth(2),
-    borderColor: '#E8D5B4',
-    borderRadius: scaleByDeviceWidth(10),
-    backgroundColor: '#FFF8ED',
-  },
-  pressedSkillSelectionButton: {
-    opacity: 0.75,
-    transform: [{ scale: 0.97 }],
-  },
-  skillSelectionName: {
-    maxWidth: scaleByDeviceWidth(136),
-    color: '#675744',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(13),
-    lineHeight: scaleByDeviceWidth(18),
-  },
-  skillSelectionMeta: {
-    color: '#9B805D',
-    fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(9),
-    lineHeight: scaleByDeviceWidth(13),
-  },
   skillSelectionStatus: {
     color: '#FFFFFF',
     fontFamily: 'EliceDXNeolli-Medium',
@@ -1932,6 +1863,9 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(4, 13, 20, 0.82)',
     zIndex: 9,
+  },
+  hiddenSkillSelectionOverlay: {
+    opacity: 0,
   },
   skillSelectionModal: {
     flex: 1,
