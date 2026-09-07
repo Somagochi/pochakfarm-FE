@@ -844,17 +844,28 @@ export function BattleArenaScreen() {
       return;
     }
 
+    const advantageSide = userTierRank > npcTierRank ? 'USER' : 'NPC';
     const initialTierEvent: BattleBroadcastEvent = {
       actionSeq: battleState.nextActionSeq,
-      animalSide: userTierRank > npcTierRank ? 'USER' : 'NPC',
+      animalSide: advantageSide,
       entryOrder: battleState.currentEntryOrder,
       eventCode: 'TIER_ADVANTAGE',
-      eventSeq: -1,
+      eventSeq: -2,
     };
-    syntheticBroadcastKeysRef.current.add(
-      `${initialTierEvent.actionSeq}:${initialTierEvent.entryOrder}:${initialTierEvent.eventCode}`,
-    );
-    setBroadcastQueue([initialTierEvent]);
+    const initialBattlePointEvent: BattleBroadcastEvent = {
+      actionSeq: battleState.nextActionSeq,
+      entryOrder: battleState.currentEntryOrder,
+      eventCode: 'BATTLE_POINT_APPLIED',
+      eventSeq: -1,
+      point: 1,
+      winnerSide: advantageSide,
+    };
+    [initialTierEvent, initialBattlePointEvent].forEach((event) => {
+      syntheticBroadcastKeysRef.current.add(
+        `${event.actionSeq}:${event.entryOrder}:${event.eventCode}`,
+      );
+    });
+    setBroadcastQueue([initialTierEvent, initialBattlePointEvent]);
   }, [
     activeBroadcastEvent,
     battleState,
