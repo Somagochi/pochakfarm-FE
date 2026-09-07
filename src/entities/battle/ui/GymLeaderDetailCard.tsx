@@ -19,6 +19,10 @@ const TYPE_LABELS: Record<GymLeaderAnimalCardType, string> = {
   SKY: '하늘',
   SPACE: '우주',
 };
+const LEADER_TYPE_LABELS: Record<string, string> = {
+  ...TYPE_LABELS,
+  MIXED: '혼합',
+};
 const TIER_BADGES: Record<string, number> = {
   A: require('@/src/shared/assets/images/capture/capture-tier-a.png'),
   B: require('@/src/shared/assets/images/capture/capture-tier-b.png'),
@@ -45,32 +49,45 @@ const ARROW_WIDTH = scaleByDeviceWidth(8);
 
 type Props = { detail: GymLeaderDetail };
 
+export function GymLeaderProfileCard({ detail }: Props) {
+  const { gymLeader } = detail;
+  const difficulty = DIFFICULTIES[gymLeader.challengeOrder - 1] ?? '챔피언';
+  const leaderType =
+    LEADER_TYPE_LABELS[gymLeader.leaderType.toUpperCase()] ?? '';
+
+  return (
+    <ImageBackground
+      accessibilityLabel={`${leaderType} 관장 ${gymLeader.name}, 난이도 ${difficulty}`}
+      resizeMode="stretch"
+      source={LEADER_PANEL}
+      style={styles.leaderPanel}
+    >
+      <Text style={styles.leaderType}>{leaderType} 관장</Text>
+      <Text numberOfLines={1} style={styles.leaderName}>{gymLeader.name}</Text>
+      <Image
+        accessibilityLabel={`${gymLeader.name} 관장`}
+        resizeMode="contain"
+        source={{ uri: gymLeader.imageUrl }}
+        style={styles.leaderImage}
+      />
+      <View style={styles.difficulty}>
+        <Text style={styles.difficultyValue}>{difficulty}</Text>
+      </View>
+    </ImageBackground>
+  );
+}
+
 export function GymLeaderDetailCard({ detail }: Props) {
   const { gymLeader, animals } = detail;
   const difficulty = DIFFICULTIES[gymLeader.challengeOrder - 1] ?? '챔피언';
   const visibleAnimals = animals.slice(0, 3);
-  const leaderType = visibleAnimals[0]
-    ? TYPE_LABELS[visibleAnimals[0].cardType]
-    : '';
 
   return (
     <View
       accessibilityLabel={`${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}, 난이도 ${difficulty}, 출전 동물 ${visibleAnimals.length}마리`}
       style={styles.container}
     >
-      <ImageBackground resizeMode="stretch" source={LEADER_PANEL} style={styles.leaderPanel}>
-        <Text style={styles.leaderType}>{leaderType} 관장</Text>
-        <Text numberOfLines={1} style={styles.leaderName}>{gymLeader.name}</Text>
-        <Image
-          accessibilityLabel={`${gymLeader.name} 관장`}
-          resizeMode="contain"
-          source={{ uri: gymLeader.imageUrl }}
-          style={styles.leaderImage}
-        />
-        <View style={styles.difficulty}>
-          <Text style={styles.difficultyValue}>{difficulty}</Text>
-        </View>
-      </ImageBackground>
+      <GymLeaderProfileCard detail={detail} />
 
       <Text numberOfLines={1} style={styles.description}>
         {gymLeader.name} 관장이 선택한 동물들이에요
@@ -119,7 +136,7 @@ export function GymLeaderDetailCard({ detail }: Props) {
 const styles = StyleSheet.create({
   container: { position: 'relative', width: WIDTH, height: HEIGHT },
   leaderPanel: {
-    position: 'absolute', top: 0, left: 0,
+    position: 'relative',
     width: scaleByDeviceWidth(112), height: HEIGHT,
   },
   leaderType: {

@@ -22,4 +22,7 @@ export type {
   GymLeaderDetailLeader,
   GymLeaderUnlock,
 } from './model/types';
-export { GymLeaderDetailCard } from './ui/GymLeaderDetailCard';
+export {
+  GymLeaderDetailCard,
+  GymLeaderProfileCard,
+} from './ui/GymLeaderDetailCard';

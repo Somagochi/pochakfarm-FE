@@ -169,7 +169,7 @@ export function BattleCreatureCard({
           </View>
         ))}
       </View>
-      {hasRecommendationEffect && (
+      {hasRecommendationEffect && !isResting && (
         <AutoSweepCardSkiaReflection
           cardHeight={CARD_HEIGHT}
           cardWidth={CARD_WIDTH}

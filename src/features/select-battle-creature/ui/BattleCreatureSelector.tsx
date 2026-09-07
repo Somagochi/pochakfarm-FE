@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -66,6 +66,7 @@ type BattleCreatureSelectorProps = {
   onListInteractionStart?: () => void;
   onToggleCreature?: (creature: FarmCreatureListItem) => void;
   recommendedCreatureEnvironments?: readonly CreatureEnvironment[];
+  refreshKey?: number;
   selectedCreatureIds?: string[];
 };
 
@@ -75,8 +76,10 @@ export function BattleCreatureSelector({
   onListInteractionStart,
   onToggleCreature,
   recommendedCreatureEnvironments = [],
+  refreshKey = 0,
   selectedCreatureIds = [],
 }: BattleCreatureSelectorProps) {
+  const previousRefreshKeyRef = useRef(refreshKey);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
@@ -90,6 +93,7 @@ export function BattleCreatureSelector({
     hasNext,
     isLoading,
     loadNextPage,
+    reload,
   } = useSearchAnimals({
     keyword: debouncedSearchQuery,
     type:
@@ -97,6 +101,14 @@ export function BattleCreatureSelector({
         ? undefined
         : CARD_TYPE_BY_ENVIRONMENT[selectedAnimalType],
   });
+  useEffect(() => {
+    if (previousRefreshKeyRef.current === refreshKey) {
+      return;
+    }
+
+    previousRefreshKeyRef.current = refreshKey;
+    void reload();
+  }, [refreshKey, reload]);
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery.trim());

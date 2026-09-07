@@ -7,29 +7,40 @@ const MIXED_ARENA_TYPES: readonly BattleArenaType[] = [
   'space',
 ];
 
-const COACH_ARENA_TYPES: Record<BattleCoachId, BattleArenaType | 'mixed'> = {
-  moru: 'ground',
-  haru: 'sky',
-  nio: 'sea',
-  raon: 'mixed',
-  byeoli: 'space',
-  gaon: 'mixed',
-  daon: 'mixed',
-  ion: 'mixed',
-};
+const BATTLE_COACH_IDS: readonly BattleCoachId[] = [
+  'moru',
+  'haru',
+  'nio',
+  'raon',
+  'byeoli',
+  'gaon',
+  'daon',
+  'ion',
+];
 
 export function isBattleCoachId(value: string): value is BattleCoachId {
-  return value in COACH_ARENA_TYPES;
+  return BATTLE_COACH_IDS.includes(value as BattleCoachId);
 }
 
 export function getBattleArenaType(
-  coachId: BattleCoachId,
+  leaderType: string,
   randomValue = Math.random(),
 ): BattleArenaType {
-  const arenaType = COACH_ARENA_TYPES[coachId];
+  const normalizedLeaderType = leaderType.trim().toUpperCase();
 
-  if (arenaType !== 'mixed') {
-    return arenaType;
+  if (normalizedLeaderType !== 'MIXED') {
+    switch (normalizedLeaderType) {
+      case 'GROUND':
+        return 'ground';
+      case 'SKY':
+        return 'sky';
+      case 'SEA':
+        return 'sea';
+      case 'SPACE':
+        return 'space';
+      default:
+        return 'ground';
+    }
   }
 
   const randomIndex = Math.min(

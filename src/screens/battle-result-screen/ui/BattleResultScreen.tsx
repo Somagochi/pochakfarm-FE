@@ -10,7 +10,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { isBattleCoachId, type BattleCoachId } from '@/src/entities/battle';
+import {
+  isBattleCoachId,
+  GymLeaderProfileCard,
+  useGymLeaderDetail,
+  type BattleCoachId,
+} from '@/src/entities/battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { BattleHeader } from '@/src/widgets/battle-header';
 
@@ -27,8 +32,6 @@ const FIRST_CLEAR_REWARD_TITLE = require('@/src/shared/assets/images/battle/firs
 const FIRST_CLEAR_BADGE = require('@/src/shared/assets/images/battle/first-clear-badge.png');
 const ACHIEVEMENT_PROGRESS_FULL = require('@/src/shared/assets/images/collection/achievement-progress-full.png');
 const COACH_RESULT_PANEL = require('@/src/shared/assets/images/battle/coach-result-panel.png');
-const MORU_RESULT_CARD = require('@/src/shared/assets/images/battle/moru-result-card.png');
-const MORU_CREATURE_INFO_CARD = require('@/src/shared/assets/images/battle/moru-creature-info-card.png');
 
 const COACH_NAMES: Record<BattleCoachId, string> = {
   moru: '모루',
@@ -52,10 +55,49 @@ const COACH_TYPE_LABELS: Record<BattleCoachId, string> = {
   ion: '혼합',
 };
 
+type ResultPartyMember = {
+  imageUri: string;
+  orderNo?: number;
+};
+
+function parseResultParty(value?: string | string[]) {
+  const serializedParty = Array.isArray(value) ? value[0] : value;
+
+  if (!serializedParty) {
+    return [];
+  }
+
+  try {
+    const parsedParty: unknown = JSON.parse(serializedParty);
+
+    if (!Array.isArray(parsedParty)) {
+      return [];
+    }
+
+    return parsedParty
+      .filter(
+        (member): member is ResultPartyMember =>
+          typeof member === 'object' &&
+          member !== null &&
+          'imageUri' in member &&
+          typeof member.imageUri === 'string',
+      )
+      .sort(
+        (firstMember, secondMember) =>
+          (firstMember.orderNo ?? 0) - (secondMember.orderNo ?? 0),
+      )
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
 export function BattleResultScreen() {
-  const { battleResult, coach } = useLocalSearchParams<{
+  const { battleResult, coach, gymLeaderId, npcParty } = useLocalSearchParams<{
     battleResult?: string | string[];
     coach?: string | string[];
+    gymLeaderId?: string | string[];
+    npcParty?: string | string[];
   }>();
   const battleResultParam = Array.isArray(battleResult)
     ? battleResult[0]
@@ -65,6 +107,27 @@ export function BattleResultScreen() {
   const coachId = coachParam && isBattleCoachId(coachParam) ? coachParam : 'moru';
   const coachName = COACH_NAMES[coachId];
   const coachType = COACH_TYPE_LABELS[coachId];
+  const gymLeaderIdParam = Array.isArray(gymLeaderId)
+    ? gymLeaderId[0]
+    : gymLeaderId;
+  const parsedGymLeaderId = Number(gymLeaderIdParam);
+  const { gymLeaderDetail } = useGymLeaderDetail(
+    Number.isSafeInteger(parsedGymLeaderId) && parsedGymLeaderId > 0
+      ? parsedGymLeaderId
+      : undefined,
+  );
+  const opponentCreatures = gymLeaderDetail
+    ? gymLeaderDetail.animals
+        .map((animal) => ({
+          imageUri: animal.animalImageUrl,
+          orderNo: animal.orderNo,
+        }))
+        .sort(
+          (firstAnimal, secondAnimal) =>
+            firstAnimal.orderNo - secondAnimal.orderNo,
+        )
+        .slice(0, 3)
+    : parseResultParty(npcParty);
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
@@ -88,16 +151,25 @@ export function BattleResultScreen() {
           source={COACH_RESULT_PANEL}
           style={styles.coachPanel}
         >
-          <Image
-            resizeMode="stretch"
-            source={MORU_RESULT_CARD}
-            style={styles.coachCard}
-          />
-          <Image
-            resizeMode="stretch"
-            source={MORU_CREATURE_INFO_CARD}
-            style={styles.opponentInfo}
-          />
+          {gymLeaderDetail && (
+            <View style={styles.coachProfile}>
+              <GymLeaderProfileCard detail={gymLeaderDetail} />
+            </View>
+          )}
+          <View style={styles.opponentCreatures}>
+            {opponentCreatures.map((creature, index) => (
+              <Image
+                key={`${creature.orderNo ?? index}-${creature.imageUri}`}
+                resizeMode="contain"
+                source={{ uri: creature.imageUri }}
+                style={[
+                  styles.opponentCreature,
+                  { left: scaleByDeviceWidth(index * 43) },
+                  index === 1 && styles.frontOpponentCreature,
+                ]}
+              />
+            ))}
+          </View>
         </ImageBackground>
 
         <ImageBackground
@@ -208,19 +280,29 @@ const styles = StyleSheet.create({
     marginTop: scaleByDeviceWidth(8),
     overflow: 'hidden',
   },
-  coachCard: {
+  coachProfile: {
     position: 'absolute',
     top: scaleByDeviceWidth(39.5),
     left: scaleByDeviceWidth(14),
-    width: scaleByDeviceWidth(118),
+    width: scaleByDeviceWidth(112),
     height: scaleByDeviceWidth(111.5),
   },
-  opponentInfo: {
+  opponentCreatures: {
     position: 'absolute',
-    left: scaleByDeviceWidth(14),
-    bottom: scaleByDeviceWidth(15),
-    width: scaleByDeviceWidth(118),
-    height: scaleByDeviceWidth(80),
+    right: scaleByDeviceWidth(13),
+    bottom: scaleByDeviceWidth(47),
+    width: scaleByDeviceWidth(158),
+    height: scaleByDeviceWidth(76),
+  },
+  opponentCreature: {
+    position: 'absolute',
+    bottom: 0,
+    width: scaleByDeviceWidth(72),
+    height: scaleByDeviceWidth(72),
+    zIndex: 1,
+  },
+  frontOpponentCreature: {
+    zIndex: 2,
   },
   rewardSection: {
     position: 'relative',
