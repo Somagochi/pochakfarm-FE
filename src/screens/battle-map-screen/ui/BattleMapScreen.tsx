@@ -104,8 +104,10 @@ const COACH_PLACEMENTS = [
 
 export function BattleMapScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
+  const hasPositionedInitialScrollRef = useRef(false);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [screenWidth, setScreenWidth] = useState(0);
+  const [screenHeight, setScreenHeight] = useState(0);
   const [selectedGymLeaderId, setSelectedGymLeaderId] = useState<number | null>(
     null,
   );
@@ -128,6 +130,7 @@ export function BattleMapScreen() {
     useCallback(() => {
       let isActive = true;
 
+      hasPositionedInitialScrollRef.current = false;
       setSelectedGymLeaderId(null);
       void reload();
       void resumeBattle().then(async (resumedBattle) => {
@@ -202,6 +205,69 @@ export function BattleMapScreen() {
     Alert.alert('대전 복구 실패', resumeBattleErrorMessage);
   }, [clearResumeBattleError, resumeBattleErrorMessage]);
 
+  useEffect(() => {
+    if (
+      hasPositionedInitialScrollRef.current ||
+      screenWidth <= 0 ||
+      screenHeight <= 0 ||
+      gymLeaders.length === 0
+    ) {
+      return;
+    }
+
+    const unclearedLeaders = gymLeaders.filter(
+      (gymLeader) => !gymLeader.cleared,
+    );
+    const targetGymLeader =
+      unclearedLeaders
+        .filter((gymLeader) => gymLeader.unlocked)
+        .sort(
+          (firstLeader, secondLeader) =>
+            secondLeader.challengeOrder - firstLeader.challengeOrder,
+        )[0] ??
+      unclearedLeaders.sort(
+        (firstLeader, secondLeader) =>
+          secondLeader.challengeOrder - firstLeader.challengeOrder,
+      )[0];
+
+    if (!targetGymLeader) {
+      scrollViewRef.current?.scrollToEnd({ animated: false });
+      hasPositionedInitialScrollRef.current = true;
+      return;
+    }
+
+    const coach = COACH_PLACEMENTS[targetGymLeader.challengeOrder - 1];
+    if (!coach) {
+      return;
+    }
+
+    const coachTop =
+      targetGymLeader.challengeOrder === 1
+        ? moruTop
+        : mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
+    const coachSize =
+      targetGymLeader.challengeOrder === 1 ? moruWidth : coachWidth;
+    const maximumScrollY = Math.max(0, mapHeight - screenHeight);
+    const targetScrollY = Math.min(
+      maximumScrollY,
+      Math.max(0, coachTop + coachSize / 2 - screenHeight / 2),
+    );
+
+    hasPositionedInitialScrollRef.current = true;
+    scrollViewRef.current?.scrollTo({
+      animated: false,
+      y: targetScrollY,
+    });
+  }, [
+    coachWidth,
+    gymLeaders,
+    mapHeight,
+    moruTop,
+    moruWidth,
+    screenHeight,
+    screenWidth,
+  ]);
+
   const handleGymLeaderPress = (gymLeader: GymLeader) => {
     if (
       selectedGymLeaderId !== null ||
@@ -229,10 +295,14 @@ export function BattleMapScreen() {
   return (
     <View
       onLayout={(event) => {
-        const nextWidth = event.nativeEvent.layout.width;
+        const { height: nextHeight, width: nextWidth } =
+          event.nativeEvent.layout;
 
         if (nextWidth !== screenWidth) {
           setScreenWidth(nextWidth);
+        }
+        if (nextHeight !== screenHeight) {
+          setScreenHeight(nextHeight);
         }
       }}
       style={styles.screen}
@@ -240,9 +310,6 @@ export function BattleMapScreen() {
       {screenWidth > 0 && (
         <ScrollView
           bounces={false}
-          onContentSizeChange={() => {
-            scrollViewRef.current?.scrollToEnd({ animated: false });
-          }}
           ref={scrollViewRef}
           showsVerticalScrollIndicator={false}
         >
