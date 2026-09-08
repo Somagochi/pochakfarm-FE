@@ -560,11 +560,28 @@ export function BattleArenaScreen() {
       nameStart >= 0 && broadcastAnimalName
         ? nameStart + broadcastAnimalName.length
         : -1;
+    const skillName = latestBroadcastEvent?.skillName;
+    const skillNameStart = skillName
+      ? latestBroadcastMessage.indexOf(skillName)
+      : -1;
+    const skillNameEnd =
+      skillNameStart >= 0 && skillName
+        ? skillNameStart + skillName.length
+        : -1;
     return Array.from(typedBroadcastMessage).map((character, index) => ({
       character: character === ' ' ? '\u00A0' : character,
       isAnimalName: nameStart >= 0 && index >= nameStart && index < nameEnd,
+      isSkillName:
+        skillNameStart >= 0 &&
+        index >= skillNameStart &&
+        index < skillNameEnd,
     }));
-  }, [broadcastAnimalName, latestBroadcastMessage, typedBroadcastMessage]);
+  }, [
+    broadcastAnimalName,
+    latestBroadcastEvent?.skillName,
+    latestBroadcastMessage,
+    typedBroadcastMessage,
+  ]);
   const serverTimeOffsetMs = battleState?.serverTimeOffsetMs ?? 0;
   const currentServerTimeMs = nowMs + serverTimeOffsetMs;
   const isFinalClashVisible = Boolean(
@@ -1532,10 +1549,11 @@ export function BattleArenaScreen() {
               <View style={styles.broadcastMessage}>
                 {broadcastMessageCharacters.map((item, index) => (
                   <Text
-                    key={`${item.isAnimalName ? 'animal' : 'message'}-${index}`}
+                    key={`${item.isAnimalName ? 'animal' : item.isSkillName ? 'skill' : 'message'}-${index}`}
                     style={[
                       styles.broadcastMessageCharacter,
                       item.isAnimalName && styles.broadcastAnimalName,
+                      item.isSkillName && styles.broadcastSkillName,
                     ]}
                   >
                     {item.character}
@@ -2172,5 +2190,8 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(15),
     letterSpacing: scaleByDeviceWidth(15 * 0.02),
     lineHeight: scaleByDeviceWidth(14 * 1.3),
+  },
+  broadcastSkillName: {
+    color: '#68553E',
   },
 });
