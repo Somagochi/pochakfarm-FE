@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 import {
   CardSkiaReflection,
   type CardReflectionVariant,
@@ -383,7 +384,14 @@ export function CardOpeningSequence({
         {isReleaseAlertVisible ? (
           <ReleaseCreatureAlert
             onClose={() => setIsReleaseAlertVisible(false)}
-            onConfirm={onReturnToFarm}
+            onConfirm={() => {
+              captureAnalyticsEvent('capture_discarded', {
+                capture_id: captureDetail?.captureId,
+                card_type: captureDetail?.cardType,
+                tier: captureDetail?.tier,
+              });
+              onReturnToFarm();
+            }}
           />
         ) : (
           <ResultCard

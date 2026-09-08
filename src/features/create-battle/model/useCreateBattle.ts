@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { useCallback, useRef, useState } from 'react';
 
 import { getBattleStateApi } from '@/src/entities/battle';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 import { createBattleApi } from '../api/createBattleApi';
 import type { CreateBattleParams, CreateBattleResult } from './types';
@@ -60,6 +61,11 @@ export function useCreateBattle() {
         initialState,
       };
       attempt.result = result;
+      captureAnalyticsEvent('battle_started', {
+        battle_id: result.battleId,
+        gym_leader_id: params.gymLeaderId,
+        party_size: params.entries.length,
+      });
       return result;
     } catch (error) {
       lastErrorRef.current = error;

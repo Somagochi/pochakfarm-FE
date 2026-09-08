@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { formatRequestError } from '@/src/shared/api/formatRequestError';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 import { moveFarmCreatureApi } from '../api/moveFarmCreatureApi';
 
@@ -25,6 +26,11 @@ export function useMoveFarmCreature() {
       await moveFarmCreatureApi(animalId, {
         targetFloorNum: target.floorNumber,
         targetSlotNum: target.slotNumber,
+      });
+      captureAnalyticsEvent('farm_creature_moved', {
+        animal_id: animalId,
+        target_floor_number: target.floorNumber,
+        target_slot_number: target.slotNumber,
       });
       return true;
     } catch (error) {

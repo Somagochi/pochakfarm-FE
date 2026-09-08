@@ -3,6 +3,21 @@ import { PostHogProvider, usePostHog } from 'posthog-react-native';
 import { PropsWithChildren, useEffect } from 'react';
 
 import { env } from '@/src/shared/config/env';
+import { setAnalyticsClient } from '@/src/shared/lib/analytics';
+
+function PostHogAnalyticsBridge() {
+  const posthog = usePostHog();
+
+  useEffect(() => {
+    setAnalyticsClient({
+      capture: (event, properties) => posthog.capture(event, properties),
+    });
+
+    return () => setAnalyticsClient(null);
+  }, [posthog]);
+
+  return null;
+}
 
 function PostHogScreenTracker() {
   const pathname = usePathname();
@@ -45,6 +60,7 @@ export function AppPostHogProvider({ children }: PropsWithChildren) {
       }}
       debug={__DEV__}
     >
+      <PostHogAnalyticsBridge />
       <PostHogScreenTracker />
       {children}
     </PostHogProvider>

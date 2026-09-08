@@ -1,4 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import {
   Image,
   ImageBackground,
@@ -18,6 +19,7 @@ import {
   type BattleReward,
 } from '@/src/entities/battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 import { BattleHeader } from '@/src/widgets/battle-header';
 
 const VIEW_BADGES_BUTTON = require('@/src/shared/assets/images/battle/view-badges-button.png');
@@ -133,7 +135,8 @@ function parseBattleReward(value?: string | string[]): BattleReward | null {
 }
 
 export function BattleResultScreen() {
-  const { battleResult, coach, gymLeaderId, npcParty, reward } = useLocalSearchParams<{
+  const { battleId, battleResult, coach, gymLeaderId, npcParty, reward } = useLocalSearchParams<{
+    battleId?: string | string[];
     battleResult?: string | string[];
     coach?: string | string[];
     gymLeaderId?: string | string[];
@@ -165,6 +168,35 @@ export function BattleResultScreen() {
       COACH_TYPE_LABELS[coachId]
     : COACH_TYPE_LABELS[coachId];
   const battleReward = parseBattleReward(reward);
+  const hasCapturedCompletionRef = useRef(false);
+
+  useEffect(() => {
+    if (hasCapturedCompletionRef.current) {
+      return;
+    }
+
+    const battleIdParam = Array.isArray(battleId) ? battleId[0] : battleId;
+    const parsedBattleId = Number(battleIdParam);
+
+    if (!Number.isSafeInteger(parsedBattleId) || parsedBattleId <= 0) {
+      return;
+    }
+
+    hasCapturedCompletionRef.current = true;
+    captureAnalyticsEvent('battle_completed', {
+      battle_id: parsedBattleId,
+      first_clear: battleReward?.firstClear ?? false,
+      gym_leader_id:
+        Number.isSafeInteger(parsedGymLeaderId) && parsedGymLeaderId > 0
+          ? parsedGymLeaderId
+          : null,
+      result: battleResultParam ?? null,
+      reward_coins:
+        (battleReward?.gymLeaderCoins ?? 0) +
+        (battleReward?.levelUpCoins ?? 0),
+      reward_experience: battleReward?.experience ?? 0,
+    });
+  }, [battleId, battleResultParam, battleReward, parsedGymLeaderId]);
   const earnedBadgeCount = Math.min(
     gymLeaderDetail?.gymLeader.challengeOrder ?? 0,
     TOTAL_BADGE_COUNT,

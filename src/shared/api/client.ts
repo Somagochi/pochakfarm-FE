@@ -7,6 +7,7 @@ import {
   type ServiceToken,
 } from '@/src/shared/lib/auth/tokenStorage';
 import { notifySessionExpired } from '@/src/shared/lib/auth/sessionExpiration';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 type RequestOptions = {
   headers?: Record<string, string>;
@@ -203,6 +204,7 @@ async function requestWithResponse<TResponse>(
   init: RequestInit = {},
 ): Promise<ApiResponse<TResponse>> {
   const endApiRequest = beginApiRequest();
+  const requestedAt = Date.now();
 
   try {
     if (!env.apiBaseUrl) {
@@ -240,6 +242,26 @@ async function requestWithResponse<TResponse>(
       data: data as TResponse,
       status: response.status,
     };
+  } catch (error) {
+    const endpoint = path
+      .split('?')[0]
+      .replace(/\/api\/achievements\/[^/]+\/claim$/, '/api/achievements/:code/claim')
+      .replace(/\/\d+(?=\/|$)/g, '/:id');
+
+    captureAnalyticsEvent('request_failed', {
+      duration_ms: Date.now() - requestedAt,
+      endpoint,
+      error_category:
+        error instanceof ApiError
+          ? error.status >= 500
+            ? 'server'
+            : 'client'
+          : 'network_or_client',
+      error_code: error instanceof ApiError ? error.code : null,
+      method: init.method ?? 'GET',
+      status: error instanceof ApiError ? error.status : null,
+    });
+    throw error;
   } finally {
     endApiRequest();
   }
