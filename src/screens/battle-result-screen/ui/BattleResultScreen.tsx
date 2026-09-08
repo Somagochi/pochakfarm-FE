@@ -15,6 +15,7 @@ import {
   GymLeaderProfileCard,
   useGymLeaderDetail,
   type BattleCoachId,
+  type BattleReward,
 } from '@/src/entities/battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { BattleHeader } from '@/src/widgets/battle-header';
@@ -54,6 +55,7 @@ const COACH_TYPE_LABELS: Record<BattleCoachId, string> = {
   daon: '혼합',
   ion: '혼합',
 };
+const TOTAL_BADGE_COUNT = Object.keys(COACH_NAMES).length;
 
 type ResultPartyMember = {
   imageUri: string;
@@ -92,12 +94,44 @@ function parseResultParty(value?: string | string[]) {
   }
 }
 
+function parseBattleReward(value?: string | string[]): BattleReward | null {
+  const serializedReward = Array.isArray(value) ? value[0] : value;
+
+  if (!serializedReward) {
+    return null;
+  }
+
+  try {
+    const parsedReward: unknown = JSON.parse(serializedReward);
+
+    if (typeof parsedReward !== 'object' || parsedReward === null) {
+      return null;
+    }
+
+    const reward = parsedReward as Partial<BattleReward>;
+    if (
+      typeof reward.firstClear !== 'boolean' ||
+      typeof reward.rewardGranted !== 'boolean' ||
+      typeof reward.gymLeaderCoins !== 'number' ||
+      typeof reward.experience !== 'number' ||
+      (reward.badgeCode !== null && typeof reward.badgeCode !== 'string')
+    ) {
+      return null;
+    }
+
+    return parsedReward as BattleReward;
+  } catch {
+    return null;
+  }
+}
+
 export function BattleResultScreen() {
-  const { battleResult, coach, gymLeaderId, npcParty } = useLocalSearchParams<{
+  const { battleResult, coach, gymLeaderId, npcParty, reward } = useLocalSearchParams<{
     battleResult?: string | string[];
     coach?: string | string[];
     gymLeaderId?: string | string[];
     npcParty?: string | string[];
+    reward?: string | string[];
   }>();
   const battleResultParam = Array.isArray(battleResult)
     ? battleResult[0]
@@ -115,6 +149,15 @@ export function BattleResultScreen() {
     Number.isSafeInteger(parsedGymLeaderId) && parsedGymLeaderId > 0
       ? parsedGymLeaderId
       : undefined,
+  );
+  const battleReward = parseBattleReward(reward);
+  const earnedBadgeCount = Math.min(
+    gymLeaderDetail?.gymLeader.challengeOrder ?? 0,
+    TOTAL_BADGE_COUNT,
+  );
+  const badgeProgress = earnedBadgeCount / TOTAL_BADGE_COUNT;
+  const shouldShowFirstClearReward = Boolean(
+    battleReward?.firstClear && battleReward.badgeCode,
   );
   const opponentCreatures = gymLeaderDetail
     ? gymLeaderDetail.animals
@@ -187,20 +230,25 @@ export function BattleResultScreen() {
           <View style={styles.rewardRow}>
             <View style={styles.rewardItem}>
               <Image source={COIN_REWARD_ICON} style={styles.rewardIcon} />
-              <Text style={styles.rewardText}>+300코인</Text>
+              <Text style={styles.rewardText}>
+                +{battleReward?.gymLeaderCoins ?? 0}코인
+              </Text>
             </View>
             <View style={styles.rewardItem}>
               <Image source={EXPERIENCE_REWARD_ICON} style={styles.rewardIcon} />
-              <Text style={styles.rewardText}>+328EXP</Text>
+              <Text style={styles.rewardText}>
+                +{battleReward?.experience ?? 0}EXP
+              </Text>
             </View>
           </View>
         </ImageBackground>
 
-        <ImageBackground
-          resizeMode="stretch"
-          source={FIRST_CLEAR_REWARD_PANEL}
-          style={styles.firstClearSection}
-        >
+        {shouldShowFirstClearReward && (
+          <ImageBackground
+            resizeMode="stretch"
+            source={FIRST_CLEAR_REWARD_PANEL}
+            style={styles.firstClearSection}
+          >
           <Image
             resizeMode="contain"
             source={FIRST_CLEAR_REWARD_TITLE}
@@ -220,12 +268,25 @@ export function BattleResultScreen() {
                   source={ACHIEVEMENT_PROGRESS_FULL}
                   style={styles.progressBarImage}
                 />
-                <View style={styles.emptyProgress} />
+                {badgeProgress < 1 && (
+                  <View
+                    style={[
+                      styles.emptyProgress,
+                      {
+                        left: scaleByDeviceWidth(4 + 152 * badgeProgress),
+                        width: scaleByDeviceWidth(152 * (1 - badgeProgress)),
+                      },
+                    ]}
+                  />
+                )}
               </View>
-              <Text style={styles.progressCount}>2/8</Text>
+              <Text style={styles.progressCount}>
+                {earnedBadgeCount}/{TOTAL_BADGE_COUNT}
+              </Text>
             </View>
           </View>
-        </ImageBackground>
+          </ImageBackground>
+        )}
 
       </ScrollView>
       <View style={styles.actionsBar}>
@@ -411,8 +472,6 @@ const styles = StyleSheet.create({
   emptyProgress: {
     position: 'absolute',
     top: scaleByDeviceWidth(4),
-    left: scaleByDeviceWidth(4 + 152 * 0.2),
-    width: scaleByDeviceWidth(152 * 0.8),
     height: scaleByDeviceWidth(8),
     borderTopRightRadius: scaleByDeviceWidth(4),
     borderBottomRightRadius: scaleByDeviceWidth(4),
