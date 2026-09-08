@@ -552,36 +552,19 @@ export function BattleArenaScreen() {
         : null,
     [battleState, latestBroadcastEvent, npcPartyMembers, partyMembers],
   );
-  const broadcastMessageParts = useMemo(() => {
-    if (!broadcastAnimalName) {
-      return [{ isAnimalName: false, text: typedBroadcastMessage }];
-    }
+  const broadcastMessageCharacters = useMemo(() => {
+    const nameStart = broadcastAnimalName
+      ? latestBroadcastMessage.indexOf(broadcastAnimalName)
+      : -1;
+    const nameEnd =
+      nameStart >= 0 && broadcastAnimalName
+        ? nameStart + broadcastAnimalName.length
+        : -1;
 
-    const nameStart = latestBroadcastMessage.indexOf(broadcastAnimalName);
-    if (nameStart < 0) {
-      return [{ isAnimalName: false, text: typedBroadcastMessage }];
-    }
-
-    const visibleLength = typedBroadcastMessage.length;
-    const nameEnd = nameStart + broadcastAnimalName.length;
-
-    return [
-      {
-        isAnimalName: false,
-        text: typedBroadcastMessage.slice(0, Math.min(visibleLength, nameStart)),
-      },
-      {
-        isAnimalName: true,
-        text: typedBroadcastMessage.slice(
-          nameStart,
-          Math.min(visibleLength, nameEnd),
-        ),
-      },
-      {
-        isAnimalName: false,
-        text: typedBroadcastMessage.slice(nameEnd),
-      },
-    ].filter((part) => part.text.length > 0);
+    return Array.from(typedBroadcastMessage).map((character, index) => ({
+      character: character === ' ' ? '\u00A0' : character,
+      isAnimalName: nameStart >= 0 && index >= nameStart && index < nameEnd,
+    }));
   }, [broadcastAnimalName, latestBroadcastMessage, typedBroadcastMessage]);
   const latestBroadcastAnimal = useMemo(() => {
     if (!latestBroadcastEvent) {
@@ -1565,20 +1548,19 @@ export function BattleArenaScreen() {
               source={BATTLE_BROADCAST_DIALOG}
               style={styles.broadcastDialogBackground}
             >
-              <Text style={styles.broadcastMessage}>
-                {broadcastMessageParts.map((part, index) => (
+              <View style={styles.broadcastMessage}>
+                {broadcastMessageCharacters.map((item, index) => (
                   <Text
-                    key={`${part.isAnimalName ? 'animal' : 'message'}-${index}`}
-                    style={
-                      part.isAnimalName
-                        ? styles.broadcastAnimalName
-                        : undefined
-                    }
+                    key={`${item.isAnimalName ? 'animal' : 'message'}-${index}`}
+                    style={[
+                      styles.broadcastMessageCharacter,
+                      item.isAnimalName && styles.broadcastAnimalName,
+                    ]}
                   >
-                    {part.text}
+                    {item.character}
                   </Text>
                 ))}
-              </Text>
+              </View>
               {latestBroadcastAnimal?.imageUri && (
                 <Image
                   resizeMode="contain"
@@ -2195,18 +2177,27 @@ const styles = StyleSheet.create({
   },
   broadcastMessage: {
     position: 'absolute',
-    top: scaleByDeviceWidth(22),
+    top: scaleByDeviceWidth(16),
     right: scaleByDeviceWidth(86),
     left: scaleByDeviceWidth(20),
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    flexWrap: 'wrap',
+  },
+  broadcastMessageCharacter: {
     color: '#8F7755',
     fontFamily: 'EliceDXNeolli-Medium',
     fontSize: scaleByDeviceWidth(14),
-    lineHeight: scaleByDeviceWidth(19),
+    letterSpacing: scaleByDeviceWidth(14 * 0.06),
+    lineHeight: scaleByDeviceWidth(14 * 1.3),
   },
   broadcastAnimalName: {
+    transform: [{ translateY: scaleByDeviceWidth(-1) }],
     color: '#68553E',
     fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(15),
+    letterSpacing: scaleByDeviceWidth(15 * 0.02),
+    lineHeight: scaleByDeviceWidth(14 * 1.3),
   },
   broadcastAnimal: {
     position: 'absolute',
