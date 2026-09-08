@@ -55,6 +55,13 @@ const COACH_TYPE_LABELS: Record<BattleCoachId, string> = {
   daon: '혼합',
   ion: '혼합',
 };
+const LEADER_TYPE_LABELS: Record<string, string> = {
+  GROUND: '땅',
+  MIXED: '혼합',
+  SEA: '바다',
+  SKY: '하늘',
+  SPACE: '우주',
+};
 const TOTAL_BADGE_COUNT = Object.keys(COACH_NAMES).length;
 
 type ResultPartyMember = {
@@ -139,8 +146,6 @@ export function BattleResultScreen() {
   const isVictory = battleResultParam !== 'LOSE';
   const coachParam = Array.isArray(coach) ? coach[0] : coach;
   const coachId = coachParam && isBattleCoachId(coachParam) ? coachParam : 'moru';
-  const coachName = COACH_NAMES[coachId];
-  const coachType = COACH_TYPE_LABELS[coachId];
   const gymLeaderIdParam = Array.isArray(gymLeaderId)
     ? gymLeaderId[0]
     : gymLeaderId;
@@ -150,6 +155,15 @@ export function BattleResultScreen() {
       ? parsedGymLeaderId
       : undefined,
   );
+  const coachName = gymLeaderDetail?.gymLeader.name ?? COACH_NAMES[coachId];
+  const serverLeaderType = gymLeaderDetail?.gymLeader.leaderType
+    .trim()
+    .toUpperCase();
+  const coachType = serverLeaderType
+    ? LEADER_TYPE_LABELS[serverLeaderType] ??
+      gymLeaderDetail?.gymLeader.leaderType ??
+      COACH_TYPE_LABELS[coachId]
+    : COACH_TYPE_LABELS[coachId];
   const battleReward = parseBattleReward(reward);
   const earnedBadgeCount = Math.min(
     gymLeaderDetail?.gymLeader.challengeOrder ?? 0,
@@ -337,29 +351,29 @@ const styles = StyleSheet.create({
   coachPanel: {
     position: 'relative',
     width: scaleByDeviceWidth(328),
-    height: scaleByDeviceWidth(251),
+    height: scaleByDeviceWidth(193),
     marginTop: scaleByDeviceWidth(8),
     overflow: 'hidden',
   },
   coachProfile: {
     position: 'absolute',
-    top: scaleByDeviceWidth(39.5),
-    left: scaleByDeviceWidth(14),
+    top: scaleByDeviceWidth(63.63),
+    left: scaleByDeviceWidth(13.11),
     width: scaleByDeviceWidth(112),
     height: scaleByDeviceWidth(111.5),
   },
   opponentCreatures: {
     position: 'absolute',
-    right: scaleByDeviceWidth(13),
-    bottom: scaleByDeviceWidth(47),
+    right: scaleByDeviceWidth(48),
+    bottom: scaleByDeviceWidth(55),
     width: scaleByDeviceWidth(158),
-    height: scaleByDeviceWidth(76),
+    height: scaleByDeviceWidth(114),
   },
   opponentCreature: {
     position: 'absolute',
     bottom: 0,
-    width: scaleByDeviceWidth(72),
-    height: scaleByDeviceWidth(72),
+    width: scaleByDeviceWidth(109.72),
+    height: scaleByDeviceWidth(109.72),
     zIndex: 1,
   },
   frontOpponentCreature: {
