@@ -26,6 +26,7 @@ export default function RootLayout() {
     'EliceDXNeolli-Medium': require('@/src/shared/assets/fonts/EliceDXNeolli-Medium.ttf'),
     'Galmuri11-Bold': require('@/src/shared/assets/fonts/Galmuri11-Bold.ttf'),
     MemomentKkukkukk: require('@/src/shared/assets/fonts/MemomentKkukkukk.otf'),
+    'Pretendard-ExtraBold': require('@/src/shared/assets/fonts/Pretendard-ExtraBold.otf'),
     'Pretendard-SemiBold': require('@/src/shared/assets/fonts/Pretendard-SemiBold.otf'),
   });
 

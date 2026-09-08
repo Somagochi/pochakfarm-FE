@@ -19,7 +19,6 @@ import {
   ImageBackground,
   Pressable,
   StyleSheet,
-  Switch,
   Text,
   View,
 } from 'react-native';
@@ -64,10 +63,11 @@ const BATTLE_STATUS_BADGE = require('@/src/shared/assets/images/battle/battle-st
 const BATTLE_ROUND_LABEL = require('@/src/shared/assets/images/battle/battle-round-label.png');
 const OPPONENT_CREATURE = require('@/src/shared/assets/images/farm/kkomi.png');
 const PLAYER_SILHOUETTE = require('@/src/shared/assets/images/battle/player-silhouette.png');
-const CREATURE_INFO_CARD = require('@/src/shared/assets/images/battle/creature-info-card.png');
-const BALANCE_SKILL_TYPE = require('@/src/shared/assets/images/battle/balance-skill-type.png');
-const COMPETITIVE_SKILL_TYPE = require('@/src/shared/assets/images/battle/competitive-skill-type.png');
-const STABLE_SKILL_TYPE = require('@/src/shared/assets/images/battle/stable-skill-type.png');
+const OPPONENT_CREATURE_INFO_CARD = require('@/src/shared/assets/images/battle/opponent-creature-info-card.png');
+const PLAYER_CREATURE_INFO_CARD = require('@/src/shared/assets/images/battle/player-creature-info-card.png');
+const BALANCE_SKILL_TYPE = require('@/src/shared/assets/images/battle/info-card-skill-type-balance.png');
+const COMPETITIVE_SKILL_TYPE = require('@/src/shared/assets/images/battle/info-card-skill-type-competitive.png');
+const STABLE_SKILL_TYPE = require('@/src/shared/assets/images/battle/info-card-skill-type-stable.png');
 const CHEER_BUTTON = require('@/src/shared/assets/images/battle/cheer-button.png');
 const HOURGLASS = require('@/src/shared/assets/images/battle/hourglass.png');
 const SKILL_SELECTION_DIVIDER = require('@/src/shared/assets/images/battle/skill-selection-divider.png');
@@ -89,7 +89,6 @@ const BATTLE_PROGRESS_FILL_IMAGE_TOP =
   -BATTLE_PROGRESS_FILL_HEIGHT * (303 / 144);
 const BATTLE_STATUS_BADGE_SIZE = scaleByDeviceWidth(51.67);
 const SKILL_TIMER_TRACK_WIDTH = scaleByDeviceWidth(180);
-const BROADCAST_EVENT_INTERVAL_MS = 2000;
 const BROADCAST_TYPING_INTERVAL_MS = 35;
 const BATTLE_ENTRANCE_DURATION_MS = 1000;
 const SKILL_SELECTION_DURATION_MS = 3000;
@@ -152,6 +151,15 @@ const TYPE_BADGES: Record<CreatureEnvironment, number> = {
   sky: require('@/src/shared/assets/images/farm-search/sky-badge.png'),
   sea: require('@/src/shared/assets/images/farm-search/sea-badge.png'),
   space: require('@/src/shared/assets/images/farm-search/space-badge.png'),
+};
+
+const TIER_BADGES: Record<string, number> = {
+  A: require('@/src/shared/assets/images/capture/capture-tier-a.png'),
+  B: require('@/src/shared/assets/images/capture/capture-tier-b.png'),
+  C: require('@/src/shared/assets/images/capture/capture-tier-c.png'),
+  S: require('@/src/shared/assets/images/capture/capture-tier-s.png'),
+  SS: require('@/src/shared/assets/images/capture/capture-tier-ss.png'),
+  SSS: require('@/src/shared/assets/images/capture/capture-tier-sss.png'),
 };
 
 const ENVIRONMENT_BY_CARD_TYPE = {
@@ -299,22 +307,46 @@ function CreatureInfoCard({
   const visibleSkills = Array.isArray(entry.skills)
     ? entry.skills.slice(0, 2)
     : [];
+  const hasSelectedSkill = selectedSkill != null;
 
   return (
     <ImageBackground
       accessibilityLabel={`${entry.animalName}, ${entry.tier} 티어, ${entry.cardType} 타입`}
       resizeMode="stretch"
-      source={CREATURE_INFO_CARD}
+      source={
+        isOpponent
+          ? OPPONENT_CREATURE_INFO_CARD
+          : PLAYER_CREATURE_INFO_CARD
+      }
       style={[
         styles.creatureInfoCard,
         isOpponent ? styles.opponentInfo : styles.playerInfo,
       ]}
     >
-      <Text numberOfLines={1} style={styles.creatureName}>{entry.animalName}</Text>
+      <Image
+        resizeMode="contain"
+        source={TIER_BADGES[entry.tier.trim().toUpperCase()] ?? TIER_BADGES.C}
+        style={[
+          styles.tierBadge,
+          isOpponent ? styles.opponentTierBadge : styles.playerTierBadge,
+        ]}
+      />
+      <Text
+        numberOfLines={1}
+        style={[
+          styles.creatureName,
+          isOpponent ? styles.opponentCreatureName : styles.playerCreatureName,
+        ]}
+      >
+        {entry.animalName}
+      </Text>
       <Image
         resizeMode="contain"
         source={TYPE_BADGES[environment]}
-        style={styles.typeBadge}
+        style={[
+          styles.typeBadge,
+          isOpponent ? styles.opponentTypeBadge : styles.playerTypeBadge,
+        ]}
       />
       {visibleSkills.map((skill, index) => (
         <Pressable
@@ -323,22 +355,32 @@ function CreatureInfoCard({
           accessibilityState={{
             disabled:
               isOpponent || isSkillSelectionDisabled || !onSkillPress,
-            selected: selectedSkill === skill.skill,
+            selected: hasSelectedSkill && selectedSkill === skill.skill,
           }}
           disabled={isOpponent || isSkillSelectionDisabled || !onSkillPress}
-          key={skill.skill}
+          key={`${entry.side}-${entry.captureId}-${entry.orderNo}-${skill.skill}-${index}`}
           onPress={() => onSkillPress?.(skill.skill)}
           style={({ pressed }) => [
             styles.skillRow,
+            isOpponent
+              ? styles.opponentSkillRow
+              : styles.playerSkillRow,
             index === 0 ? styles.firstSkillRow : styles.secondSkillRow,
-            selectedSkill === skill.skill && styles.selectedSkillRow,
+            hasSelectedSkill &&
+              selectedSkill === skill.skill &&
+              styles.selectedSkillRow,
             pressed && styles.pressedSkillRow,
           ]}
         >
-          <Text style={styles.skillName}>{skill.name}</Text>
+          <Text numberOfLines={1} style={styles.skillName}>
+            {skill.name}
+          </Text>
           <Image
             resizeMode="contain"
-            source={SKILL_TYPE_SOURCES[skill.battleType] ?? BALANCE_SKILL_TYPE}
+            source={
+              SKILL_TYPE_SOURCES[skill.battleType.trim().toUpperCase()] ??
+              BALANCE_SKILL_TYPE
+            }
             style={styles.skillType}
           />
         </Pressable>
@@ -384,6 +426,7 @@ export function BattleArenaScreen() {
     errorMessage: resumeBattleErrorMessage,
     isLoading: isResumingBattle,
     resumeBattle,
+    saveLastPlayedEventSequence,
   } = useResumeBattle();
   const {
     battleId,
@@ -443,7 +486,6 @@ export function BattleArenaScreen() {
     () => AppState.currentState === 'active',
   );
   const isFocused = useIsFocused();
-  const [isAutoPlayEnabled, setIsAutoPlayEnabled] = useState(true);
   const [finalTapCount, setFinalTapCount] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [skillSelectionDeadlineMs, setSkillSelectionDeadlineMs] = useState<
@@ -498,6 +540,49 @@ export function BattleArenaScreen() {
         : '대전을 시작합니다!',
     [battleState, latestBroadcastEvent, npcPartyMembers, partyMembers],
   );
+  const broadcastAnimalName = useMemo(
+    () =>
+      battleState && latestBroadcastEvent
+        ? getEventAnimalName(
+            latestBroadcastEvent,
+            battleState,
+            partyMembers,
+            npcPartyMembers,
+          )
+        : null,
+    [battleState, latestBroadcastEvent, npcPartyMembers, partyMembers],
+  );
+  const broadcastMessageParts = useMemo(() => {
+    if (!broadcastAnimalName) {
+      return [{ isAnimalName: false, text: typedBroadcastMessage }];
+    }
+
+    const nameStart = latestBroadcastMessage.indexOf(broadcastAnimalName);
+    if (nameStart < 0) {
+      return [{ isAnimalName: false, text: typedBroadcastMessage }];
+    }
+
+    const visibleLength = typedBroadcastMessage.length;
+    const nameEnd = nameStart + broadcastAnimalName.length;
+
+    return [
+      {
+        isAnimalName: false,
+        text: typedBroadcastMessage.slice(0, Math.min(visibleLength, nameStart)),
+      },
+      {
+        isAnimalName: true,
+        text: typedBroadcastMessage.slice(
+          nameStart,
+          Math.min(visibleLength, nameEnd),
+        ),
+      },
+      {
+        isAnimalName: false,
+        text: typedBroadcastMessage.slice(nameEnd),
+      },
+    ].filter((part) => part.text.length > 0);
+  }, [broadcastAnimalName, latestBroadcastMessage, typedBroadcastMessage]);
   const latestBroadcastAnimal = useMemo(() => {
     if (!latestBroadcastEvent) {
       return null;
@@ -575,7 +660,7 @@ export function BattleArenaScreen() {
         );
 
       if (nextEvents.length === 0) {
-        return false;
+        return [];
       }
 
       nextEvents.forEach((event) => {
@@ -587,7 +672,7 @@ export function BattleArenaScreen() {
             firstEvent.eventSeq - secondEvent.eventSeq,
         ),
       );
-      return true;
+      return nextEvents;
     },
     [],
   );
@@ -605,6 +690,23 @@ export function BattleArenaScreen() {
       setPartyMembers(parseParty(resumedBattle.session.party));
       setNpcPartyMembers(parseParty(resumedBattle.session.npcParty));
     }
+
+    const restoredLastPlayedEventSeq =
+      resumedBattle.session?.lastPlayedEventSeq ?? 0;
+    lastPlayedEventSequenceRef.current = Math.max(
+      lastPlayedEventSequenceRef.current,
+      restoredLastPlayedEventSeq,
+    );
+    setBroadcastQueue((currentQueue) =>
+      currentQueue.filter(
+        (event) => event.eventSeq > restoredLastPlayedEventSeq,
+      ),
+    );
+    setActiveBroadcastEvent((currentEvent) =>
+      currentEvent && currentEvent.eventSeq > restoredLastPlayedEventSeq
+        ? currentEvent
+        : null,
+    );
 
     selectionTimerActionSeqRef.current = null;
     submittedActionRef.current = null;
@@ -694,11 +796,18 @@ export function BattleArenaScreen() {
         return;
       }
 
-      const didEnqueueActionEvents = result.action
+      const enqueuedActionEvents = result.action
         ? enqueueBroadcastEvents(result.action.broadcastEvents)
-        : false;
-      const didEnqueueStateEvents = enqueueBroadcastEvents(
+        : [];
+      const enqueuedStateEvents = enqueueBroadcastEvents(
         result.state.broadcastEvents,
+      );
+      const enqueuedEvents = [
+        ...enqueuedActionEvents,
+        ...enqueuedStateEvents,
+      ].sort(
+        (firstEvent, secondEvent) =>
+          firstEvent.eventSeq - secondEvent.eventSeq,
       );
 
       if (
@@ -708,14 +817,23 @@ export function BattleArenaScreen() {
         submittedActionRef.current = null;
       }
 
-      if (didEnqueueActionEvents || didEnqueueStateEvents) {
+      if (enqueuedEvents.length > 0) {
         pendingBattleStateRef.current = result.state;
+        const [firstEvent] = enqueuedEvents;
+        applyPendingBattleStateForEvent(firstEvent);
+        setBroadcastQueue((currentQueue) =>
+          currentQueue.filter(
+            (event) => event.eventSeq !== firstEvent.eventSeq,
+          ),
+        );
+        setActiveBroadcastEvent(firstEvent);
       } else {
         setBattleState(result.state);
       }
     },
     [
       battleState,
+      applyPendingBattleStateForEvent,
       enqueueBroadcastEvents,
       skillSelectionDeadlineMs,
       submitBattleAction,
@@ -972,9 +1090,10 @@ export function BattleArenaScreen() {
 
   useEffect(() => {
     if (
+      !hasAttemptedBattleRestore ||
       activeBroadcastEvent ||
       broadcastQueue.length === 0 ||
-      (!isAutoPlayEnabled && latestBroadcastEvent !== null)
+      latestBroadcastEvent !== null
     ) {
       return;
     }
@@ -989,7 +1108,7 @@ export function BattleArenaScreen() {
     activeBroadcastEvent,
     applyPendingBattleStateForEvent,
     broadcastQueue,
-    isAutoPlayEnabled,
+    hasAttemptedBattleRestore,
     latestBroadcastEvent,
   ]);
 
@@ -1002,9 +1121,14 @@ export function BattleArenaScreen() {
       playedEventSequencesRef.current.add(activeBroadcastEvent.eventSeq);
       lastPlayedEventSequenceRef.current = activeBroadcastEvent.eventSeq;
       setLatestBroadcastEvent(activeBroadcastEvent);
+      if (currentBattleId && activeBroadcastEvent.eventSeq > 0) {
+        saveLastPlayedEventSequence(
+          currentBattleId,
+          activeBroadcastEvent.eventSeq,
+        );
+      }
     }
-
-  }, [activeBroadcastEvent]);
+  }, [activeBroadcastEvent, currentBattleId, saveLastPlayedEventSequence]);
 
   useEffect(() => {
     if (typingIntervalRef.current) {
@@ -1037,31 +1161,7 @@ export function BattleArenaScreen() {
     };
   }, [latestBroadcastMessage]);
 
-  useEffect(() => {
-    if (
-      !isAutoPlayEnabled ||
-      isTypingBroadcastMessage ||
-      !activeBroadcastEvent
-    ) {
-      return;
-    }
-
-    const timeoutId = setTimeout(
-      () => setActiveBroadcastEvent(null),
-      BROADCAST_EVENT_INTERVAL_MS,
-    );
-    return () => clearTimeout(timeoutId);
-  }, [
-    activeBroadcastEvent,
-    isAutoPlayEnabled,
-    isTypingBroadcastMessage,
-  ]);
-
   const handleBroadcastDialogPress = () => {
-    if (isAutoPlayEnabled) {
-      return;
-    }
-
     if (isTypingBroadcastMessage) {
       if (typingIntervalRef.current) {
         clearInterval(typingIntervalRef.current);
@@ -1453,24 +1553,10 @@ export function BattleArenaScreen() {
             />
           </View>
 
-          <View style={styles.autoPlayControl}>
-            <Text style={styles.autoPlayLabel}>자동 재생</Text>
-            <Switch
-              ios_backgroundColor="#F5EFE2"
-              onValueChange={setIsAutoPlayEnabled}
-              trackColor={{ false: '#E1D7C3', true: '#E8B52E' }}
-              thumbColor="#FFFFFF"
-              value={isAutoPlayEnabled}
-            />
-          </View>
-
           <Pressable
-            accessibilityHint={
-              isAutoPlayEnabled ? undefined : '다음 중계 로그를 표시합니다.'
-            }
+            accessibilityHint="다음 중계 로그를 표시합니다."
             accessibilityLabel="대전 중계창"
-            accessibilityRole={isAutoPlayEnabled ? undefined : 'button'}
-            disabled={isAutoPlayEnabled}
+            accessibilityRole="button"
             onPress={handleBroadcastDialogPress}
             style={styles.broadcastDialog}
           >
@@ -1480,7 +1566,18 @@ export function BattleArenaScreen() {
               style={styles.broadcastDialogBackground}
             >
               <Text style={styles.broadcastMessage}>
-                {typedBroadcastMessage}
+                {broadcastMessageParts.map((part, index) => (
+                  <Text
+                    key={`${part.isAnimalName ? 'animal' : 'message'}-${index}`}
+                    style={
+                      part.isAnimalName
+                        ? styles.broadcastAnimalName
+                        : undefined
+                    }
+                  >
+                    {part.text}
+                  </Text>
+                ))}
               </Text>
               {latestBroadcastAnimal?.imageUri && (
                 <Image
@@ -1704,7 +1801,7 @@ const styles = StyleSheet.create({
   roundLabel: {
     position: 'absolute',
     top: scaleByDeviceWidth(20),
-    width: scaleByDeviceWidth(89.33),
+    width: scaleByDeviceWidth(125.31),
     height: scaleByDeviceWidth(32),
     alignItems: 'center',
     justifyContent: 'center',
@@ -1713,8 +1810,8 @@ const styles = StyleSheet.create({
   roundText: {
     color: '#3E352B',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(15),
-    lineHeight: scaleByDeviceWidth(19),
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(18),
   },
   battleField: {
     position: 'absolute',
@@ -1724,42 +1821,71 @@ const styles = StyleSheet.create({
   },
   creatureInfoCard: {
     position: 'absolute',
-    width: scaleByDeviceWidth(156),
-    height: scaleByDeviceWidth(95.5),
+    width: scaleByDeviceWidth(192),
+    height: scaleByDeviceWidth(73),
   },
   opponentInfo: {
-    top: scaleByDeviceWidth(38),
-    left: scaleByDeviceWidth(4),
+    top: scaleByDeviceWidth(28),
+    left: scaleByDeviceWidth(16),
   },
   playerInfo: {
-    right: scaleByDeviceWidth(16),
-    bottom: scaleByDeviceWidth(3),
+    right: scaleByDeviceWidth(8),
+    bottom: scaleByDeviceWidth(82),
   },
   creatureName: {
     position: 'absolute',
-    top: scaleByDeviceWidth(17),
-    left: scaleByDeviceWidth(14),
-    right: scaleByDeviceWidth(32),
-    color: '#32322D',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(10),
-    lineHeight: scaleByDeviceWidth(13),
+    top: scaleByDeviceWidth(11),
+    color: '#655742',
+    fontFamily: 'Pretendard-ExtraBold',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(19),
+  },
+  opponentCreatureName: {
+    left: scaleByDeviceWidth(55),
+    right: scaleByDeviceWidth(39),
+  },
+  playerCreatureName: {
+    left: scaleByDeviceWidth(48),
+    right: scaleByDeviceWidth(46),
+  },
+  tierBadge: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(10),
+    width: scaleByDeviceWidth(19),
+    height: scaleByDeviceWidth(20),
+  },
+  opponentTierBadge: {
+    left: scaleByDeviceWidth(31),
+  },
+  playerTierBadge: {
+    left: scaleByDeviceWidth(24),
   },
   typeBadge: {
     position: 'absolute',
     top: 0,
-    right: scaleByDeviceWidth(10),
-    width: scaleByDeviceWidth(24),
-    height: scaleByDeviceWidth(33),
+    width: scaleByDeviceWidth(17),
+    height: scaleByDeviceWidth(26),
+  },
+  opponentTypeBadge: {
+    right: scaleByDeviceWidth(22),
+  },
+  playerTypeBadge: {
+    right: scaleByDeviceWidth(36),
   },
   skillRow: {
     position: 'absolute',
-    left: scaleByDeviceWidth(19),
-    right: scaleByDeviceWidth(17),
-    height: scaleByDeviceWidth(17),
+    height: scaleByDeviceWidth(14),
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  opponentSkillRow: {
+    left: scaleByDeviceWidth(22),
+    right: scaleByDeviceWidth(59),
+  },
+  playerSkillRow: {
+    left: scaleByDeviceWidth(58),
+    right: scaleByDeviceWidth(21),
   },
   selectedSkillRow: {
     borderRadius: scaleByDeviceWidth(5),
@@ -1769,20 +1895,23 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   firstSkillRow: {
-    top: scaleByDeviceWidth(45),
+    top: scaleByDeviceWidth(39),
   },
   secondSkillRow: {
-    top: scaleByDeviceWidth(66),
+    top: scaleByDeviceWidth(53),
   },
   skillName: {
+    flex: 1,
+    marginRight: scaleByDeviceWidth(4),
     color: '#655742',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(8),
-    lineHeight: scaleByDeviceWidth(11),
+    fontSize: scaleByDeviceWidth(9),
+    lineHeight: scaleByDeviceWidth(12),
   },
   skillType: {
-    width: scaleByDeviceWidth(29),
-    height: scaleByDeviceWidth(12),
+    flexShrink: 0,
+    width: scaleByDeviceWidth(37),
+    height: scaleByDeviceWidth(14),
   },
   opponentCreature: {
     position: 'absolute',
@@ -2069,10 +2198,15 @@ const styles = StyleSheet.create({
     top: scaleByDeviceWidth(22),
     right: scaleByDeviceWidth(86),
     left: scaleByDeviceWidth(20),
-    color: '#725E42',
+    color: '#8F7755',
     fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(13),
+    fontSize: scaleByDeviceWidth(14),
     lineHeight: scaleByDeviceWidth(19),
+  },
+  broadcastAnimalName: {
+    color: '#68553E',
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: scaleByDeviceWidth(15),
   },
   broadcastAnimal: {
     position: 'absolute',
@@ -2080,27 +2214,5 @@ const styles = StyleSheet.create({
     right: scaleByDeviceWidth(20),
     width: scaleByDeviceWidth(54),
     height: scaleByDeviceWidth(54),
-  },
-  autoPlayControl: {
-    position: 'absolute',
-    right: scaleByDeviceWidth(18),
-    bottom: scaleByDeviceWidth(163),
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: scaleByDeviceWidth(5),
-    transform: [{ scale: 0.72 }],
-    transformOrigin: 'right bottom',
-  },
-  autoPlayLabel: {
-    color: '#FFF8EB',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(14),
-    lineHeight: scaleByDeviceWidth(20),
-    textShadowColor: 'rgba(69, 47, 20, 0.55)',
-    textShadowOffset: {
-      width: scaleByDeviceWidth(1),
-      height: scaleByDeviceWidth(1),
-    },
-    textShadowRadius: scaleByDeviceWidth(1),
   },
 });
