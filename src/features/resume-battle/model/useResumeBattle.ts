@@ -6,6 +6,7 @@ import { ApiError } from '@/src/shared/api/client';
 import {
   readActiveBattleSession,
   removeActiveBattleSession,
+  updateActiveBattleSessionProgress,
   writeActiveBattleSession,
 } from './battleSessionStorage';
 import type { ActiveBattleSession, ResumedBattle } from './types';
@@ -14,6 +15,7 @@ export function useResumeBattle() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const isRequestingRef = useRef(false);
+  const progressSaveQueueRef = useRef(Promise.resolve());
 
   const clearError = useCallback(() => setErrorMessage(null), []);
 
@@ -45,6 +47,15 @@ export function useResumeBattle() {
       );
     }
   }, []);
+
+  const saveLastPlayedEventSequence = useCallback(
+    (battleId: number, eventSeq: number) => {
+      progressSaveQueueRef.current = progressSaveQueueRef.current
+        .catch(() => undefined)
+        .then(() => updateActiveBattleSessionProgress(battleId, eventSeq));
+    },
+    [],
+  );
 
   const resumeBattle = useCallback(
     async (battleId?: number): Promise<ResumedBattle | null> => {
@@ -104,6 +115,7 @@ export function useResumeBattle() {
     errorMessage,
     isLoading,
     resumeBattle,
+    saveLastPlayedEventSequence,
     saveBattleSession,
   };
 }

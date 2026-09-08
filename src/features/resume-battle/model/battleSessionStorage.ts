@@ -18,9 +18,31 @@ function isActiveBattleSession(value: unknown): value is ActiveBattleSession {
     Number(session.battleId) > 0 &&
     typeof session.coach === 'string' &&
     isBattleCoachId(session.coach) &&
+    (session.lastPlayedEventSeq === undefined ||
+      (Number.isSafeInteger(session.lastPlayedEventSeq) &&
+        Number(session.lastPlayedEventSeq) >= 0)) &&
     typeof session.party === 'string' &&
     typeof session.npcParty === 'string'
   );
+}
+
+export async function updateActiveBattleSessionProgress(
+  battleId: number,
+  lastPlayedEventSeq: number,
+) {
+  const session = await readActiveBattleSession();
+
+  if (!session || session.battleId !== battleId) {
+    return;
+  }
+
+  await writeActiveBattleSession({
+    ...session,
+    lastPlayedEventSeq: Math.max(
+      session.lastPlayedEventSeq ?? 0,
+      lastPlayedEventSeq,
+    ),
+  });
 }
 
 export async function readActiveBattleSession() {

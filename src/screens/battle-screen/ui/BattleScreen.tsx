@@ -268,6 +268,7 @@ export function BattleScreen() {
       await saveBattleSession({
         battleId: state.battleId,
         coach,
+        lastPlayedEventSeq: resumedBattle.session?.lastPlayedEventSeq,
         npcParty: serializedRecoveredNpcParty,
         party: serializedRecoveredUserParty,
       });
