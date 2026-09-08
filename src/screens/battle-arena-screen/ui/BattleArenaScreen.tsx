@@ -560,30 +560,11 @@ export function BattleArenaScreen() {
       nameStart >= 0 && broadcastAnimalName
         ? nameStart + broadcastAnimalName.length
         : -1;
-
     return Array.from(typedBroadcastMessage).map((character, index) => ({
       character: character === ' ' ? '\u00A0' : character,
       isAnimalName: nameStart >= 0 && index >= nameStart && index < nameEnd,
     }));
   }, [broadcastAnimalName, latestBroadcastMessage, typedBroadcastMessage]);
-  const latestBroadcastAnimal = useMemo(() => {
-    if (!latestBroadcastEvent) {
-      return null;
-    }
-
-    const eventSide =
-      latestBroadcastEvent.animalSide ?? latestBroadcastEvent.winnerSide;
-
-    if (!eventSide) {
-      return null;
-    }
-
-    const eventParty = eventSide === 'NPC' ? npcPartyMembers : partyMembers;
-    return eventParty.find(
-      (member, index) =>
-        (member.orderNo ?? index + 1) === latestBroadcastEvent.entryOrder,
-    ) ?? null;
-  }, [latestBroadcastEvent, npcPartyMembers, partyMembers]);
   const serverTimeOffsetMs = battleState?.serverTimeOffsetMs ?? 0;
   const currentServerTimeMs = nowMs + serverTimeOffsetMs;
   const isFinalClashVisible = Boolean(
@@ -1561,13 +1542,6 @@ export function BattleArenaScreen() {
                   </Text>
                 ))}
               </View>
-              {latestBroadcastAnimal?.imageUri && (
-                <Image
-                  resizeMode="contain"
-                  source={{ uri: latestBroadcastAnimal.imageUri }}
-                  style={styles.broadcastAnimal}
-                />
-              )}
             </ImageBackground>
           </Pressable>
         </View>
@@ -2178,7 +2152,7 @@ const styles = StyleSheet.create({
   broadcastMessage: {
     position: 'absolute',
     top: scaleByDeviceWidth(16),
-    right: scaleByDeviceWidth(86),
+    right: scaleByDeviceWidth(20),
     left: scaleByDeviceWidth(20),
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2198,12 +2172,5 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(15),
     letterSpacing: scaleByDeviceWidth(15 * 0.02),
     lineHeight: scaleByDeviceWidth(14 * 1.3),
-  },
-  broadcastAnimal: {
-    position: 'absolute',
-    top: scaleByDeviceWidth(16),
-    right: scaleByDeviceWidth(20),
-    width: scaleByDeviceWidth(54),
-    height: scaleByDeviceWidth(54),
   },
 });
