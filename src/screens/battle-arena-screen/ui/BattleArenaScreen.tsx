@@ -1178,14 +1178,14 @@ export function BattleArenaScreen() {
   }, [isBroadcasting]);
 
   useEffect(() => {
-    if (!battleState) {
+    if (!battleState || isBroadcasting) {
       return;
     }
 
     battleProgress.value = withTiming(getBattleProgress(battleState), {
       duration: 650,
     });
-  }, [battleProgress, battleState]);
+  }, [battleProgress, battleState, isBroadcasting]);
 
   useLayoutEffect(() => {
     const actionSeq = battleState?.nextActionSeq;
