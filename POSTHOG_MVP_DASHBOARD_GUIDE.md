@@ -17,6 +17,7 @@ battle_completed
 farm_creature_moved
 achievement_claimed
 request_failed
+request_succeeded
 ```
 
 모든 차트는 다음 순서로 만든다.
@@ -127,6 +128,13 @@ request_failed
   `request_failed`에는 포함되지 않고 `capture_failed(step = upload)`로만 수집된다.
 - endpoint의 숫자 ID, achievement code, query string은 제거 또는 치환한 뒤 전송된다.
 - method, status, error code, 오류 범주, 소요 시간이 함께 수집된다.
+
+### `request_succeeded`
+
+- 공통 `apiClient`를 이용한 요청이 최종적으로 성공하면 자동 수집된다.
+- 인증 만료로 첫 요청이 401이어도 token 갱신과 재요청이 성공하면 한 번 수집된다.
+- `feature`, endpoint, method, 최종 status, 전체 소요 시간이 함께 수집된다.
+- `request_failed`와 합쳐 전체 요청 수와 기능별 API 실패율의 분모로 사용한다.
 
 ### 한 행동에서 이벤트가 함께 발생하는 경우
 
@@ -356,12 +364,25 @@ Week 1 숫자 하나보다 여러 주가 지나도 곡선이 0 위에서 유지�
   - 구버전 문제라면 업데이트 유도, 최신 버전 문제라면 핫픽스나 배포 중단처럼 서로
     다른 대응을 선택할 수 있다.
 
-> 현재 수집하는 `request_failed`만으로는 실패 건수와 오류 경험 사용자 수를 볼 수
-> 있지만, 모든 API의 정확한 실패율을 계산할 분모는 없다. 진짜
-> `실패 요청 / 전체 요청` 비율이 필요해지면 성공 요청도 집계하는
-> `request_completed`를 추가하거나 서버 요청 로그를 PostHog와 연결해야 한다.
+`request_succeeded`와 `request_failed`에 동일한 `feature` 속성이 들어가므로
+기능별 전체 요청과 실패 요청을 같은 기준으로 비교할 수 있다.
 
-### 차트 A: 실패 요청 추세
+### 차트 A: 기능별 API 실패율
+
+1. `Trends`를 선택한다.
+2. Series A에 `request_failed`를 추가하고 `Total count`로 설정한다.
+3. Series B에 `request_succeeded`를 추가하고 `Total count`로 설정한다.
+4. `Formula`를 추가해 `A / (A + B) * 100`을 입력한다.
+5. A와 B 모두 `Breakdown`에서 event property `feature`를 선택한다.
+6. 기간은 `Last 7 days`, 간격은 `Day`로 설정한다.
+7. 표시 형식을 가능하면 percentage로 바꾼다.
+8. 이름을 `기능별 API 실패율`로 저장한다.
+
+PostHog 화면에서 여러 Series의 breakdown과 formula 조합이 제한되는 경우에는
+`feature = capture`, `feature = battle`처럼 기능별 property filter를 적용한 차트를
+복제한다. 각 차트에서 같은 `A / (A + B) * 100` 공식을 사용한다.
+
+### 차트 B: 실패 요청 추세
 
 1. `Trends`에서 `request_failed`를 선택한다.
 2. 집계를 `Total count`로 설정한다.
@@ -369,15 +390,15 @@ Week 1 숫자 하나보다 여러 주가 지나도 곡선이 0 위에서 유지�
 4. 기간은 `Last 7 days`, 간격은 `Day`로 설정한다.
 5. 이름을 `endpoint별 요청 실패`로 저장한다.
 
-### 차트 B: 오류 영향 사용자 수
+### 차트 C: 오류 영향 사용자 수
 
-1. 차트 A를 Duplicate한다.
+1. 실패 요청 추세 차트를 Duplicate한다.
 2. 집계를 `Unique users`로 바꾼다.
 3. 이름을 `endpoint별 오류 경험 사용자`로 저장한다.
 
 두 차트를 같이 봐야 한 사용자의 반복 재시도로 오류가 과장되는 것을 피할 수 있다.
 
-### 차트 C: 상태 코드별 오류
+### 차트 D: 상태 코드별 오류
 
 1. `Trends`에서 `request_failed`를 선택한다.
 2. `Breakdown`에 `status`를 선택한다.
@@ -387,7 +408,7 @@ Week 1 숫자 하나보다 여러 주가 지나도 곡선이 0 위에서 유지�
 - `5xx`: 서버 문제일 가능성이 큼
 - `status = null`: 네트워크 또는 앱 내부 요청 준비 오류일 가능성이 큼
 
-### 차트 D: 포착 실패 단계
+### 차트 E: 포착 실패 단계
 
 1. `Trends`에서 `capture_failed`를 선택한다.
 2. 집계는 `Total count`로 설정한다.
