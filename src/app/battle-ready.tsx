@@ -1,5 +1,5 @@
 import { BattleScreen } from '@/src/screens/battle-screen';
 
-export default function BattleMoruRoute() {
+export default function BattleReadyRoute() {
   return <BattleScreen />;
 }

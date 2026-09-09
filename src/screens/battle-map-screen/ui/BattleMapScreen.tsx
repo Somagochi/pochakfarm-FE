@@ -282,7 +282,7 @@ export function BattleMapScreen() {
       navigationTimeoutRef.current = null;
       setSelectedGymLeaderId(null);
       router.push({
-        pathname: '/battle-moru',
+        pathname: '/battle-ready',
         params: {
           coach: COACH_PLACEMENTS[gymLeader.challengeOrder - 1]?.id ?? 'moru',
           gymLeaderId: String(gymLeader.gymLeaderId),
