@@ -12,6 +12,7 @@ import { submitCaptureGameResultApi } from '../api/submitCaptureGameResultApi';
 import type {
   CaptureDetail,
   CaptureGameResult,
+  CaptureSource,
   CaptureThrowResult,
   CreateCaptureResult,
 } from './types';
@@ -21,6 +22,7 @@ type CreateCaptureParams = {
   animalName: string;
   allowCoinPayment: boolean;
   photoUri: string;
+  source: CaptureSource;
 };
 
 const CAPTURE_POLL_INTERVAL_MS = 2000;
@@ -62,8 +64,14 @@ export function useCreateCapture() {
     captureAnalyticsEvent('capture_started', {
       content_type: params.contentType,
       paid_attempt: params.allowCoinPayment,
+      source: params.source,
     });
-    const { photoUri, ...request } = params;
+    const { photoUri } = params;
+    const request = {
+      allowCoinPayment: params.allowCoinPayment,
+      animalName: params.animalName,
+      contentType: params.contentType,
+    };
     let currentStep = 'create';
     const capturePipeline = (async () => {
       const capture = await runRequestStep('POST /api/captures', () =>

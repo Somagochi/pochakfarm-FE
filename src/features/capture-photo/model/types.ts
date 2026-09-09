@@ -1,5 +1,7 @@
 export type CaptureCardType = 'SKY' | 'GROUND' | 'SEA' | 'SPACE';
 
+export type CaptureSource = 'camera' | 'gallery';
+
 export type CaptureTier = 'C' | 'B' | 'A' | 'S' | 'SS' | 'SSS';
 
 export type CaptureOverview = {
