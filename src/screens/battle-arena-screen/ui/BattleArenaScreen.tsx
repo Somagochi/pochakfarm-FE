@@ -4,6 +4,7 @@ import {
   useLocalSearchParams,
 } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
+import LottieView from 'lottie-react-native';
 import {
   useCallback,
   useEffect,
@@ -28,7 +29,9 @@ import Animated, {
   Easing,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 
@@ -49,6 +52,10 @@ import { useResumeBattle } from '@/src/features/resume-battle';
 import { useStartBattleFinalRound } from '@/src/features/start-battle-final-round';
 import { useSubmitBattleFinalRound } from '@/src/features/submit-battle-final-round';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import impactGrassLottie from '@/src/shared/assets/images/battle/impact-grass-pixel-sequence.json';
+import impactSeaLottie from '@/src/shared/assets/images/battle/impact-sea-pixel-sequence.json';
+import impactSkyLottie from '@/src/shared/assets/images/battle/impact-sky-pixel-sequence.json';
+import impactSpaceLottie from '@/src/shared/assets/images/battle/impact-space-pixel-sequence.json';
 
 const ARENA_BACKGROUNDS: Record<BattleArenaType, number> = {
   ground: require('@/src/shared/assets/images/battle/ground-arena-background.png'),
@@ -76,6 +83,18 @@ const RECOMMENDED_SKILL_BADGE = require('@/src/shared/assets/images/battle/recom
 const SKILL_TYPE_OFFENSIVE = require('@/src/shared/assets/images/battle/skill-type-offensive.png');
 const SKILL_TYPE_BALANCE = require('@/src/shared/assets/images/battle/skill-type-balance.png');
 const SKILL_TYPE_STABLE = require('@/src/shared/assets/images/battle/skill-type-stable.png');
+const IMPACT_LOTTIES = {
+  GROUND: impactGrassLottie,
+  SEA: impactSeaLottie,
+  SKY: impactSkyLottie,
+  SPACE: impactSpaceLottie,
+} satisfies Record<BattleEntry['cardType'], object>;
+const IMPACT_LOTTIE_DURATIONS_MS: Record<BattleEntry['cardType'], number> = {
+  GROUND: 1234,
+  SEA: 1534,
+  SKY: 1100,
+  SPACE: 1767,
+};
 const BATTLE_PROGRESS_INNER_WIDTH = scaleByDeviceWidth(258.33);
 const BATTLE_PROGRESS_FILL_WIDTH = scaleByDeviceWidth(258.33);
 const BATTLE_PROGRESS_FILL_HEIGHT = scaleByDeviceWidth(21.62);
@@ -91,6 +110,8 @@ const BATTLE_STATUS_BADGE_SIZE = scaleByDeviceWidth(51.67);
 const SKILL_TIMER_TRACK_WIDTH = scaleByDeviceWidth(180);
 const BROADCAST_TYPING_INTERVAL_MS = 35;
 const BATTLE_ENTRANCE_DURATION_MS = 1000;
+const IMPACT_START_DELAY_MS = 500;
+const BATTLE_PROGRESS_DURATION_MS = 650;
 const SKILL_SELECTION_DURATION_MS = 3000;
 const IS_BATTLE_ACTION_SUBMISSION_ENABLED = true;
 const IS_SKILL_SELECTION_UI_PREVIEW_ENABLED = false;
@@ -116,6 +137,12 @@ const TIER_RANKS: Record<string, number> = {
   SS: 5,
   SSS: 6,
 };
+const TYPE_ADVANTAGES: Record<BattleEntry['cardType'], BattleEntry['cardType']> = {
+  GROUND: 'SEA',
+  SEA: 'SPACE',
+  SKY: 'GROUND',
+  SPACE: 'SKY',
+};
 const SKILL_TYPE_ICONS: Record<string, number> = {
   ATTACK: SKILL_TYPE_OFFENSIVE,
   AGGRESSIVE: SKILL_TYPE_OFFENSIVE,
@@ -136,6 +163,21 @@ function getSkillTypeLabel(battleType: string) {
 
 function getSkillTypeIcon(battleType: string) {
   return SKILL_TYPE_ICONS[battleType.trim().toUpperCase()] ?? SKILL_TYPE_BALANCE;
+}
+
+function getTypeAdvantageSide(
+  userType: BattleEntry['cardType'],
+  npcType: BattleEntry['cardType'],
+) {
+  if (TYPE_ADVANTAGES[userType] === npcType) {
+    return 'USER' as const;
+  }
+
+  if (TYPE_ADVANTAGES[npcType] === userType) {
+    return 'NPC' as const;
+  }
+
+  return null;
 }
 
 type BattlePartyMember = {
@@ -241,6 +283,40 @@ function getBattleProgress(state: BattleState) {
     0,
     Math.min(1, (state.barPosition - state.minBarPosition) / range),
   );
+}
+
+function getSignedBattlePoint(event: BattleBroadcastEvent) {
+  if (
+    event.eventCode !== 'BATTLE_POINT_APPLIED' ||
+    typeof event.point !== 'number'
+  ) {
+    return 0;
+  }
+
+  if (event.winnerSide === 'USER') {
+    return event.point;
+  }
+
+  if (event.winnerSide === 'NPC') {
+    return -event.point;
+  }
+
+  return 0;
+}
+
+function getBattleProgressBeforeEvents(
+  state: BattleState,
+  events: BattleBroadcastEvent[],
+) {
+  const appliedPoint = events.reduce(
+    (totalPoint, event) => totalPoint + getSignedBattlePoint(event),
+    0,
+  );
+
+  return getBattleProgress({
+    ...state,
+    barPosition: state.barPosition - appliedPoint,
+  });
 }
 
 function getEventAnimalName(
@@ -391,6 +467,8 @@ function CreatureInfoCard({
 
 export function BattleArenaScreen() {
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const battleMotionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const impactStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRequestedFinalRoundStartRef = useRef(false);
   const hasSubmittedFinalRoundResultRef = useRef(false);
   const hasHandledBattleEndRef = useRef(false);
@@ -401,8 +479,8 @@ export function BattleArenaScreen() {
     skill: string | null;
   } | null>(null);
   const pendingBattleStateRef = useRef<BattleState | null>(null);
-  const hasPreparedInitialRoundLogRef = useRef(false);
   const syntheticBroadcastKeysRef = useRef(new Set<string>());
+  const playedBattleMotionEventSequencesRef = useRef(new Set<number>());
   const {
     clearError: clearBattleActionError,
     errorMessage: battleActionErrorMessage,
@@ -513,9 +591,21 @@ export function BattleArenaScreen() {
   const [typedBroadcastMessage, setTypedBroadcastMessage] = useState('');
   const [isTypingBroadcastMessage, setIsTypingBroadcastMessage] =
     useState(false);
-  const initialProgress = battleState ? getBattleProgress(battleState) : 0.5;
+  const [impactTarget, setImpactTarget] = useState<'NPC' | 'USER' | null>(null);
+  const [isResolvingBattleMotion, setIsResolvingBattleMotion] = useState(false);
+  const [hasPreparedInitialRoundLogs, setHasPreparedInitialRoundLogs] =
+    useState(false);
+  const initialProgress = battleState
+    ? getBattleProgressBeforeEvents(battleState, initialBroadcastEvents)
+    : 0.5;
   const battleProgress = useSharedValue(initialProgress);
   const finalClashProgress = useSharedValue(initialProgress);
+  const opponentMotionX = useSharedValue(0);
+  const opponentMotionY = useSharedValue(0);
+  const opponentHitOpacity = useSharedValue(1);
+  const playerMotionX = useSharedValue(0);
+  const playerMotionY = useSharedValue(0);
+  const playerHitOpacity = useSharedValue(1);
   const player = battleState
     ? partyMembers.find(
         (member, index) =>
@@ -528,29 +618,38 @@ export function BattleArenaScreen() {
           (member.orderNo ?? index + 1) === battleState.npcEntry.orderNo,
       )
     : undefined;
+  const impactLottieSource = battleState
+    ? IMPACT_LOTTIES[
+        activeBroadcastEvent?.animalSide === 'NPC'
+          ? battleState.npcEntry.cardType
+          : battleState.userEntry.cardType
+      ]
+    : null;
+  const displayedBroadcastEvent =
+    activeBroadcastEvent ?? latestBroadcastEvent;
   const latestBroadcastMessage = useMemo(
     () =>
-      battleState && latestBroadcastEvent
+      battleState && displayedBroadcastEvent
         ? getEventMessage(
-            latestBroadcastEvent,
+            displayedBroadcastEvent,
             battleState,
             partyMembers,
             npcPartyMembers,
           )
         : '대전을 시작합니다!',
-    [battleState, latestBroadcastEvent, npcPartyMembers, partyMembers],
+    [battleState, displayedBroadcastEvent, npcPartyMembers, partyMembers],
   );
   const broadcastAnimalName = useMemo(
     () =>
-      battleState && latestBroadcastEvent
+      battleState && displayedBroadcastEvent
         ? getEventAnimalName(
-            latestBroadcastEvent,
+            displayedBroadcastEvent,
             battleState,
             partyMembers,
             npcPartyMembers,
           )
         : null,
-    [battleState, latestBroadcastEvent, npcPartyMembers, partyMembers],
+    [battleState, displayedBroadcastEvent, npcPartyMembers, partyMembers],
   );
   const broadcastMessageCharacters = useMemo(() => {
     const nameStart = broadcastAnimalName
@@ -560,7 +659,7 @@ export function BattleArenaScreen() {
       nameStart >= 0 && broadcastAnimalName
         ? nameStart + broadcastAnimalName.length
         : -1;
-    const skillName = latestBroadcastEvent?.skillName;
+    const skillName = displayedBroadcastEvent?.skillName;
     const skillNameStart = skillName
       ? latestBroadcastMessage.indexOf(skillName)
       : -1;
@@ -578,7 +677,7 @@ export function BattleArenaScreen() {
     }));
   }, [
     broadcastAnimalName,
-    latestBroadcastEvent?.skillName,
+    displayedBroadcastEvent?.skillName,
     latestBroadcastMessage,
     typedBroadcastMessage,
   ]);
@@ -597,6 +696,11 @@ export function BattleArenaScreen() {
     : 0;
   const isBroadcasting =
     activeBroadcastEvent !== null || broadcastQueue.length > 0;
+  const hasUnplayedBattleStateEvents = Boolean(
+    battleState?.broadcastEvents.some(
+      (event) => event.eventSeq > lastPlayedEventSequenceRef.current,
+    ),
+  );
   const isSkillSelectionReady = Boolean(
       battleState?.status === 'IN_PROGRESS' &&
       battleState.nextActionSeq !== null &&
@@ -606,6 +710,8 @@ export function BattleArenaScreen() {
       isFocused &&
       !isSubmittingAction &&
       !isResumingBattle &&
+      hasPreparedInitialRoundLogs &&
+      !hasUnplayedBattleStateEvents &&
       !isBroadcasting,
   );
   const canSelectSkill = Boolean(
@@ -692,6 +798,29 @@ export function BattleArenaScreen() {
     selectionTimerActionSeqRef.current = null;
     submittedActionRef.current = null;
     pendingBattleStateRef.current = null;
+    playedBattleMotionEventSequencesRef.current.clear();
+    if (battleMotionTimeoutRef.current) {
+      clearTimeout(battleMotionTimeoutRef.current);
+      battleMotionTimeoutRef.current = null;
+    }
+    if (impactStartTimeoutRef.current) {
+      clearTimeout(impactStartTimeoutRef.current);
+      impactStartTimeoutRef.current = null;
+    }
+    cancelAnimation(opponentMotionX);
+    cancelAnimation(opponentMotionY);
+    cancelAnimation(opponentHitOpacity);
+    cancelAnimation(playerMotionX);
+    cancelAnimation(playerMotionY);
+    cancelAnimation(playerHitOpacity);
+    opponentMotionX.value = 0;
+    opponentMotionY.value = 0;
+    opponentHitOpacity.value = 1;
+    playerMotionX.value = 0;
+    playerMotionY.value = 0;
+    playerHitOpacity.value = 1;
+    setImpactTarget(null);
+    setIsResolvingBattleMotion(false);
     hasRequestedFinalRoundStartRef.current =
       resumedBattle.state.finalRound.started;
     hasSubmittedFinalRoundResultRef.current = false;
@@ -699,7 +828,17 @@ export function BattleArenaScreen() {
     setSkillSelectionDeadlineMs(null);
     enqueueBroadcastEvents(resumedBattle.state.broadcastEvents);
     setBattleState(resumedBattle.state);
-  }, [currentBattleId, enqueueBroadcastEvents, resumeBattle]);
+  }, [
+    currentBattleId,
+    enqueueBroadcastEvents,
+    opponentMotionX,
+    opponentMotionY,
+    opponentHitOpacity,
+    playerMotionX,
+    playerMotionY,
+    playerHitOpacity,
+    resumeBattle,
+  ]);
   const applyPendingBattleStateForEvent = useCallback(
     (event: BattleBroadcastEvent) => {
       const pendingState = pendingBattleStateRef.current;
@@ -801,20 +940,20 @@ export function BattleArenaScreen() {
       if (enqueuedEvents.length > 0) {
         pendingBattleStateRef.current = result.state;
         const [firstEvent] = enqueuedEvents;
-        applyPendingBattleStateForEvent(firstEvent);
         setBroadcastQueue((currentQueue) =>
           currentQueue.filter(
             (event) => event.eventSeq !== firstEvent.eventSeq,
           ),
         );
+        applyPendingBattleStateForEvent(firstEvent);
         setActiveBroadcastEvent(firstEvent);
       } else {
         setBattleState(result.state);
       }
     },
     [
-      battleState,
       applyPendingBattleStateForEvent,
+      battleState,
       enqueueBroadcastEvents,
       skillSelectionDeadlineMs,
       submitBattleAction,
@@ -932,53 +1071,67 @@ export function BattleArenaScreen() {
     if (
       !hasAttemptedBattleRestore ||
       !battleState ||
-      hasPreparedInitialRoundLogRef.current
+      hasPreparedInitialRoundLogs
     ) {
       return;
     }
 
-    hasPreparedInitialRoundLogRef.current = true;
-
     if (activeBroadcastEvent || broadcastQueue.length > 0) {
+      setHasPreparedInitialRoundLogs(true);
       return;
     }
 
+    const actionSeq = battleState.nextActionSeq;
+
+    if (actionSeq === null) {
+      setHasPreparedInitialRoundLogs(true);
+      return;
+    }
+
+    const initialEvents: BattleBroadcastEvent[] = [];
     const userTierRank =
       TIER_RANKS[battleState.userEntry.tier.toUpperCase()] ?? 0;
     const npcTierRank =
       TIER_RANKS[battleState.npcEntry.tier.toUpperCase()] ?? 0;
 
-    if (userTierRank === npcTierRank || battleState.nextActionSeq === null) {
-      return;
+    if (userTierRank !== npcTierRank) {
+      initialEvents.push({
+        actionSeq,
+        animalSide: userTierRank > npcTierRank ? 'USER' : 'NPC',
+        entryOrder: battleState.currentEntryOrder,
+        eventCode: 'TIER_ADVANTAGE',
+        eventSeq: -2,
+      });
     }
 
-    const advantageSide = userTierRank > npcTierRank ? 'USER' : 'NPC';
-    const initialTierEvent: BattleBroadcastEvent = {
-      actionSeq: battleState.nextActionSeq,
-      animalSide: advantageSide,
-      entryOrder: battleState.currentEntryOrder,
-      eventCode: 'TIER_ADVANTAGE',
-      eventSeq: -2,
-    };
-    const initialBattlePointEvent: BattleBroadcastEvent = {
-      actionSeq: battleState.nextActionSeq,
-      entryOrder: battleState.currentEntryOrder,
-      eventCode: 'BATTLE_POINT_APPLIED',
-      eventSeq: -1,
-      point: 1,
-      winnerSide: advantageSide,
-    };
-    [initialTierEvent, initialBattlePointEvent].forEach((event) => {
+    const typeAdvantageSide = getTypeAdvantageSide(
+      battleState.userEntry.cardType,
+      battleState.npcEntry.cardType,
+    );
+
+    if (typeAdvantageSide) {
+      initialEvents.push({
+        actionSeq,
+        animalSide: typeAdvantageSide,
+        entryOrder: battleState.currentEntryOrder,
+        eventCode: 'TYPE_ADVANTAGE',
+        eventSeq: -1,
+      });
+    }
+
+    initialEvents.forEach((event) => {
       syntheticBroadcastKeysRef.current.add(
         `${event.actionSeq}:${event.entryOrder}:${event.eventCode}`,
       );
     });
-    setBroadcastQueue([initialTierEvent, initialBattlePointEvent]);
+    setBroadcastQueue(initialEvents);
+    setHasPreparedInitialRoundLogs(true);
   }, [
     activeBroadcastEvent,
     battleState,
     broadcastQueue.length,
     hasAttemptedBattleRestore,
+    hasPreparedInitialRoundLogs,
   ]);
 
   useEffect(() => {
@@ -1080,14 +1233,10 @@ export function BattleArenaScreen() {
     }
 
     const [nextEvent, ...remainingEvents] = broadcastQueue;
-    if (nextEvent) {
-      applyPendingBattleStateForEvent(nextEvent);
-    }
     setBroadcastQueue(remainingEvents);
     setActiveBroadcastEvent(nextEvent ?? null);
   }, [
     activeBroadcastEvent,
-    applyPendingBattleStateForEvent,
     broadcastQueue,
     hasAttemptedBattleRestore,
     latestBroadcastEvent,
@@ -1100,20 +1249,19 @@ export function BattleArenaScreen() {
 
     if (!playedEventSequencesRef.current.has(activeBroadcastEvent.eventSeq)) {
       playedEventSequencesRef.current.add(activeBroadcastEvent.eventSeq);
-      lastPlayedEventSequenceRef.current = activeBroadcastEvent.eventSeq;
       setLatestBroadcastEvent(activeBroadcastEvent);
-      if (currentBattleId && activeBroadcastEvent.eventSeq > 0) {
-        saveLastPlayedEventSequence(
-          currentBattleId,
-          activeBroadcastEvent.eventSeq,
-        );
-      }
     }
-  }, [activeBroadcastEvent, currentBattleId, saveLastPlayedEventSequence]);
+  }, [activeBroadcastEvent]);
 
   useEffect(() => {
     if (typingIntervalRef.current) {
       clearInterval(typingIntervalRef.current);
+      typingIntervalRef.current = null;
+    }
+
+    if (!activeBroadcastEvent) {
+      setIsTypingBroadcastMessage(false);
+      return;
     }
 
     setTypedBroadcastMessage('');
@@ -1140,17 +1288,25 @@ export function BattleArenaScreen() {
         typingIntervalRef.current = null;
       }
     };
-  }, [latestBroadcastMessage]);
+  }, [activeBroadcastEvent, latestBroadcastMessage]);
 
-  const handleBroadcastDialogPress = () => {
-    if (isTypingBroadcastMessage) {
-      if (typingIntervalRef.current) {
-        clearInterval(typingIntervalRef.current);
-        typingIntervalRef.current = null;
-      }
-      setTypedBroadcastMessage(latestBroadcastMessage);
-      setIsTypingBroadcastMessage(false);
-      return;
+  const advanceBroadcastEvent = () => {
+    if (activeBroadcastEvent && activeBroadcastEvent.eventSeq > 0) {
+      lastPlayedEventSequenceRef.current = Math.max(
+        lastPlayedEventSequenceRef.current,
+        activeBroadcastEvent.eventSeq,
+      );
+    }
+
+    if (
+      currentBattleId &&
+      activeBroadcastEvent &&
+      activeBroadcastEvent.eventSeq > 0
+    ) {
+      saveLastPlayedEventSequence(
+        currentBattleId,
+        activeBroadcastEvent.eventSeq,
+      );
     }
 
     const [nextEvent, ...remainingEvents] = broadcastQueue;
@@ -1163,6 +1319,145 @@ export function BattleArenaScreen() {
     applyPendingBattleStateForEvent(nextEvent);
     setBroadcastQueue(remainingEvents);
     setActiveBroadcastEvent(nextEvent);
+  };
+
+  const playSkillAttackMotion = (event: BattleBroadcastEvent) => {
+    const attackerSide = event.animalSide === 'NPC' ? 'NPC' : 'USER';
+    const targetSide = attackerSide === 'NPC' ? 'USER' : 'NPC';
+    const attackerEntry =
+      attackerSide === 'NPC' ? battleState?.npcEntry : battleState?.userEntry;
+    const impactDurationMs = attackerEntry
+      ? IMPACT_LOTTIE_DURATIONS_MS[attackerEntry.cardType]
+      : 0;
+    const attackerX = attackerSide === 'NPC' ? opponentMotionX : playerMotionX;
+    const attackerY = attackerSide === 'NPC' ? opponentMotionY : playerMotionY;
+    const horizontalAttackDirection = attackerSide === 'NPC' ? -1 : 1;
+    const verticalAttackDirection = attackerSide === 'NPC' ? 1 : -1;
+
+    playedBattleMotionEventSequencesRef.current.add(event.eventSeq);
+    setIsResolvingBattleMotion(true);
+    attackerX.value = 0;
+    attackerY.value = 0;
+    attackerY.value = withSequence(
+      withTiming(scaleByDeviceWidth(-10), { duration: 90 }),
+      withTiming(0, { duration: 90 }),
+      withTiming(scaleByDeviceWidth(-7), { duration: 80 }),
+      withTiming(0, { duration: 100 }),
+      withTiming(scaleByDeviceWidth(36) * verticalAttackDirection, {
+        duration: 140,
+        easing: Easing.out(Easing.quad),
+      }),
+      withTiming(0, {
+        duration: 160,
+        easing: Easing.inOut(Easing.quad),
+      }),
+    );
+    attackerX.value = withDelay(
+      360,
+      withSequence(
+        withTiming(scaleByDeviceWidth(24) * horizontalAttackDirection, {
+          duration: 140,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(0, {
+          duration: 160,
+          easing: Easing.inOut(Easing.quad),
+        }),
+      ),
+    );
+
+    impactStartTimeoutRef.current = setTimeout(() => {
+      const targetOpacity =
+        targetSide === 'NPC' ? opponentHitOpacity : playerHitOpacity;
+      targetOpacity.value = withSequence(
+        withRepeat(
+          withTiming(0.12, { duration: 80 }),
+          4,
+          true,
+        ),
+        withTiming(1, { duration: 80 }),
+      );
+      setImpactTarget(targetSide);
+      impactStartTimeoutRef.current = null;
+    }, IMPACT_START_DELAY_MS);
+    battleMotionTimeoutRef.current = setTimeout(() => {
+      setImpactTarget(null);
+      setIsResolvingBattleMotion(false);
+      battleMotionTimeoutRef.current = null;
+      advanceBroadcastEvent();
+    }, IMPACT_START_DELAY_MS + impactDurationMs);
+  };
+
+  const playBattleProgressMotion = (event: BattleBroadcastEvent) => {
+    const nextState = pendingBattleStateRef.current;
+    const progressState = nextState ?? battleState;
+    const progressRange = progressState
+      ? progressState.maxBarPosition - progressState.minBarPosition
+      : 0;
+    const signedPoint = getSignedBattlePoint(event);
+    const targetProgress =
+      progressRange > 0 && signedPoint !== 0
+        ? Math.max(
+            0,
+            Math.min(1, battleProgress.value + signedPoint / progressRange),
+          )
+        : nextState
+          ? getBattleProgress(nextState)
+          : null;
+
+    if (targetProgress === null) {
+      advanceBroadcastEvent();
+      return;
+    }
+
+    playedBattleMotionEventSequencesRef.current.add(event.eventSeq);
+    setIsResolvingBattleMotion(true);
+    battleProgress.value = withTiming(targetProgress, {
+      duration: BATTLE_PROGRESS_DURATION_MS,
+    });
+    battleMotionTimeoutRef.current = setTimeout(() => {
+      setIsResolvingBattleMotion(false);
+      battleMotionTimeoutRef.current = null;
+      advanceBroadcastEvent();
+    }, BATTLE_PROGRESS_DURATION_MS + 50);
+  };
+
+  const handleBroadcastDialogPress = () => {
+    if (isResolvingBattleMotion) {
+      return;
+    }
+
+    if (isTypingBroadcastMessage) {
+      if (typingIntervalRef.current) {
+        clearInterval(typingIntervalRef.current);
+        typingIntervalRef.current = null;
+      }
+      setTypedBroadcastMessage(latestBroadcastMessage);
+      setIsTypingBroadcastMessage(false);
+      return;
+    }
+
+    if (
+      activeBroadcastEvent?.eventCode === 'SKILL_TRIGGERED' &&
+      !playedBattleMotionEventSequencesRef.current.has(
+        activeBroadcastEvent.eventSeq,
+      )
+    ) {
+      playSkillAttackMotion(activeBroadcastEvent);
+      return;
+    }
+
+    if (
+      activeBroadcastEvent?.eventCode === 'BATTLE_POINT_APPLIED' &&
+      !playedBattleMotionEventSequencesRef.current.has(
+        activeBroadcastEvent.eventSeq,
+      )
+    ) {
+      playBattleProgressMotion(activeBroadcastEvent);
+      return;
+    }
+
+    advanceBroadcastEvent();
   };
 
   useEffect(() => {
@@ -1364,6 +1659,20 @@ export function BattleArenaScreen() {
       },
     ],
   }));
+  const opponentCreatureMotionStyle = useAnimatedStyle(() => ({
+    opacity: opponentHitOpacity.value,
+    transform: [
+      { translateX: opponentMotionX.value },
+      { translateY: opponentMotionY.value },
+    ],
+  }));
+  const playerCreatureMotionStyle = useAnimatedStyle(() => ({
+    opacity: playerHitOpacity.value,
+    transform: [
+      { translateX: playerMotionX.value },
+      { translateY: playerMotionY.value },
+    ],
+  }));
   const finalClashProgressStyle = useAnimatedStyle(() => ({
     width: BATTLE_PROGRESS_FILL_WIDTH * finalClashProgress.value,
   }));
@@ -1501,15 +1810,25 @@ export function BattleArenaScreen() {
               entry={battleState.npcEntry}
               isOpponent
             />
-            <Image
+            <Animated.Image
               resizeMode="contain"
               source={
                 opponent?.imageUri
                   ? { uri: opponent.imageUri }
                   : OPPONENT_CREATURE
               }
-              style={styles.opponentCreature}
+              style={[styles.opponentCreature, opponentCreatureMotionStyle]}
             />
+            {impactTarget === 'NPC' && impactLottieSource && (
+              <LottieView
+                autoPlay
+                loop={false}
+                onAnimationFinish={() => setImpactTarget(null)}
+                resizeMode="contain"
+                source={impactLottieSource}
+                style={[styles.impactHit, styles.opponentImpactHit]}
+              />
+            )}
             {coachImageUrl && (
               <Image
                 resizeMode="contain"
@@ -1522,13 +1841,23 @@ export function BattleArenaScreen() {
               source={PLAYER_SILHOUETTE}
               style={styles.playerSilhouette}
             />
-            <Image
+            <Animated.Image
               resizeMode="contain"
               source={
                 player?.imageUri ? { uri: player.imageUri } : OPPONENT_CREATURE
               }
-              style={styles.playerCreature}
+              style={[styles.playerCreature, playerCreatureMotionStyle]}
             />
+            {impactTarget === 'USER' && impactLottieSource && (
+              <LottieView
+                autoPlay
+                loop={false}
+                onAnimationFinish={() => setImpactTarget(null)}
+                resizeMode="contain"
+                source={impactLottieSource}
+                style={[styles.impactHit, styles.playerImpactHit]}
+              />
+            )}
             <CreatureInfoCard
               entry={battleState.userEntry}
             />
@@ -1914,6 +2243,20 @@ const styles = StyleSheet.create({
     bottom: scaleByDeviceWidth(25),
     width: scaleByDeviceWidth(92),
     height: scaleByDeviceWidth(92),
+  },
+  impactHit: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(160),
+    height: scaleByDeviceWidth(160),
+    zIndex: 3,
+  },
+  opponentImpactHit: {
+    top: scaleByDeviceWidth(78),
+    left: scaleByDeviceWidth(114),
+  },
+  playerImpactHit: {
+    left: scaleByDeviceWidth(62),
+    bottom: scaleByDeviceWidth(-9),
   },
   statusBar: {
     position: 'absolute',
