@@ -292,7 +292,7 @@ export function BattleScreen() {
       party: serializedSelectedParty,
     });
 
-    router.push({
+    router.replace({
       pathname: '/battle-arena',
       params: {
         battleId: String(battle.battleId),

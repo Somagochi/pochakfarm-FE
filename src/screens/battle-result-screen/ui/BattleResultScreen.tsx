@@ -342,7 +342,7 @@ export function BattleResultScreen() {
           <Pressable
             accessibilityLabel="뱃지 보기"
             accessibilityRole="button"
-            onPress={() => router.replace('/(tabs)/battle')}
+            onPress={() => router.dismissTo('/(tabs)/battle')}
             style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
           >
             <Image source={VIEW_BADGES_BUTTON} style={styles.actionButtonImage} />
@@ -352,7 +352,7 @@ export function BattleResultScreen() {
             accessibilityRole="button"
             accessibilityState={{ disabled: !isVictory }}
             disabled={!isVictory}
-            onPress={() => router.replace('/(tabs)/battle')}
+            onPress={() => router.dismissTo('/(tabs)/battle')}
             style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
           >
             <Image
