@@ -43,7 +43,9 @@ request_failed
 - 포착 생성 흐름이 시작되어 `POST /api/captures`를 보내기 직전에 수집된다.
 - 요청 시도 자체를 나타내므로 이후 서버 요청이나 업로드가 실패해도 수집된다.
 - 이미 포착 요청을 처리 중일 때 발생한 중복 입력에서는 수집되지 않는다.
-- 이미지 형식과 코인 기회 사용 여부가 `content_type`, `paid_attempt`로 수집된다.
+- 사진 입력 방식, 이미지 형식, 코인 기회 사용 여부가 `source`, `content_type`,
+  `paid_attempt`로 수집된다.
+- `source = camera`는 직접 촬영, `source = gallery`는 앨범 선택을 의미한다.
 
 ### `capture_generation_completed`
 
@@ -161,6 +163,15 @@ request_failed
 3. 각 Series 집계를 `Total count`로 설정한다.
 4. 기간은 `Last 30 days`, 간격은 `Day`로 설정한다.
 5. 이름을 `일별 포착 생성 성공·실패`로 저장한다.
+
+### 차트 B-1: 촬영 방식별 포착 시작
+
+1. `Trends`에서 `capture_started`를 선택한다.
+2. 집계를 `Unique users`로 설정한다.
+3. `Breakdown`에 event property `source`를 선택한다.
+4. 이름을 `카메라·앨범별 포착 시작 사용자`로 저장한다.
+
+`camera`와 `gallery` 중 어떤 입력 방식을 더 많이 사용하는지 비교한다.
 
 ### 차트 C: 생성 속도
 
