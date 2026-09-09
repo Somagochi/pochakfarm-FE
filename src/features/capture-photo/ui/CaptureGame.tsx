@@ -62,7 +62,6 @@ const CAMERA_FRAME_IMAGE = require('@/src/shared/assets/images/capture/captured-
 const POLAROID_EXIT_IMAGE = require('@/src/shared/assets/images/capture/polaroid-exit.png');
 const TARGET_FRAME_IMAGE = require('@/src/shared/assets/images/capture/pochak-circle.png');
 const TARGET_CONTRACTING_RING_IMAGE = require('@/src/shared/assets/images/capture/pochak-contracting-circle.png');
-const CAPTURE_RESULT_CARD_IMAGE = require('@/src/shared/assets/images/capture/capture-result-card.png');
 const CAPTURE_SUCCESS_OPEN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-success-open-button.png');
 const CAPTURE_FAILURE_MAIN_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/capture-failure-main-button.png');
 const CAPTURE_SUCCESS_LOTTIE = require('@/src/shared/assets/images/capture/pochak-success.json');
@@ -154,10 +153,10 @@ export function CaptureGame({
   const throwScale = useRef(new Animated.Value(1)).current;
   const throwArc = useRef(new Animated.Value(0)).current;
   const throwOpacity = useRef(new Animated.Value(1)).current;
-  const resultCardShake = useRef(new Animated.Value(0)).current;
   const pulseScale = useRef(new Animated.Value(1)).current;
   const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
+  const hasPlayedFailureLottieRef = useRef(false);
   const experienceProgress = useRef(new Animated.Value(0)).current;
   const levelUpOpacity = useRef(new Animated.Value(0)).current;
   const levelUpScale = useRef(new Animated.Value(0.6)).current;
@@ -227,6 +226,56 @@ export function CaptureGame({
       setResult(nextResult);
     },
     [onGameResult],
+  );
+
+  const handleTimingMissAnimationFinish = useCallback(
+    (isCancelled: boolean) => {
+      if (isCancelled || resultRef.current) {
+        return;
+      }
+
+      const nextThrowsUsed = throwsUsed + 1;
+      setThrowsUsed(nextThrowsUsed);
+
+      if (nextThrowsUsed >= MAX_THROWS) {
+        hasPlayedFailureLottieRef.current = true;
+        setIsTimingMiss(false);
+        finishGame('failure', nextThrowsUsed, 'attempts');
+        return;
+      }
+
+      throwPosition.setValue({ x: 0, y: 0 });
+      throwRotation.setValue(0);
+      throwArc.setValue(0);
+      throwScale.setValue(1);
+      pulseScale.setValue(1);
+      pulseScaleValue.current = 1;
+      setSecondsLeft(CAPTURE_SECONDS);
+
+      Animated.timing(throwOpacity, {
+        toValue: 1,
+        duration: 140,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (!finished) {
+          return;
+        }
+
+        setIsTimingMiss(false);
+        setIsTargetPaused(false);
+        setIsThrowing(false);
+      });
+    },
+    [
+      finishGame,
+      pulseScale,
+      throwArc,
+      throwOpacity,
+      throwPosition,
+      throwRotation,
+      throwScale,
+      throwsUsed,
+    ],
   );
 
   useEffect(() => {
@@ -301,7 +350,9 @@ export function CaptureGame({
     }
 
     setShowResultActions(false);
-    setShowResultNotice(false);
+    setShowResultNotice(
+      result === 'failure' && hasPlayedFailureLottieRef.current,
+    );
     setShowExperienceAction(false);
     setShowLevelUp(false);
     setDisplayedLevel(null);
@@ -660,71 +711,7 @@ export function CaptureGame({
             }
 
             throwOpacity.setValue(0);
-            resultCardShake.setValue(0);
             setIsTimingMiss(true);
-
-            requestAnimationFrame(() => {
-              const timingMissShakeAnimation = Animated.sequence([
-                ...Array.from({ length: 10 }, () => [
-                  Animated.timing(resultCardShake, {
-                    toValue: -1,
-                    duration: 90,
-                    easing: Easing.inOut(Easing.quad),
-                    useNativeDriver: true,
-                  }),
-                  Animated.timing(resultCardShake, {
-                    toValue: 1,
-                    duration: 90,
-                    easing: Easing.inOut(Easing.quad),
-                    useNativeDriver: true,
-                  }),
-                ]).flat(),
-                Animated.timing(resultCardShake, {
-                  toValue: 0,
-                  duration: 200,
-                  easing: Easing.out(Easing.quad),
-                  useNativeDriver: true,
-                }),
-              ]);
-
-              timingMissShakeAnimation.start(
-                ({ finished: shakeFinished }) => {
-                  if (!shakeFinished) {
-                    return;
-                  }
-
-                  setThrowsUsed(nextThrowsUsed);
-
-                  if (nextThrowsUsed >= MAX_THROWS) {
-                    finishGame('failure', nextThrowsUsed, 'attempts');
-                    setIsTimingMiss(false);
-                    return;
-                  }
-
-                  throwPosition.setValue({ x: 0, y: 0 });
-                  throwRotation.setValue(0);
-                  throwArc.setValue(0);
-                  throwScale.setValue(1);
-                  pulseScale.setValue(1);
-                  pulseScaleValue.current = 1;
-                  setSecondsLeft(CAPTURE_SECONDS);
-
-                  Animated.timing(throwOpacity, {
-                    toValue: 1,
-                    duration: 140,
-                    useNativeDriver: true,
-                  }).start(({ finished: didAppear }) => {
-                    if (!didAppear) {
-                      return;
-                    }
-
-                    setIsTimingMiss(false);
-                    setIsTargetPaused(false);
-                    setIsThrowing(false);
-                  });
-                },
-              );
-            });
           });
         },
         onPanResponderTerminate: resetFrame,
@@ -736,7 +723,6 @@ export function CaptureGame({
       resetFrame,
       respawnFrame,
       pulseScale,
-      resultCardShake,
       targetCenter.y,
       throwPosition,
       throwArc,
@@ -751,18 +737,6 @@ export function CaptureGame({
   const frameRotation = throwRotation.interpolate({
     inputRange: [0, 1],
     outputRange: ['0deg', '360deg'],
-  });
-  const resultCardRotation = resultCardShake.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: ['-9deg', '0deg', '9deg'],
-  });
-  const resultCardTranslateX = resultCardShake.interpolate({
-    inputRange: [-1, 0, 1],
-    outputRange: [
-      scaleByDeviceWidth(-8),
-      0,
-      scaleByDeviceWidth(8),
-    ],
   });
   const targetRingColor = pulseScale.interpolate({
     inputRange: [0, 0.333, 0.334, 0.666, 0.667, 1],
@@ -1021,27 +995,27 @@ export function CaptureGame({
       )}
 
       {isTimingMiss && !result && (
-        <View pointerEvents="none" style={styles.resultOverlay}>
-          <Animated.Image
-            accessibilityLabel="타이밍을 놓친 포착 결과 카드"
+        <View
+          accessibilityLabel="포착 타이밍 실패 애니메이션"
+          pointerEvents="none"
+          style={styles.resultOverlay}
+        >
+          <LottieView
+            autoPlay
+            loop={false}
+            onAnimationFinish={handleTimingMissAnimationFinish}
             resizeMode="contain"
-            source={CAPTURE_RESULT_CARD_IMAGE}
-            style={[
-              styles.resultShakeCard,
-              {
-                transform: [
-                  { translateX: resultCardTranslateX },
-                  { rotate: resultCardRotation },
-                ],
-              },
-            ]}
+            source={CAPTURE_FAILURE_LOTTIE}
+            style={styles.resultLottie}
           />
         </View>
       )}
 
       {result && !(result === 'success' && hasOpenedSuccess) && (
         <View accessibilityViewIsModal style={styles.resultOverlay}>
-          {!showResultActions && !showResultNotice && (
+          {!showResultActions &&
+            !showResultNotice &&
+            !(result === 'failure' && hasPlayedFailureLottieRef.current) && (
             <LottieView
               autoPlay
               loop={false}
@@ -1411,12 +1385,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(24, 20, 16, 0.66)',
-  },
-  resultShakeCard: {
-    position: 'absolute',
-    top: '30%',
-    width: scaleByDeviceWidth(190),
-    height: scaleByDeviceWidth(190),
   },
   resultLottie: {
     ...StyleSheet.absoluteFillObject,
