@@ -199,12 +199,48 @@ async function retryWithAccessToken(
   });
 }
 
+function normalizeRequestEndpoint(path: string) {
+  return path
+    .split('?')[0]
+    .replace(
+      /\/api\/achievements\/[^/]+\/claim$/,
+      '/api/achievements/:code/claim',
+    )
+    .replace(/\/\d+(?=\/|$)/g, '/:id');
+}
+
+function getRequestFeature(endpoint: string) {
+  const resource = endpoint.split('/')[2];
+
+  switch (resource) {
+    case 'captures':
+      return 'capture';
+    case 'battles':
+      return 'battle';
+    case 'farms':
+      return 'farm';
+    case 'animals':
+      return 'creature';
+    case 'achievements':
+      return 'achievement';
+    case 'coupons':
+      return 'coupon';
+    case 'auth':
+    case 'users':
+      return 'account';
+    default:
+      return 'other';
+  }
+}
+
 async function requestWithResponse<TResponse>(
   path: string,
   init: RequestInit = {},
 ): Promise<ApiResponse<TResponse>> {
   const endApiRequest = beginApiRequest();
   const requestedAt = Date.now();
+  const endpoint = normalizeRequestEndpoint(path);
+  const feature = getRequestFeature(endpoint);
 
   try {
     if (!env.apiBaseUrl) {
@@ -238,16 +274,19 @@ async function requestWithResponse<TResponse>(
       throw new ApiError(message, response.status, getErrorCode(data));
     }
 
+    captureAnalyticsEvent('request_succeeded', {
+      duration_ms: Date.now() - requestedAt,
+      endpoint,
+      feature,
+      method: init.method ?? 'GET',
+      status: response.status,
+    });
+
     return {
       data: data as TResponse,
       status: response.status,
     };
   } catch (error) {
-    const endpoint = path
-      .split('?')[0]
-      .replace(/\/api\/achievements\/[^/]+\/claim$/, '/api/achievements/:code/claim')
-      .replace(/\/\d+(?=\/|$)/g, '/:id');
-
     captureAnalyticsEvent('request_failed', {
       duration_ms: Date.now() - requestedAt,
       endpoint,
@@ -258,6 +297,7 @@ async function requestWithResponse<TResponse>(
             : 'client'
           : 'network_or_client',
       error_code: error instanceof ApiError ? error.code : null,
+      feature,
       method: init.method ?? 'GET',
       status: error instanceof ApiError ? error.status : null,
     });
