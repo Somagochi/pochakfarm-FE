@@ -35,6 +35,7 @@ const FIRST_CLEAR_REWARD_TITLE = require('@/src/shared/assets/images/battle/firs
 const FIRST_CLEAR_BADGE = require('@/src/shared/assets/images/battle/first-clear-badge.png');
 const ACHIEVEMENT_PROGRESS_FULL = require('@/src/shared/assets/images/collection/achievement-progress-full.png');
 const COACH_RESULT_PANEL = require('@/src/shared/assets/images/battle/coach-result-panel.png');
+const DEFEAT_COACH_RESULT_PANEL = require('@/src/shared/assets/images/battle/defeat-coach-result-panel.png');
 
 const COACH_NAMES: Record<BattleCoachId, string> = {
   moru: '모루',
@@ -237,7 +238,7 @@ export function BattleResultScreen() {
       >
         <ImageBackground
           resizeMode="stretch"
-          source={COACH_RESULT_PANEL}
+          source={isVictory ? COACH_RESULT_PANEL : DEFEAT_COACH_RESULT_PANEL}
           style={styles.coachPanel}
         >
           {gymLeaderDetail && (
@@ -255,6 +256,7 @@ export function BattleResultScreen() {
                   styles.opponentCreature,
                   { left: scaleByDeviceWidth(index * 43) },
                   index === 1 && styles.frontOpponentCreature,
+                  !isVictory && styles.defeatedOpponentCreature,
                 ]}
               />
             ))}
@@ -410,6 +412,9 @@ const styles = StyleSheet.create({
   },
   frontOpponentCreature: {
     zIndex: 2,
+  },
+  defeatedOpponentCreature: {
+    tintColor: '#171717',
   },
   rewardSection: {
     position: 'relative',
