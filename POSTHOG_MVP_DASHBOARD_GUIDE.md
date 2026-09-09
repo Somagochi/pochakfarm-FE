@@ -215,9 +215,14 @@ Action은 여러 핵심 행동을 하나의 지표처럼 묶어준다.
 ### 차트 A: DAU
 
 1. `Trends`에서 `Core Gameplay` Action을 선택한다.
-2. 집계를 `Daily active users`로 선택한다.
-3. 기간은 `Last 30 days`, 간격은 `Day`로 설정한다.
-4. 이름을 `제품 DAU`로 저장한다.
+2. `Total count`라고 표시된 집계 메뉴를 눌러 `Unique users`를 선택한다.
+3. 기간은 `Last 30 days`로 설정한다.
+4. 차트 간격(`Interval`)을 `Day`로 설정한다.
+5. `Display`는 선 그래프를 선택한다.
+6. 이름을 `제품 DAU`로 저장한다.
+
+PostHog 화면에 `Daily active users`라는 항목이 없어도 정상이다. `Unique users`와
+`Day` 간격을 조합하면 각 날짜에 Core Gameplay를 한 고유 사용자, 즉 DAU가 된다.
 
 ### 차트 B: WAU
 
