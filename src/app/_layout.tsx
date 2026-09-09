@@ -7,10 +7,10 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AppPostHogProvider } from '@/src/app/providers/AppPostHogProvider';
 import { useInitializeSocialLogin } from '@/src/features/social-login';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
 import { subscribeToSessionExpiration } from '@/src/shared/lib/auth/sessionExpiration';
+import { AppPostHogProvider } from '@/src/shared/ui/AppPostHogProvider';
 import { ScreenLoadingOverlay } from '@/src/shared/ui/ScreenLoadingOverlay';
 
 const MINIMUM_SPLASH_DURATION_MS = 1000;

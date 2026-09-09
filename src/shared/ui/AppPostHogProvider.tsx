@@ -58,7 +58,6 @@ export function AppPostHogProvider({ children }: PropsWithChildren) {
         captureScreens: false,
         captureTouches: false,
       }}
-      debug={__DEV__}
     >
       <PostHogAnalyticsBridge />
       <PostHogScreenTracker />
