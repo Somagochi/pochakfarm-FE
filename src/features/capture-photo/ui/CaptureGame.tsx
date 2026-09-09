@@ -888,7 +888,7 @@ export function CaptureGame({
       </View>
 
       <Image
-        accessibilityLabel="타이밍에 맞춰 액자를 던지세요"
+        accessibilityLabel="타이밍에 맞춰 카드를 던지세요"
         resizeMode="contain"
         source={THROW_GUIDE_IMAGE}
         style={[
