@@ -11,6 +11,7 @@ const EXPERIENCE_REWARD_ICON = require('@/src/shared/assets/images/battle/experi
 type BattleHeaderProps = {
   coinReward?: number | string;
   experienceReward?: number | string;
+  showBackButton?: boolean;
   showRewardBanner?: boolean;
   subtitle?: string;
   title?: string;
@@ -19,6 +20,7 @@ type BattleHeaderProps = {
 export function BattleHeader({
   coinReward = 300,
   experienceReward = 328,
+  showBackButton = true,
   showRewardBanner = true,
   subtitle,
   title = '출전 동물 선택',
@@ -26,18 +28,20 @@ export function BattleHeader({
   return (
     <View style={styles.container}>
       <View style={styles.titleRow}>
-        <Pressable
-          accessibilityLabel="뒤로 가기"
-          accessibilityRole="button"
-          hitSlop={scaleByDeviceWidth(12)}
-          onPress={() => router.back()}
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Image source={BACK_ICON} style={styles.backIcon} />
-        </Pressable>
+        {showBackButton && (
+          <Pressable
+            accessibilityLabel="뒤로 가기"
+            accessibilityRole="button"
+            hitSlop={scaleByDeviceWidth(12)}
+            onPress={() => router.back()}
+            style={({ pressed }) => [
+              styles.backButton,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Image source={BACK_ICON} style={styles.backIcon} />
+          </Pressable>
+        )}
         <Text style={styles.title}>{title}</Text>
       </View>
       {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}

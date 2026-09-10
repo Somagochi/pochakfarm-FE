@@ -78,7 +78,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppPostHogProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen
+            name="battle-result"
+            options={{ gestureEnabled: false }}
+          />
+        </Stack>
         <ScreenLoadingOverlay />
         <StatusBar style="auto" />
       </AppPostHogProvider>

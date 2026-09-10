@@ -1,6 +1,7 @@
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
+  BackHandler,
   Image,
   ImageBackground,
   Pressable,
@@ -22,9 +23,7 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 import { BattleHeader } from '@/src/widgets/battle-header';
 
-const VIEW_BADGES_BUTTON = require('@/src/shared/assets/images/battle/view-badges-button.png');
-const NEXT_COACH_BUTTON = require('@/src/shared/assets/images/battle/next-coach-button.png');
-const NEXT_COACH_BUTTON_DISABLED = require('@/src/shared/assets/images/battle/next-coach-button-disabled.png');
+const RETURN_BUTTON = require('@/src/shared/assets/images/battle/battle-result-return-button.png');
 const VICTORY_REWARD_PANEL = require('@/src/shared/assets/images/battle/victory-reward-panel.png');
 const VICTORY_REWARD_TITLE = require('@/src/shared/assets/images/battle/victory-reward-title.png');
 const DEFEAT_REWARD_TITLE = require('@/src/shared/assets/images/battle/defeat-reward-title.png');
@@ -125,7 +124,8 @@ function parseBattleReward(value?: string | string[]): BattleReward | null {
       typeof reward.rewardGranted !== 'boolean' ||
       typeof reward.gymLeaderCoins !== 'number' ||
       typeof reward.experience !== 'number' ||
-      (reward.badgeCode !== null && typeof reward.badgeCode !== 'string')
+      (reward.badgeImageUrl !== null &&
+        typeof reward.badgeImageUrl !== 'string')
     ) {
       return null;
     }
@@ -173,6 +173,15 @@ export function BattleResultScreen() {
   const hasCapturedCompletionRef = useRef(false);
 
   useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      'hardwareBackPress',
+      () => true,
+    );
+
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
     if (hasCapturedCompletionRef.current) {
       return;
     }
@@ -207,9 +216,20 @@ export function BattleResultScreen() {
   const shouldShowFirstClearReward =
     (battleResultParam === 'WIN' || battleResultParam === 'LOSE') &&
     battleReward?.firstClear === true;
-  const firstClearBadgeImage = isVictory
-    ? FIRST_CLEAR_BADGE
-    : DEFEAT_FIRST_CLEAR_BADGE;
+  const isPreviouslyCleared =
+    gymLeaderDetail?.gymLeader.cleared === true &&
+    battleReward?.firstClear !== true;
+  const displayedCoinReward = isPreviouslyCleared
+    ? 0
+    : (battleReward?.gymLeaderCoins ?? 0);
+  const displayedExperienceReward = isPreviouslyCleared
+    ? 0
+    : (battleReward?.experience ?? 0);
+  const firstClearBadgeImage = battleReward?.badgeImageUrl
+    ? { uri: battleReward.badgeImageUrl }
+    : isVictory
+      ? FIRST_CLEAR_BADGE
+      : DEFEAT_FIRST_CLEAR_BADGE;
   const opponentCreatures = gymLeaderDetail
     ? gymLeaderDetail.animals
         .map((animal) => ({
@@ -226,6 +246,7 @@ export function BattleResultScreen() {
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
       <BattleHeader
+        showBackButton={false}
         showRewardBanner={false}
         subtitle={
           isVictory
@@ -283,13 +304,13 @@ export function BattleResultScreen() {
             <View style={styles.rewardItem}>
               <Image source={COIN_REWARD_ICON} style={styles.rewardIcon} />
               <Text style={styles.rewardText}>
-                +{battleReward?.gymLeaderCoins ?? 0}코인
+                +{displayedCoinReward}코인
               </Text>
             </View>
             <View style={styles.rewardItem}>
               <Image source={EXPERIENCE_REWARD_ICON} style={styles.rewardIcon} />
               <Text style={styles.rewardText}>
-                +{battleReward?.experience ?? 0}EXP
+                +{displayedExperienceReward}EXP
               </Text>
             </View>
           </View>
@@ -346,31 +367,18 @@ export function BattleResultScreen() {
 
       </ScrollView>
       <View style={styles.actionsBar}>
-        <View style={styles.actions}>
-          <Pressable
-            accessibilityLabel="뱃지 보기"
-            accessibilityRole="button"
-            onPress={() => router.dismissTo('/(tabs)/battle')}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-          >
-            <Image source={VIEW_BADGES_BUTTON} style={styles.actionButtonImage} />
-          </Pressable>
-          <Pressable
-            accessibilityLabel="다음 관장"
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !isVictory }}
-            disabled={!isVictory}
-            onPress={() => router.dismissTo('/(tabs)/battle')}
-            style={({ pressed }) => [styles.actionButton, pressed && styles.pressed]}
-          >
-            <Image
-              source={
-                isVictory ? NEXT_COACH_BUTTON : NEXT_COACH_BUTTON_DISABLED
-              }
-              style={styles.actionButtonImage}
-            />
-          </Pressable>
-        </View>
+        <Pressable
+          accessibilityLabel="돌아가기"
+          accessibilityRole="button"
+          onPress={() => router.dismissTo('/(tabs)/battle')}
+          style={({ pressed }) => [
+            styles.returnButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Image source={RETURN_BUTTON} style={styles.returnButtonImage} />
+          <Text style={styles.returnButtonText}>돌아가기</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -542,11 +550,6 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(10),
     lineHeight: scaleByDeviceWidth(12),
   },
-  actions: {
-    width: scaleByDeviceWidth(320),
-    flexDirection: 'row',
-    gap: scaleByDeviceWidth(12),
-  },
   actionsBar: {
     alignItems: 'center',
     paddingTop: scaleByDeviceWidth(12),
@@ -555,13 +558,22 @@ const styles = StyleSheet.create({
     borderTopColor: '#E8DBC8',
     backgroundColor: '#FFF8ED',
   },
-  actionButton: {
+  returnButton: {
     width: scaleByDeviceWidth(154),
-    height: scaleByDeviceWidth(60),
+    height: scaleByDeviceWidth(154 * (240 / 616)),
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  actionButtonImage: {
+  returnButtonImage: {
+    position: 'absolute',
     width: '100%',
     height: '100%',
+  },
+  returnButtonText: {
+    color: '#6B4B20',
+    fontFamily: 'EliceDXNeolli-Medium',
+    fontSize: scaleByDeviceWidth(14),
+    lineHeight: scaleByDeviceWidth(20),
   },
   pressed: {
     opacity: 0.8,
