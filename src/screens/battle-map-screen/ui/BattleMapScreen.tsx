@@ -124,6 +124,7 @@ export function BattleMapScreen() {
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [screenWidth, setScreenWidth] = useState(0);
   const [screenHeight, setScreenHeight] = useState(0);
+  const [mapScrollY, setMapScrollY] = useState(0);
   const [selectedGymLeaderId, setSelectedGymLeaderId] = useState<number | null>(
     null,
   );
@@ -141,6 +142,18 @@ export function BattleMapScreen() {
     mapHeight * (MORU_TOP / MAP_ORIGINAL_HEIGHT) -
     screenWidth * (MORU_TOP_OFFSET / 360);
   const coachWidth = screenWidth * (COACH_DESIGN_WIDTH / MAP_ORIGINAL_WIDTH);
+  const selectedGymLeader = gymLeaders.find(
+    (gymLeader) => gymLeader.gymLeaderId === selectedGymLeaderId,
+  );
+  const selectedCoach = selectedGymLeader
+    ? COACH_PLACEMENTS[selectedGymLeader.challengeOrder - 1]
+    : undefined;
+  const selectedCoachTop =
+    selectedGymLeader && selectedCoach
+      ? selectedGymLeader.challengeOrder === 1
+        ? moruTop
+        : mapHeight * (selectedCoach.top / MAP_ORIGINAL_HEIGHT)
+      : null;
 
   useFocusEffect(
     useCallback(() => {
@@ -332,6 +345,7 @@ export function BattleMapScreen() {
           initialNumToRender={3}
           keyExtractor={String}
           maxToRenderPerBatch={2}
+          onScroll={(event) => setMapScrollY(event.nativeEvent.contentOffset.y)}
           ref={mapListRef}
           removeClippedSubviews={false}
           renderItem={({ index }) => {
@@ -339,28 +353,6 @@ export function BattleMapScreen() {
               screenWidth *
               (MAP_SEGMENT_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
             const segmentTop = index * segmentHeight;
-            const containsSelectedCoach = gymLeaders.some((gymLeader) => {
-              if (gymLeader.gymLeaderId !== selectedGymLeaderId) {
-                return false;
-              }
-
-              const coach =
-                COACH_PLACEMENTS[gymLeader.challengeOrder - 1];
-
-              if (!coach) {
-                return false;
-              }
-
-              const coachTop =
-                gymLeader.challengeOrder === 1
-                  ? moruTop
-                  : mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
-
-              return (
-                coachTop >= segmentTop &&
-                coachTop < segmentTop + segmentHeight
-              );
-            });
 
             return (
               <View
@@ -369,10 +361,7 @@ export function BattleMapScreen() {
                   {
                     width: screenWidth,
                     height: segmentHeight,
-                    // 선택 시 배경을 올리면 이전 조각에서 내려온 관장이 가려진다.
-                    zIndex: containsSelectedCoach
-                      ? BATTLE_MAP_SEGMENTS.length + 1
-                      : BATTLE_MAP_SEGMENTS.length - index,
+                    zIndex: BATTLE_MAP_SEGMENTS.length - index,
                   },
                 ]}
               >
@@ -437,6 +426,7 @@ export function BattleMapScreen() {
                           left,
                           width: size,
                           height: size,
+                          zIndex: isSelected ? 2 : 1,
                         },
                         pressed && styles.pressed,
                       ]}
@@ -467,28 +457,42 @@ export function BattleMapScreen() {
                           </ImageBackground>
                         </>
                       )}
-                      {isSelected && (
-                        <View
-                          style={styles.coachSelectedExclamationPosition}
-                        >
-                          <Animated.View entering={BounceIn.duration(350)}>
-                            <Image
-                              resizeMode="contain"
-                              source={COACH_SELECTED_EXCLAMATION}
-                              style={styles.coachSelectedExclamation}
-                            />
-                          </Animated.View>
-                        </View>
-                      )}
                     </Pressable>
                   );
                 })}
               </View>
             );
           }}
+          scrollEventThrottle={16}
           showsVerticalScrollIndicator={false}
           windowSize={3}
         />
+      )}
+      {selectedCoach && selectedCoachTop !== null && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.coachSelectedExclamationPosition,
+            {
+              top:
+                selectedCoachTop -
+                mapScrollY -
+                scaleByDeviceWidth(42),
+              left:
+                screenWidth *
+                  (selectedCoach.centerX / MAP_ORIGINAL_WIDTH) -
+                EXCLAMATION_WIDTH / 2,
+            },
+          ]}
+        >
+          <Animated.View entering={BounceIn.duration(350)}>
+            <Image
+              resizeMode="contain"
+              source={COACH_SELECTED_EXCLAMATION}
+              style={styles.coachSelectedExclamation}
+            />
+          </Animated.View>
+        </View>
       )}
       <ErrorModal
         message={resumeBattleErrorMessage}
@@ -547,9 +551,7 @@ const styles = StyleSheet.create({
   },
   coachSelectedExclamationPosition: {
     position: 'absolute',
-    top: -scaleByDeviceWidth(42),
-    left: '50%',
-    transform: [{ translateX: -EXCLAMATION_WIDTH / 2 }],
+    zIndex: BATTLE_MAP_SEGMENTS.length + 2,
   },
   coachSelectedExclamation: {
     width: EXCLAMATION_WIDTH,
