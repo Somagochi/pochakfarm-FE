@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
     top: scaleByDeviceWidth(7),
     right: scaleByDeviceWidth(5),
     width: scaleByDeviceWidth(8),
-    height: scaleByDeviceWidth(8.5),
+    height: scaleByDeviceWidth(8),
   },
   removeButtonImage: {
     width: '100%',
