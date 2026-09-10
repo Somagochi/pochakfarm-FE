@@ -100,7 +100,7 @@ export type BattleState = {
 
 export type GymLeaderUnlock = {
   unlocked: boolean;
-  requiredLevel: number;
+  requiredLevel?: number | null;
   levelSatisfied: boolean;
   previousBadgeCode: string | null;
   previousBadgeSatisfied: boolean;
@@ -113,6 +113,7 @@ export type GymLeader = {
   thumbnailUrl: string;
   cleared: boolean;
   unlocked: boolean;
+  unlock?: GymLeaderUnlock;
 };
 
 export type GymLeaderDetailLeader = {

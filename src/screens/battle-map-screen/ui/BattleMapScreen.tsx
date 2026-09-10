@@ -1,9 +1,9 @@
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   FlatList,
   Image,
+  ImageBackground,
   Pressable,
   StyleSheet,
   Text,
@@ -15,6 +15,7 @@ import Animated, { BounceIn } from 'react-native-reanimated';
 import { useGymLeaders, type GymLeader } from '@/src/entities/battle';
 import { useResumeBattle } from '@/src/features/resume-battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 
 const BATTLE_MAP_SEGMENTS = [
   require('@/src/shared/assets/images/battle/battle-coach-map-1.png'),
@@ -26,7 +27,12 @@ const BATTLE_MAP_SEGMENTS = [
   require('@/src/shared/assets/images/battle/battle-coach-map-7.png'),
   require('@/src/shared/assets/images/battle/battle-coach-map-8.png'),
 ] as const;
+
+function isGymLeaderUnlocked(gymLeader: GymLeader) {
+  return gymLeader.unlock?.unlocked ?? gymLeader.unlocked;
+}
 const COACH_SELECTED_EXCLAMATION = require('@/src/shared/assets/images/battle/coach-selected-exclamation.png');
+const LOCKED_COACH_LEVEL_BACKGROUND = require('@/src/shared/assets/images/battle/locked-coach-level-background.png');
 const MORU_COACH = require('@/src/shared/assets/images/battle/moru-coach.png');
 const HARU_COACH = require('@/src/shared/assets/images/battle/haru-coach.png');
 const HARU_COACH_SILHOUETTE = require('@/src/shared/assets/images/battle/haru-coach-silhouette.png');
@@ -207,15 +213,6 @@ export function BattleMapScreen() {
   );
 
   useEffect(() => {
-    if (!resumeBattleErrorMessage) {
-      return;
-    }
-
-    clearResumeBattleError();
-    Alert.alert('대전 복구 실패', resumeBattleErrorMessage);
-  }, [clearResumeBattleError, resumeBattleErrorMessage]);
-
-  useEffect(() => {
     if (
       hasPositionedInitialScrollRef.current ||
       screenWidth <= 0 ||
@@ -230,7 +227,7 @@ export function BattleMapScreen() {
     );
     const targetGymLeader =
       unclearedLeaders
-        .filter((gymLeader) => gymLeader.unlocked)
+        .filter(isGymLeaderUnlocked)
         .sort(
           (firstLeader, secondLeader) =>
             secondLeader.challengeOrder - firstLeader.challengeOrder,
@@ -281,7 +278,7 @@ export function BattleMapScreen() {
   const handleGymLeaderPress = (gymLeader: GymLeader) => {
     if (
       selectedGymLeaderId !== null ||
-      !gymLeader.unlocked ||
+      !isGymLeaderUnlocked(gymLeader) ||
       isResumingBattle
     ) {
       return;
@@ -406,7 +403,8 @@ export function BattleMapScreen() {
 
                   const isSelected =
                     selectedGymLeaderId === gymLeader.gymLeaderId;
-                  const isUnlocked = gymLeader.unlocked;
+                  const isUnlocked = isGymLeaderUnlocked(gymLeader);
+                  const requiredLevel = gymLeader.unlock?.requiredLevel;
                   const size =
                     gymLeader.challengeOrder === 1 ? moruWidth : coachWidth;
                   const left =
@@ -418,7 +416,7 @@ export function BattleMapScreen() {
                       accessibilityLabel={
                         isUnlocked
                           ? `${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}에게 도전하기`
-                          : `잠긴 ${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}`
+                          : `잠긴 ${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}, 요구 레벨 ${requiredLevel ?? '알 수 없음'}`
                       }
                       accessibilityRole="button"
                       accessibilityState={{
@@ -456,7 +454,18 @@ export function BattleMapScreen() {
                         style={styles.coachImage}
                       />
                       {!isUnlocked && (
-                        <Text style={styles.lockedCoachQuestionMark}>?</Text>
+                        <>
+                          <Text style={styles.lockedCoachQuestionMark}>?</Text>
+                          <ImageBackground
+                            resizeMode="stretch"
+                            source={LOCKED_COACH_LEVEL_BACKGROUND}
+                            style={styles.lockedCoachRequiredLevelBackground}
+                          >
+                            <Text style={styles.lockedCoachRequiredLevel}>
+                              Lv.{requiredLevel ?? '??'}
+                            </Text>
+                          </ImageBackground>
+                        </>
                       )}
                       {isSelected && (
                         <View
@@ -481,6 +490,10 @@ export function BattleMapScreen() {
           windowSize={3}
         />
       )}
+      <ErrorModal
+        message={resumeBattleErrorMessage}
+        onClose={clearResumeBattleError}
+      />
     </View>
   );
 }
@@ -515,6 +528,21 @@ const styles = StyleSheet.create({
     fontFamily: 'Galmuri11-Bold',
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(21),
+    textAlign: 'center',
+  },
+  lockedCoachRequiredLevelBackground: {
+    position: 'absolute',
+    bottom: -scaleByDeviceWidth(1),
+    width: scaleByDeviceWidth(50),
+    height: scaleByDeviceWidth(18),
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockedCoachRequiredLevel: {
+    color: '#FFFFFF',
+    fontFamily: 'EliceDXNeolli-Bold',
+    fontSize: scaleByDeviceWidth(11),
+    lineHeight: scaleByDeviceWidth(14),
     textAlign: 'center',
   },
   coachSelectedExclamationPosition: {
