@@ -342,24 +342,6 @@ export function BattleMapScreen() {
               screenWidth *
               (MAP_SEGMENT_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
             const segmentTop = index * segmentHeight;
-            const selectedGymLeader = gymLeaders.find(
-              (gymLeader) =>
-                gymLeader.gymLeaderId === selectedGymLeaderId,
-            );
-            const selectedCoach = selectedGymLeader
-              ? COACH_PLACEMENTS[selectedGymLeader.challengeOrder - 1]
-              : undefined;
-            const selectedCoachTop =
-              selectedGymLeader && selectedCoach
-                ? selectedGymLeader.challengeOrder === 1
-                  ? moruTop
-                  : mapHeight *
-                    (selectedCoach.top / MAP_ORIGINAL_HEIGHT)
-                : undefined;
-            const containsSelectedCoach =
-              selectedCoachTop !== undefined &&
-              selectedCoachTop >= segmentTop &&
-              selectedCoachTop < segmentTop + segmentHeight;
 
             return (
               <View
@@ -368,9 +350,8 @@ export function BattleMapScreen() {
                   {
                     width: screenWidth,
                     height: segmentHeight,
-                    zIndex: containsSelectedCoach
-                      ? BATTLE_MAP_SEGMENTS.length + 1
-                      : BATTLE_MAP_SEGMENTS.length - index,
+                    // 선택 시 배경을 올리면 이전 조각에서 내려온 관장이 가려진다.
+                    zIndex: BATTLE_MAP_SEGMENTS.length - index,
                   },
                 ]}
               >
