@@ -702,8 +702,10 @@ export function BattleArenaScreen() {
   const isFinalClashReady =
     IS_FINAL_CLASH_UI_PREVIEW_ENABLED ||
     Boolean(battleState?.finalRound.started);
+  const isFinalClashCountdownActive = finalClashCountdown !== null;
   const isFinalClashVisible =
-    isFinalClashReady && isFinalClashIntroComplete;
+    isFinalClashReady &&
+    (isFinalClashIntroComplete || isFinalClashCountdownActive);
   const finalInputEndMs = battleState?.finalRound.inputExpiresAt
     ? Date.parse(battleState.finalRound.inputExpiresAt)
     : Number.NaN;
@@ -2206,9 +2208,15 @@ export function BattleArenaScreen() {
               accessibilityRole="button"
               accessibilityState={{
                 disabled:
-                  finalInputRemainingMs <= 0 || isSubmittingFinalRound,
+                  isFinalClashCountdownActive ||
+                  finalInputRemainingMs <= 0 ||
+                  isSubmittingFinalRound,
               }}
-              disabled={finalInputRemainingMs <= 0 || isSubmittingFinalRound}
+              disabled={
+                isFinalClashCountdownActive ||
+                finalInputRemainingMs <= 0 ||
+                isSubmittingFinalRound
+              }
               onPress={handleCheerPress}
               style={({ pressed }) => [
                 styles.cheerButton,
@@ -2355,7 +2363,14 @@ export function BattleArenaScreen() {
         </View>
       )}
       {isFinalClashIntroVisible && (
-        <View pointerEvents="auto" style={styles.finalClashIntroOverlay}>
+        <View
+          pointerEvents="auto"
+          style={[
+            styles.finalClashIntroOverlay,
+            isFinalClashCountdownActive &&
+              styles.finalClashCountdownOverlay,
+          ]}
+        >
           {finalClashCountdown === null ? (
             <Animated.View
               style={[
@@ -2494,6 +2509,9 @@ const styles = StyleSheet.create({
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  finalClashCountdownOverlay: {
+    backgroundColor: 'transparent',
   },
   finalClashIntroBurst: {
     position: 'absolute',
