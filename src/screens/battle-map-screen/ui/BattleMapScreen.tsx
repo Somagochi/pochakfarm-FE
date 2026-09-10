@@ -336,12 +336,34 @@ export function BattleMapScreen() {
           keyExtractor={String}
           maxToRenderPerBatch={2}
           ref={mapListRef}
-          removeClippedSubviews
+          removeClippedSubviews={false}
           renderItem={({ index }) => {
             const segmentHeight =
               screenWidth *
               (MAP_SEGMENT_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
             const segmentTop = index * segmentHeight;
+            const containsSelectedCoach = gymLeaders.some((gymLeader) => {
+              if (gymLeader.gymLeaderId !== selectedGymLeaderId) {
+                return false;
+              }
+
+              const coach =
+                COACH_PLACEMENTS[gymLeader.challengeOrder - 1];
+
+              if (!coach) {
+                return false;
+              }
+
+              const coachTop =
+                gymLeader.challengeOrder === 1
+                  ? moruTop
+                  : mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
+
+              return (
+                coachTop >= segmentTop &&
+                coachTop < segmentTop + segmentHeight
+              );
+            });
 
             return (
               <View
@@ -351,7 +373,9 @@ export function BattleMapScreen() {
                     width: screenWidth,
                     height: segmentHeight,
                     // 선택 시 배경을 올리면 이전 조각에서 내려온 관장이 가려진다.
-                    zIndex: BATTLE_MAP_SEGMENTS.length - index,
+                    zIndex: containsSelectedCoach
+                      ? BATTLE_MAP_SEGMENTS.length + 1
+                      : BATTLE_MAP_SEGMENTS.length - index,
                   },
                 ]}
               >
