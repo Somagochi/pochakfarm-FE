@@ -46,7 +46,7 @@ export type BattleReward = {
   rewardGranted: boolean;
   gymLeaderCoins: number;
   experience: number;
-  badgeCode: string | null;
+  badgeImageUrl: string | null;
   levelUp: boolean;
   levelBefore: number;
   levelAfter: number;
@@ -60,6 +60,7 @@ export type BattleBroadcastEventCode =
   | 'TIER_ADVANTAGE'
   | 'TYPE_ADVANTAGE'
   | 'SKILL_NOT_SELECTED'
+  | 'SKILL_SELECTED'
   | 'SKILL_TRIGGERED'
   | 'SKILL_FAILED'
   | 'SKILL_OFFSET'
@@ -67,7 +68,7 @@ export type BattleBroadcastEventCode =
 
 export type BattleBroadcastEvent = {
   eventSeq: number;
-  actionSeq: number;
+  actionSeq: number | null;
   entryOrder: number;
   eventCode: BattleBroadcastEventCode;
   animalSide?: BattleSide | null;
@@ -124,8 +125,10 @@ export type GymLeaderDetailLeader = {
   difficulty: string;
   leaderDescription: string;
   tipDescription: string;
-  suggestType: string;
+  suggestType: string | null;
   badgeCode: string;
+  coinReward: number;
+  experienceReward: number;
   cleared: boolean;
   unlock: GymLeaderUnlock;
 };

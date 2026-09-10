@@ -21,12 +21,15 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, {
   cancelAnimation,
   Easing,
+  Extrapolation,
+  interpolate,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -43,7 +46,6 @@ import {
   type BattleBroadcastEvent,
   type BattleCoachId,
   type BattleEntry,
-  type BattleEntrySkill,
   type BattleState,
 } from '@/src/entities/battle';
 import type { CreatureEnvironment } from '@/src/entities/creature';
@@ -68,6 +70,15 @@ const BATTLE_PROGRESS_BAR = require('@/src/shared/assets/images/battle/battle-pr
 const BATTLE_PROGRESS_FILL = require('@/src/shared/assets/images/battle/battle-progress-fill.png');
 const BATTLE_STATUS_BADGE = require('@/src/shared/assets/images/battle/battle-status-badge.png');
 const BATTLE_ROUND_LABEL = require('@/src/shared/assets/images/battle/battle-round-label.png');
+const FINAL_CLASH_INTRO_BURST = require('@/src/shared/assets/images/battle/final-clash-intro-burst.png');
+const FINAL_CLASH_INTRO_TITLE = require('@/src/shared/assets/images/battle/final-clash-intro-title.png');
+const ROUND_INTRO_BACKGROUND_FIXED = require('@/src/shared/assets/images/battle/round-intro-background-fixed.png');
+const ROUND_INTRO_BACKGROUND_MOVING = require('@/src/shared/assets/images/battle/round-intro-background-moving.png');
+const ROUND_INTRO_LABELS: Record<number, number> = {
+  1: require('@/src/shared/assets/images/battle/round-intro-round-1.png'),
+  2: require('@/src/shared/assets/images/battle/round-intro-round-2.png'),
+  3: require('@/src/shared/assets/images/battle/round-intro-round-3.png'),
+};
 const OPPONENT_CREATURE = require('@/src/shared/assets/images/farm/kkomi.png');
 const PLAYER_SILHOUETTE = require('@/src/shared/assets/images/battle/player-silhouette.png');
 const OPPONENT_CREATURE_INFO_CARD = require('@/src/shared/assets/images/battle/opponent-creature-info-card.png');
@@ -79,7 +90,6 @@ const CHEER_BUTTON = require('@/src/shared/assets/images/battle/cheer-button.png
 const HOURGLASS = require('@/src/shared/assets/images/battle/hourglass.png');
 const SKILL_SELECTION_DIVIDER = require('@/src/shared/assets/images/battle/skill-selection-divider.png');
 const SKILL_SELECTION_CARD_BACKGROUND = require('@/src/shared/assets/images/battle/skill-selection-card-background-v2.png');
-const RECOMMENDED_SKILL_BADGE = require('@/src/shared/assets/images/battle/recommended-skill-badge.png');
 const SKILL_TYPE_OFFENSIVE = require('@/src/shared/assets/images/battle/skill-type-offensive.png');
 const SKILL_TYPE_BALANCE = require('@/src/shared/assets/images/battle/skill-type-balance.png');
 const SKILL_TYPE_STABLE = require('@/src/shared/assets/images/battle/skill-type-stable.png');
@@ -113,8 +123,10 @@ const BATTLE_ENTRANCE_DURATION_MS = 1000;
 const IMPACT_START_DELAY_MS = 500;
 const BATTLE_PROGRESS_DURATION_MS = 650;
 const SKILL_SELECTION_DURATION_MS = 3000;
+const ROUND_INTRO_DURATION_MS = 1900;
 const IS_BATTLE_ACTION_SUBMISSION_ENABLED = true;
 const IS_SKILL_SELECTION_UI_PREVIEW_ENABLED = false;
+const IS_FINAL_CLASH_UI_PREVIEW_ENABLED = false;
 
 const SKILL_TYPE_LABELS: Record<string, string> = {
   ATTACK: '공격형',
@@ -128,20 +140,6 @@ const SKILL_TYPE_LABELS: Record<string, string> = {
   균형형: '균형형',
   승부형: '승부형',
   안정형: '안정형',
-};
-const TIER_RANKS: Record<string, number> = {
-  C: 1,
-  B: 2,
-  A: 3,
-  S: 4,
-  SS: 5,
-  SSS: 6,
-};
-const TYPE_ADVANTAGES: Record<BattleEntry['cardType'], BattleEntry['cardType']> = {
-  GROUND: 'SEA',
-  SEA: 'SPACE',
-  SKY: 'GROUND',
-  SPACE: 'SKY',
 };
 const SKILL_TYPE_ICONS: Record<string, number> = {
   ATTACK: SKILL_TYPE_OFFENSIVE,
@@ -163,21 +161,6 @@ function getSkillTypeLabel(battleType: string) {
 
 function getSkillTypeIcon(battleType: string) {
   return SKILL_TYPE_ICONS[battleType.trim().toUpperCase()] ?? SKILL_TYPE_BALANCE;
-}
-
-function getTypeAdvantageSide(
-  userType: BattleEntry['cardType'],
-  npcType: BattleEntry['cardType'],
-) {
-  if (TYPE_ADVANTAGES[userType] === npcType) {
-    return 'USER' as const;
-  }
-
-  if (TYPE_ADVANTAGES[npcType] === userType) {
-    return 'NPC' as const;
-  }
-
-  return null;
 }
 
 type BattlePartyMember = {
@@ -304,21 +287,6 @@ function getSignedBattlePoint(event: BattleBroadcastEvent) {
   return 0;
 }
 
-function getBattleProgressBeforeEvents(
-  state: BattleState,
-  events: BattleBroadcastEvent[],
-) {
-  const appliedPoint = events.reduce(
-    (totalPoint, event) => totalPoint + getSignedBattlePoint(event),
-    0,
-  );
-
-  return getBattleProgress({
-    ...state,
-    barPosition: state.barPosition - appliedPoint,
-  });
-}
-
 function getEventAnimalName(
   event: BattleBroadcastEvent,
   state: BattleState,
@@ -353,10 +321,12 @@ function getEventMessage(
       return `타입 상성은 ${animalName}에게 유리해요!`;
     case 'SKILL_NOT_SELECTED':
       return '스킬 사용에 실패했어요.';
+    case 'SKILL_SELECTED':
+      return `${animalName}의 「${event.skillName ?? '스킬'}」!`;
     case 'SKILL_TRIGGERED':
-      return `${animalName}의 「${event.skillName ?? '스킬'}」 스킬이 발동했어요!`;
+      return `${animalName}의 「${event.skillName ?? '스킬'}」 스킬이 성공했어요!`;
     case 'SKILL_FAILED':
-      return `${animalName}의 「${event.skillName ?? '스킬'}」 스킬이 발동하지 않았어요.`;
+      return `${animalName}의 「${event.skillName ?? '스킬'}」 스킬이 실패했어요.`;
     case 'SKILL_OFFSET':
       return '양쪽 스킬 효과가 상쇄되었어요.';
     case 'BATTLE_POINT_APPLIED':
@@ -466,12 +436,14 @@ function CreatureInfoCard({
 }
 
 export function BattleArenaScreen() {
+  const { width: screenWidth } = useWindowDimensions();
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const battleMotionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const impactStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRequestedFinalRoundStartRef = useRef(false);
   const hasSubmittedFinalRoundResultRef = useRef(false);
   const hasHandledBattleEndRef = useRef(false);
+  const hasPlayedFinalClashIntroRef = useRef(false);
   const finalTapCountRef = useRef(0);
   const selectionTimerActionSeqRef = useRef<number | null>(null);
   const submittedActionRef = useRef<{
@@ -479,7 +451,6 @@ export function BattleArenaScreen() {
     skill: string | null;
   } | null>(null);
   const pendingBattleStateRef = useRef<BattleState | null>(null);
-  const syntheticBroadcastKeysRef = useRef(new Set<string>());
   const playedBattleMotionEventSequencesRef = useRef(new Set<number>());
   const {
     clearError: clearBattleActionError,
@@ -511,6 +482,7 @@ export function BattleArenaScreen() {
     coach,
     gymLeaderImageUrl,
     initialBattleState,
+    isNewBattle,
     npcParty,
     party,
   } =
@@ -519,10 +491,15 @@ export function BattleArenaScreen() {
     coach?: string | string[];
     gymLeaderImageUrl?: string | string[];
     initialBattleState?: string | string[];
+    isNewBattle?: string | string[];
     npcParty?: string | string[];
     party?: string | string[];
   }>();
   const battleIdParam = Array.isArray(battleId) ? battleId[0] : battleId;
+  const isNewBattleParam = Array.isArray(isNewBattle)
+    ? isNewBattle[0]
+    : isNewBattle;
+  const shouldPlayInitialEvents = isNewBattleParam === 'true';
   const parsedBattleId = Number(battleIdParam);
   const routeBattleId =
     battleIdParam && Number.isSafeInteger(parsedBattleId) && parsedBattleId > 0
@@ -564,17 +541,18 @@ export function BattleArenaScreen() {
     () => AppState.currentState === 'active',
   );
   const isFocused = useIsFocused();
-  const [finalTapCount, setFinalTapCount] = useState(0);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const [skillSelectionDeadlineMs, setSkillSelectionDeadlineMs] = useState<
     number | null
   >(null);
   const [initialBroadcastEvents] = useState(
     () =>
-      [...(battleState?.broadcastEvents ?? [])].sort(
-        (firstEvent, secondEvent) =>
-          firstEvent.eventSeq - secondEvent.eventSeq,
-      ),
+      shouldPlayInitialEvents
+        ? [...(battleState?.broadcastEvents ?? [])].sort(
+            (firstEvent, secondEvent) =>
+              firstEvent.eventSeq - secondEvent.eventSeq,
+          )
+        : [],
   );
   const knownEventSequencesRef = useRef(
     new Set(initialBroadcastEvents.map((event) => event.eventSeq)),
@@ -593,10 +571,25 @@ export function BattleArenaScreen() {
     useState(false);
   const [impactTarget, setImpactTarget] = useState<'NPC' | 'USER' | null>(null);
   const [isResolvingBattleMotion, setIsResolvingBattleMotion] = useState(false);
-  const [hasPreparedInitialRoundLogs, setHasPreparedInitialRoundLogs] =
+  const [roundIntroRound, setRoundIntroRound] = useState<number | null>(null);
+  const shownRoundIntrosRef = useRef(new Set<number>());
+  const roundIntroTranslateX = useSharedValue(-screenWidth * 1.2);
+  const roundIntroLabelOpacity = useSharedValue(1);
+  const finalClashIntroScale = useSharedValue(1);
+  const finalClashIntroTranslateY = useSharedValue(0);
+  const finalClashTitleScale = useSharedValue(1);
+  const [isFinalClashIntroVisible, setIsFinalClashIntroVisible] =
     useState(false);
+  const [isFinalClashIntroComplete, setIsFinalClashIntroComplete] =
+    useState(false);
+  const [finalClashCountdown, setFinalClashCountdown] = useState<number | null>(
+    null,
+  );
   const initialProgress = battleState
-    ? getBattleProgressBeforeEvents(battleState, initialBroadcastEvents)
+    ? getBattleProgress({
+        ...battleState,
+        barPosition: shouldPlayInitialEvents ? 0 : battleState.barPosition,
+      })
     : 0.5;
   const battleProgress = useSharedValue(initialProgress);
   const finalClashProgress = useSharedValue(initialProgress);
@@ -683,11 +676,17 @@ export function BattleArenaScreen() {
   ]);
   const serverTimeOffsetMs = battleState?.serverTimeOffsetMs ?? 0;
   const currentServerTimeMs = nowMs + serverTimeOffsetMs;
-  const isFinalClashVisible = Boolean(
-    battleState?.status === 'IN_PROGRESS' &&
-      battleState.finalRound.required &&
-      battleState.finalRound.started,
-  );
+  const shouldPrepareFinalClash =
+    IS_FINAL_CLASH_UI_PREVIEW_ENABLED ||
+    Boolean(
+      battleState?.status === 'IN_PROGRESS' &&
+        battleState.finalRound.required,
+    );
+  const isFinalClashReady =
+    IS_FINAL_CLASH_UI_PREVIEW_ENABLED ||
+    Boolean(battleState?.finalRound.started);
+  const isFinalClashVisible =
+    isFinalClashReady && isFinalClashIntroComplete;
   const finalInputEndMs = battleState?.finalRound.inputExpiresAt
     ? Date.parse(battleState.finalRound.inputExpiresAt)
     : Number.NaN;
@@ -710,7 +709,7 @@ export function BattleArenaScreen() {
       isFocused &&
       !isSubmittingAction &&
       !isResumingBattle &&
-      hasPreparedInitialRoundLogs &&
+      roundIntroRound === null &&
       !hasUnplayedBattleStateEvents &&
       !isBroadcasting,
   );
@@ -722,13 +721,6 @@ export function BattleArenaScreen() {
   const isSkillSelectionOverlayVisible =
     IS_SKILL_SELECTION_UI_PREVIEW_ENABLED || canSelectSkill;
   const selectableSkills = battleState?.userEntry.skills?.slice(0, 2) ?? [];
-  const recommendedSkill = selectableSkills.reduce<BattleEntrySkill | null>(
-    (recommended, skill) =>
-      !recommended || skill.triggerPercentage > recommended.triggerPercentage
-        ? skill
-        : recommended,
-    null,
-  );
   const currentBattleId = routeBattleId ?? battleState?.battleId;
   const enqueueBroadcastEvents = useCallback(
     (events: BattleBroadcastEvent[]) => {
@@ -740,10 +732,7 @@ export function BattleArenaScreen() {
         .filter(
           (event) =>
             event.eventSeq > lastPlayedEventSequenceRef.current &&
-            !knownEventSequencesRef.current.has(event.eventSeq) &&
-            !syntheticBroadcastKeysRef.current.has(
-              `${event.actionSeq}:${event.entryOrder}:${event.eventCode}`,
-            ),
+            !knownEventSequencesRef.current.has(event.eventSeq),
         );
 
       if (nextEvents.length === 0) {
@@ -929,6 +918,23 @@ export function BattleArenaScreen() {
         (firstEvent, secondEvent) =>
           firstEvent.eventSeq - secondEvent.eventSeq,
       );
+      const displayedEvents = enqueuedEvents.flatMap((event) => {
+        if (
+          event.eventCode !== 'SKILL_TRIGGERED' &&
+          event.eventCode !== 'SKILL_FAILED'
+        ) {
+          return [event];
+        }
+
+        return [
+          {
+            ...event,
+            eventCode: 'SKILL_SELECTED' as const,
+            eventSeq: 0,
+          },
+          event,
+        ];
+      });
 
       if (
         !result.action &&
@@ -937,15 +943,23 @@ export function BattleArenaScreen() {
         submittedActionRef.current = null;
       }
 
-      if (enqueuedEvents.length > 0) {
+      if (displayedEvents.length > 0) {
         pendingBattleStateRef.current = result.state;
-        const [firstEvent] = enqueuedEvents;
-        setBroadcastQueue((currentQueue) =>
-          currentQueue.filter(
-            (event) => event.eventSeq !== firstEvent.eventSeq,
-          ),
+        const [firstEvent, ...remainingEvents] = displayedEvents;
+        const enqueuedEventSequences = new Set(
+          enqueuedEvents.map((event) => event.eventSeq),
         );
-        applyPendingBattleStateForEvent(firstEvent);
+        setBroadcastQueue((currentQueue) =>
+          [
+            ...currentQueue.filter(
+              (event) => !enqueuedEventSequences.has(event.eventSeq),
+            ),
+            ...remainingEvents,
+          ],
+        );
+        if (firstEvent.eventCode !== 'SKILL_SELECTED') {
+          applyPendingBattleStateForEvent(firstEvent);
+        }
         setActiveBroadcastEvent(firstEvent);
       } else {
         setBattleState(result.state);
@@ -1068,70 +1082,131 @@ export function BattleArenaScreen() {
   }, [hasAttemptedBattleRestore, isBattleEntranceReady]);
 
   useEffect(() => {
+    const round = battleState?.currentEntryOrder;
+
     if (
-      !hasAttemptedBattleRestore ||
-      !battleState ||
-      hasPreparedInitialRoundLogs
+      battleState?.status !== 'IN_PROGRESS' ||
+      !round ||
+      round > 3 ||
+      shownRoundIntrosRef.current.has(round)
     ) {
       return;
     }
 
-    if (activeBroadcastEvent || broadcastQueue.length > 0) {
-      setHasPreparedInitialRoundLogs(true);
+    shownRoundIntrosRef.current.add(round);
+    setRoundIntroRound(round);
+  }, [battleState?.currentEntryOrder, battleState?.status]);
+
+  useEffect(() => {
+    if (roundIntroRound === null) {
       return;
     }
 
-    const actionSeq = battleState.nextActionSeq;
-
-    if (actionSeq === null) {
-      setHasPreparedInitialRoundLogs(true);
-      return;
-    }
-
-    const initialEvents: BattleBroadcastEvent[] = [];
-    const userTierRank =
-      TIER_RANKS[battleState.userEntry.tier.toUpperCase()] ?? 0;
-    const npcTierRank =
-      TIER_RANKS[battleState.npcEntry.tier.toUpperCase()] ?? 0;
-
-    if (userTierRank !== npcTierRank) {
-      initialEvents.push({
-        actionSeq,
-        animalSide: userTierRank > npcTierRank ? 'USER' : 'NPC',
-        entryOrder: battleState.currentEntryOrder,
-        eventCode: 'TIER_ADVANTAGE',
-        eventSeq: -2,
-      });
-    }
-
-    const typeAdvantageSide = getTypeAdvantageSide(
-      battleState.userEntry.cardType,
-      battleState.npcEntry.cardType,
+    roundIntroTranslateX.value = -screenWidth * 1.2;
+    roundIntroLabelOpacity.value = 1;
+    roundIntroTranslateX.value = withSequence(
+      withTiming(0, { duration: 350, easing: Easing.out(Easing.cubic) }),
+      withDelay(
+        900,
+        withTiming(screenWidth * 1.2, {
+          duration: 350,
+          easing: Easing.in(Easing.cubic),
+        }),
+      ),
+    );
+    roundIntroLabelOpacity.value = withRepeat(
+      withSequence(
+        withTiming(0.25, { duration: 180 }),
+        withTiming(1, { duration: 180 }),
+      ),
+      -1,
+      true,
     );
 
-    if (typeAdvantageSide) {
-      initialEvents.push({
-        actionSeq,
-        animalSide: typeAdvantageSide,
-        entryOrder: battleState.currentEntryOrder,
-        eventCode: 'TYPE_ADVANTAGE',
-        eventSeq: -1,
-      });
+    const timeoutId = setTimeout(() => {
+      cancelAnimation(roundIntroLabelOpacity);
+      const pendingState = pendingBattleStateRef.current;
+
+      if (pendingState?.currentEntryOrder === roundIntroRound) {
+        pendingBattleStateRef.current = null;
+        setBattleState(pendingState);
+      }
+
+      setRoundIntroRound(null);
+    }, ROUND_INTRO_DURATION_MS);
+
+    return () => {
+      clearTimeout(timeoutId);
+      cancelAnimation(roundIntroTranslateX);
+      cancelAnimation(roundIntroLabelOpacity);
+    };
+  }, [
+    roundIntroLabelOpacity,
+    roundIntroRound,
+    roundIntroTranslateX,
+    screenWidth,
+  ]);
+
+  useEffect(() => {
+    if (
+      !shouldPrepareFinalClash ||
+      !hasAttemptedBattleRestore ||
+      !isBattleEntranceReady ||
+      roundIntroRound !== null ||
+      hasPlayedFinalClashIntroRef.current
+    ) {
+      return;
     }
 
-    initialEvents.forEach((event) => {
-      syntheticBroadcastKeysRef.current.add(
-        `${event.actionSeq}:${event.entryOrder}:${event.eventCode}`,
-      );
-    });
-    setBroadcastQueue(initialEvents);
-    setHasPreparedInitialRoundLogs(true);
+    hasPlayedFinalClashIntroRef.current = true;
+    setIsFinalClashIntroVisible(true);
+    finalClashIntroScale.value = 1;
+    finalClashIntroTranslateY.value = 0;
+    finalClashIntroScale.value = withSequence(
+      withDelay(
+        500,
+        withTiming(1.2, { duration: 650, easing: Easing.out(Easing.cubic) }),
+      ),
+      withTiming(1, { duration: 260, easing: Easing.in(Easing.cubic) }),
+      withTiming(1.08, { duration: 160, easing: Easing.out(Easing.quad) }),
+      withTiming(0.98, { duration: 140, easing: Easing.in(Easing.quad) }),
+      withTiming(1.03, { duration: 120, easing: Easing.out(Easing.quad) }),
+      withTiming(1, { duration: 140, easing: Easing.inOut(Easing.quad) }),
+    );
+
+    const countdownThreeTimeout = setTimeout(
+      () => setFinalClashCountdown(3),
+      2200,
+    );
+    const countdownTwoTimeout = setTimeout(
+      () => setFinalClashCountdown(2),
+      2950,
+    );
+    const countdownOneTimeout = setTimeout(
+      () => setFinalClashCountdown(1),
+      3700,
+    );
+    const completeTimeout = setTimeout(() => {
+      setFinalClashCountdown(null);
+      setIsFinalClashIntroVisible(false);
+      setIsFinalClashIntroComplete(true);
+    }, 4450);
+
+    return () => {
+      clearTimeout(countdownThreeTimeout);
+      clearTimeout(countdownTwoTimeout);
+      clearTimeout(countdownOneTimeout);
+      clearTimeout(completeTimeout);
+      cancelAnimation(finalClashIntroScale);
+      cancelAnimation(finalClashIntroTranslateY);
+    };
   }, [
-    activeBroadcastEvent,
-    battleState,
-    broadcastQueue.length,
+    finalClashIntroScale,
+    finalClashIntroTranslateY,
     hasAttemptedBattleRestore,
-    hasPreparedInitialRoundLogs,
+    isBattleEntranceReady,
+    shouldPrepareFinalClash,
+    roundIntroRound,
   ]);
 
   useEffect(() => {
@@ -1259,7 +1334,7 @@ export function BattleArenaScreen() {
       typingIntervalRef.current = null;
     }
 
-    if (!activeBroadcastEvent) {
+    if (!activeBroadcastEvent || roundIntroRound !== null) {
       setIsTypingBroadcastMessage(false);
       return;
     }
@@ -1288,7 +1363,7 @@ export function BattleArenaScreen() {
         typingIntervalRef.current = null;
       }
     };
-  }, [activeBroadcastEvent, latestBroadcastMessage]);
+  }, [activeBroadcastEvent, latestBroadcastMessage, roundIntroRound]);
 
   const advanceBroadcastEvent = () => {
     if (activeBroadcastEvent && activeBroadcastEvent.eventSeq > 0) {
@@ -1466,9 +1541,21 @@ export function BattleArenaScreen() {
     }
 
     const nextState = pendingBattleStateRef.current;
+    const nextRound = nextState.currentEntryOrder;
+
+    if (
+      nextRound !== battleState?.currentEntryOrder &&
+      nextRound <= 3 &&
+      !shownRoundIntrosRef.current.has(nextRound)
+    ) {
+      shownRoundIntrosRef.current.add(nextRound);
+      setRoundIntroRound(nextRound);
+      return;
+    }
+
     pendingBattleStateRef.current = null;
     setBattleState(nextState);
-  }, [isBroadcasting]);
+  }, [battleState?.currentEntryOrder, isBroadcasting]);
 
   useEffect(() => {
     if (!battleState || isBroadcasting) {
@@ -1550,6 +1637,10 @@ export function BattleArenaScreen() {
   ]);
 
   useEffect(() => {
+    if (IS_FINAL_CLASH_UI_PREVIEW_ENABLED || !isFinalClashIntroComplete) {
+      return;
+    }
+
     if (
       battleState?.status === 'IN_PROGRESS' &&
       battleState.finalRound.required &&
@@ -1558,7 +1649,12 @@ export function BattleArenaScreen() {
     ) {
       void handleStartFinalRound();
     }
-  }, [battleState, handleStartFinalRound, isBroadcasting]);
+  }, [
+    battleState,
+    handleStartFinalRound,
+    isBroadcasting,
+    isFinalClashIntroComplete,
+  ]);
 
   useEffect(() => {
     if (
@@ -1689,6 +1785,52 @@ export function BattleArenaScreen() {
   const skillTimerFillStyle = useAnimatedStyle(() => ({
     width: SKILL_TIMER_TRACK_WIDTH * skillTimerProgress.value,
   }));
+  const roundIntroMovingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: roundIntroTranslateX.value }],
+  }));
+  const roundIntroLabelStyle = useAnimatedStyle(() => ({
+    opacity: roundIntroLabelOpacity.value,
+  }));
+  const finalClashIntroMotionStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateY: finalClashIntroTranslateY.value },
+      { scale: finalClashIntroScale.value },
+    ],
+  }));
+  const finalClashTitleMotionStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: finalClashTitleScale.value }],
+  }));
+  const finalClashTitleShadeStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(
+      finalClashTitleScale.value,
+      [1, 1.08],
+      [0, 0.18],
+      Extrapolation.CLAMP,
+    ),
+  }));
+
+  useEffect(() => {
+    cancelAnimation(finalClashTitleScale);
+    finalClashTitleScale.value = 1;
+
+    if (!isFinalClashVisible) {
+      return;
+    }
+
+    finalClashTitleScale.value = withRepeat(
+      withSequence(
+        withTiming(1.08, { duration: 250, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 250, easing: Easing.in(Easing.quad) }),
+        withTiming(1.05, { duration: 250, easing: Easing.out(Easing.quad) }),
+        withTiming(1, { duration: 250, easing: Easing.in(Easing.quad) }),
+        withDelay(1000, withTiming(1, { duration: 0 })),
+      ),
+      -1,
+      false,
+    );
+
+    return () => cancelAnimation(finalClashTitleScale);
+  }, [finalClashTitleScale, isFinalClashVisible]);
 
   useEffect(() => {
     cancelAnimation(skillTimerProgress);
@@ -1739,7 +1881,6 @@ export function BattleArenaScreen() {
     }
 
     finalTapCountRef.current += 1;
-    setFinalTapCount(finalTapCountRef.current);
     finalClashProgress.value = withTiming(
       Math.min(0.92, finalClashProgress.value + 0.035),
       { duration: 100 },
@@ -1769,6 +1910,7 @@ export function BattleArenaScreen() {
   return (
     <ImageBackground
       accessibilityLabel={`${arenaType} 타입 대전 경기장`}
+      blurRadius={roundIntroRound !== null ? 10 : 0}
       resizeMode="cover"
       source={ARENA_BACKGROUNDS[arenaType]}
       style={styles.screen}
@@ -1896,14 +2038,29 @@ export function BattleArenaScreen() {
       {isFinalClashVisible && (
         <View style={styles.finalClashOverlay}>
           <View style={styles.finalClashContent}>
+            <Animated.View
+              style={[styles.finalClashTitleImage, finalClashTitleMotionStyle]}
+            >
+              <Image
+                accessibilityLabel="최종 승부"
+                resizeMode="contain"
+                source={FINAL_CLASH_INTRO_TITLE}
+                style={styles.finalClashTitleImageLayer}
+              />
+              <Animated.Image
+                accessible={false}
+                resizeMode="contain"
+                source={FINAL_CLASH_INTRO_TITLE}
+                style={[
+                  styles.finalClashTitleImageLayer,
+                  styles.finalClashTitleShade,
+                  finalClashTitleShadeStyle,
+                ]}
+              />
+            </Animated.View>
             <Text style={styles.finalClashTitle}>마지막 승부!</Text>
             <Text style={styles.finalClashDescription}>
               버튼을 연타해서 승부를 결판지어보세요!
-            </Text>
-            <Text style={styles.finalClashTimer}>
-              {isSubmittingFinalRound
-                ? '결과 전송 중'
-                : `${(finalInputRemainingMs / 1000).toFixed(1)}초 · ${finalTapCount}회`}
             </Text>
             <View accessibilityLabel="마지막 승부 진행도" style={styles.finalClashProgressBar}>
               <Image
@@ -1944,7 +2101,7 @@ export function BattleArenaScreen() {
                 style={styles.cheerButtonImage}
               />
             </Pressable>
-            <Text style={styles.cheerButtonLabel}>응원하기</Text>
+            <Text style={styles.cheerButtonLabel}>연타하기!</Text>
           </View>
         </View>
       )}
@@ -1987,9 +2144,7 @@ export function BattleArenaScreen() {
             />
 
             <View style={styles.skillCards}>
-              {selectableSkills.map((skill) => {
-                const isRecommended = recommendedSkill?.skill === skill.skill;
-                return (
+              {selectableSkills.map((skill) => (
                   <Pressable
                     accessibilityLabel={`${skill.name}, ${getSkillTypeLabel(skill.battleType)}, 발동 확률 ${skill.triggerPercentage}%, 성공 시 ${skill.point}포인트`}
                     accessibilityRole="button"
@@ -2007,13 +2162,6 @@ export function BattleArenaScreen() {
                       source={SKILL_SELECTION_CARD_BACKGROUND}
                       style={styles.skillCardBackground}
                     />
-                    {isRecommended && (
-                      <Image
-                        resizeMode="contain"
-                        source={RECOMMENDED_SKILL_BADGE}
-                        style={styles.recommendedSkillBadge}
-                      />
-                    )}
                     <Text numberOfLines={1} style={styles.skillCardName}>
                       {skill.name}
                     </Text>
@@ -2052,14 +2200,69 @@ export function BattleArenaScreen() {
                       </View>
                     </View>
                   </Pressable>
-                );
-              })}
+              ))}
             </View>
             {isSubmittingAction && (
               <Text style={styles.skillSelectionStatus}>행동 처리 중...</Text>
             )}
         </SafeAreaView>
       </View>
+      {roundIntroRound !== null && (
+        <View pointerEvents="auto" style={styles.roundIntroOverlay}>
+          <View style={styles.roundIntroDimmer} />
+          <Image
+            accessible={false}
+            resizeMode="contain"
+            source={ROUND_INTRO_BACKGROUND_FIXED}
+            style={styles.roundIntroFixedBackground}
+          />
+          <Animated.View
+            style={[styles.roundIntroMovingGroup, roundIntroMovingStyle]}
+          >
+            <Image
+              accessible={false}
+              resizeMode="contain"
+              source={ROUND_INTRO_BACKGROUND_MOVING}
+              style={styles.roundIntroMovingBackground}
+            />
+            <Animated.Image
+              accessibilityLabel={`${roundIntroRound}라운드 시작`}
+              resizeMode="contain"
+              source={ROUND_INTRO_LABELS[roundIntroRound]}
+              style={[styles.roundIntroLabel, roundIntroLabelStyle]}
+            />
+          </Animated.View>
+        </View>
+      )}
+      {isFinalClashIntroVisible && (
+        <View pointerEvents="auto" style={styles.finalClashIntroOverlay}>
+          {finalClashCountdown === null ? (
+            <Animated.View
+              style={[
+                styles.finalClashIntroMotion,
+                finalClashIntroMotionStyle,
+              ]}
+            >
+              <Image
+                accessible={false}
+                resizeMode="contain"
+                source={FINAL_CLASH_INTRO_BURST}
+                style={styles.finalClashIntroBurst}
+              />
+              <Image
+                accessibilityLabel="최종 승부"
+                resizeMode="contain"
+                source={FINAL_CLASH_INTRO_TITLE}
+                style={styles.finalClashIntroTitle}
+              />
+            </Animated.View>
+          ) : (
+            <Text accessibilityLiveRegion="assertive" style={styles.finalClashCountdown}>
+              {finalClashCountdown}
+            </Text>
+          )}
+        </View>
+      )}
     </ImageBackground>
   );
 }
@@ -2093,6 +2296,72 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: '#000000',
+  },
+  roundIntroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    zIndex: 20,
+  },
+  roundIntroDimmer: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.58)',
+  },
+  roundIntroFixedBackground: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  roundIntroMovingGroup: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roundIntroMovingBackground: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  roundIntroLabel: {
+    width: scaleByDeviceWidth(246),
+    height: scaleByDeviceWidth(65),
+    transform: [{ rotate: '-4deg' }],
+  },
+  finalClashIntroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.72)',
+    zIndex: 30,
+  },
+  finalClashIntroMotion: {
+    width: '100%',
+    height: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  finalClashIntroBurst: {
+    position: 'absolute',
+    width: scaleByDeviceWidth(360),
+    height: scaleByDeviceWidth(360 * (2816 / 1588)),
+  },
+  finalClashIntroTitle: {
+    width: scaleByDeviceWidth(223),
+    height: scaleByDeviceWidth(140),
+  },
+  finalClashCountdown: {
+    color: '#FFF2A8',
+    fontFamily: 'Galmuri11-Bold',
+    fontSize: scaleByDeviceWidth(72),
+    lineHeight: scaleByDeviceWidth(86),
+    textShadowColor: '#E83B32',
+    textShadowOffset: {
+      width: scaleByDeviceWidth(4),
+      height: scaleByDeviceWidth(5),
+    },
+    textShadowRadius: 0,
   },
   safeArea: {
     flex: 1,
@@ -2436,14 +2705,6 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(24),
     height: scaleByDeviceWidth(24),
   },
-  recommendedSkillBadge: {
-    position: 'absolute',
-    top: 0,
-    right: scaleByDeviceWidth(24),
-    width: scaleByDeviceWidth(45),
-    height: scaleByDeviceWidth(48),
-    zIndex: 1,
-  },
   finalClashOverlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
@@ -2453,6 +2714,19 @@ const styles = StyleSheet.create({
   },
   finalClashContent: {
     alignItems: 'center',
+  },
+  finalClashTitleImage: {
+    width: scaleByDeviceWidth(159),
+    height: scaleByDeviceWidth(100),
+    marginBottom: scaleByDeviceWidth(12),
+  },
+  finalClashTitleImageLayer: {
+    position: 'absolute',
+    width: '100%',
+    height: '100%',
+  },
+  finalClashTitleShade: {
+    tintColor: '#000000',
   },
   finalClashTitle: {
     color: '#FFFFFF',
@@ -2467,23 +2741,16 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(12),
     lineHeight: scaleByDeviceWidth(17),
   },
-  finalClashTimer: {
-    marginTop: scaleByDeviceWidth(10),
-    color: '#FFFFFF',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(18),
-    lineHeight: scaleByDeviceWidth(25),
-  },
   finalClashProgressBar: {
     position: 'relative',
     width: scaleByDeviceWidth(280),
     height: scaleByDeviceWidth(44.9),
-    marginTop: scaleByDeviceWidth(27.27),
+    marginTop: scaleByDeviceWidth(64),
   },
   cheerButton: {
     width: scaleByDeviceWidth(96),
     height: scaleByDeviceWidth(96),
-    marginTop: scaleByDeviceWidth(64),
+    marginTop: scaleByDeviceWidth(38),
   },
   cheerButtonImage: {
     width: '100%',
