@@ -72,6 +72,8 @@ const BATTLE_STATUS_BADGE = require('@/src/shared/assets/images/battle/battle-st
 const BATTLE_ROUND_LABEL = require('@/src/shared/assets/images/battle/battle-round-label.png');
 const FINAL_CLASH_INTRO_BURST = require('@/src/shared/assets/images/battle/final-clash-intro-burst.png');
 const FINAL_CLASH_INTRO_TITLE = require('@/src/shared/assets/images/battle/final-clash-intro-title.png');
+const BATTLE_OUTCOME_WIN = require('@/src/shared/assets/images/battle/battle-outcome-win.png');
+const BATTLE_OUTCOME_LOSE = require('@/src/shared/assets/images/battle/battle-outcome-lose.png');
 const ROUND_INTRO_BACKGROUND_FIXED = require('@/src/shared/assets/images/battle/round-intro-background-fixed.png');
 const ROUND_INTRO_BACKGROUND_MOVING = require('@/src/shared/assets/images/battle/round-intro-background-moving.png');
 const ROUND_INTRO_LABELS: Record<number, number> = {
@@ -170,6 +172,8 @@ type BattlePartyMember = {
   name: string;
   orderNo?: number;
 };
+
+type BattleOutcome = 'WIN' | 'LOSE';
 
 const TYPE_BADGES: Record<CreatureEnvironment, number> = {
   land: require('@/src/shared/assets/images/farm-search/land-badge.png'),
@@ -436,13 +440,14 @@ function CreatureInfoCard({
 }
 
 export function BattleArenaScreen() {
-  const { width: screenWidth } = useWindowDimensions();
+  const { height: screenHeight, width: screenWidth } = useWindowDimensions();
   const typingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const battleMotionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const impactStartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasRequestedFinalRoundStartRef = useRef(false);
   const hasSubmittedFinalRoundResultRef = useRef(false);
   const hasHandledBattleEndRef = useRef(false);
+  const pendingBattleResultNavigationRef = useRef<(() => void) | null>(null);
   const hasPlayedFinalClashIntroRef = useRef(false);
   const finalTapCountRef = useRef(0);
   const selectionTimerActionSeqRef = useRef<number | null>(null);
@@ -578,6 +583,13 @@ export function BattleArenaScreen() {
   const finalClashIntroScale = useSharedValue(1);
   const finalClashIntroTranslateY = useSharedValue(0);
   const finalClashTitleScale = useSharedValue(1);
+  const battleOutcomeTranslateX = useSharedValue(0);
+  const battleOutcomeTranslateY = useSharedValue(0);
+  const battleOutcomeRotation = useSharedValue(0);
+  const battleOutcomeScale = useSharedValue(1);
+  const [battleOutcome, setBattleOutcome] = useState<BattleOutcome | null>(
+    null,
+  );
   const [isFinalClashIntroVisible, setIsFinalClashIntroVisible] =
     useState(false);
   const [isFinalClashIntroComplete, setIsFinalClashIntroComplete] =
@@ -845,6 +857,13 @@ export function BattleArenaScreen() {
     },
     [battleState?.currentEntryOrder],
   );
+  const presentBattleOutcome = useCallback(
+    (outcome: BattleOutcome, navigateToResult: () => void) => {
+      pendingBattleResultNavigationRef.current = navigateToResult;
+      setBattleOutcome(outcome);
+    },
+    [],
+  );
   const handleSubmitAction = useCallback(
     async (skill: string | null, isRetry = false) => {
       if (!IS_BATTLE_ACTION_SUBMISSION_ENABLED) {
@@ -1033,19 +1052,26 @@ export function BattleArenaScreen() {
       }
 
       await clearBattleSession();
-      router.replace({
-        pathname: '/battle-result',
-        params: {
-          battleId: String(result.battleId),
-          battleResult: result.battleResult ?? undefined,
-          coach: coachId,
-          finalRoundResult: JSON.stringify(result),
-          gymLeaderId: String(battleState.gymLeaderId),
-          npcParty: JSON.stringify(npcPartyMembers),
-          party: JSON.stringify(partyMembers),
-          reward: result.reward ? JSON.stringify(result.reward) : undefined,
+      presentBattleOutcome(
+        result.battleResult === 'LOSE' ? 'LOSE' : 'WIN',
+        () => {
+          router.replace({
+            pathname: '/battle-result',
+            params: {
+              battleId: String(result.battleId),
+              battleResult: result.battleResult ?? undefined,
+              coach: coachId,
+              finalRoundResult: JSON.stringify(result),
+              gymLeaderId: String(battleState.gymLeaderId),
+              npcParty: JSON.stringify(npcPartyMembers),
+              party: JSON.stringify(partyMembers),
+              reward: result.reward
+                ? JSON.stringify(result.reward)
+                : undefined,
+            },
+          });
         },
-      });
+      );
     },
     [
       battleState,
@@ -1053,6 +1079,7 @@ export function BattleArenaScreen() {
       coachId,
       npcPartyMembers,
       partyMembers,
+      presentBattleOutcome,
       submitBattleFinalRound,
     ],
   );
@@ -1719,20 +1746,25 @@ export function BattleArenaScreen() {
         return;
       }
 
-      router.replace({
-        pathname: '/battle-result',
-        params: {
-          battleId: String(battleState.battleId),
-          battleResult: battleState.result ?? undefined,
-          coach: coachId,
-          gymLeaderId: String(battleState.gymLeaderId),
-          npcParty: JSON.stringify(npcPartyMembers),
-          party: JSON.stringify(partyMembers),
-          reward: battleState.reward
-            ? JSON.stringify(battleState.reward)
-            : undefined,
+      presentBattleOutcome(
+        battleState.result === 'LOSE' ? 'LOSE' : 'WIN',
+        () => {
+          router.replace({
+            pathname: '/battle-result',
+            params: {
+              battleId: String(battleState.battleId),
+              battleResult: battleState.result ?? undefined,
+              coach: coachId,
+              gymLeaderId: String(battleState.gymLeaderId),
+              npcParty: JSON.stringify(npcPartyMembers),
+              party: JSON.stringify(partyMembers),
+              reward: battleState.reward
+                ? JSON.stringify(battleState.reward)
+                : undefined,
+            },
+          });
         },
-      });
+      );
     });
   }, [
     battleState,
@@ -1741,6 +1773,7 @@ export function BattleArenaScreen() {
     isBroadcasting,
     npcPartyMembers,
     partyMembers,
+    presentBattleOutcome,
   ]);
 
   const battleProgressStyle = useAnimatedStyle(() => ({
@@ -1808,6 +1841,88 @@ export function BattleArenaScreen() {
       Extrapolation.CLAMP,
     ),
   }));
+  const battleOutcomeMotionStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: battleOutcomeTranslateX.value },
+      { translateY: battleOutcomeTranslateY.value },
+      { rotate: `${battleOutcomeRotation.value}deg` },
+      { scale: battleOutcomeScale.value },
+    ],
+  }));
+
+  useEffect(() => {
+    if (!battleOutcome) {
+      return;
+    }
+
+    battleOutcomeTranslateX.value = 0;
+    battleOutcomeTranslateY.value = 0;
+    battleOutcomeRotation.value = 0;
+    battleOutcomeScale.value = 1;
+
+    if (battleOutcome === 'WIN') {
+      battleOutcomeTranslateY.value = withSequence(
+        withTiming(-scaleByDeviceWidth(52), {
+          duration: 220,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(0, { duration: 220, easing: Easing.in(Easing.quad) }),
+        withTiming(-scaleByDeviceWidth(38), {
+          duration: 200,
+          easing: Easing.out(Easing.quad),
+        }),
+        withTiming(0, { duration: 220, easing: Easing.in(Easing.quad) }),
+      );
+      battleOutcomeRotation.value = withSequence(
+        withTiming(360, { duration: 430, easing: Easing.linear }),
+        withTiming(720, { duration: 430, easing: Easing.linear }),
+      );
+    } else {
+      battleOutcomeTranslateX.value = withSequence(
+        withTiming(-scaleByDeviceWidth(12), { duration: 70 }),
+        withTiming(scaleByDeviceWidth(12), { duration: 70 }),
+        withTiming(-scaleByDeviceWidth(10), { duration: 70 }),
+        withTiming(scaleByDeviceWidth(10), { duration: 70 }),
+        withTiming(-scaleByDeviceWidth(7), { duration: 70 }),
+        withTiming(scaleByDeviceWidth(7), { duration: 70 }),
+        withTiming(0, { duration: 70 }),
+      );
+      battleOutcomeRotation.value = withSequence(
+        withTiming(-5, { duration: 70 }),
+        withTiming(5, { duration: 70 }),
+        withTiming(-4, { duration: 70 }),
+        withTiming(4, { duration: 70 }),
+        withTiming(0, { duration: 70 }),
+      );
+      battleOutcomeTranslateY.value = withDelay(
+        560,
+        withTiming(screenHeight * 1.15, {
+          duration: 650,
+          easing: Easing.in(Easing.cubic),
+        }),
+      );
+    }
+
+    const navigationTimeout = setTimeout(() => {
+      pendingBattleResultNavigationRef.current?.();
+      pendingBattleResultNavigationRef.current = null;
+    }, 1600);
+
+    return () => {
+      clearTimeout(navigationTimeout);
+      cancelAnimation(battleOutcomeTranslateX);
+      cancelAnimation(battleOutcomeTranslateY);
+      cancelAnimation(battleOutcomeRotation);
+      cancelAnimation(battleOutcomeScale);
+    };
+  }, [
+    battleOutcome,
+    battleOutcomeRotation,
+    battleOutcomeScale,
+    battleOutcomeTranslateX,
+    battleOutcomeTranslateY,
+    screenHeight,
+  ]);
 
   useEffect(() => {
     cancelAnimation(finalClashTitleScale);
@@ -2263,6 +2378,35 @@ export function BattleArenaScreen() {
           )}
         </View>
       )}
+      {battleOutcome && (
+        <View pointerEvents="auto" style={styles.battleOutcomeOverlay}>
+          <View style={styles.roundIntroDimmer} />
+          {battleOutcome === 'WIN' && (
+            <>
+              <Image
+                accessible={false}
+                resizeMode="contain"
+                source={ROUND_INTRO_BACKGROUND_FIXED}
+                style={styles.roundIntroFixedBackground}
+              />
+              <Image
+                accessible={false}
+                resizeMode="contain"
+                source={ROUND_INTRO_BACKGROUND_MOVING}
+                style={styles.roundIntroMovingBackground}
+              />
+            </>
+          )}
+          <Animated.Image
+            accessibilityLabel={battleOutcome === 'WIN' ? '승리' : '패배'}
+            resizeMode="contain"
+            source={
+              battleOutcome === 'WIN' ? BATTLE_OUTCOME_WIN : BATTLE_OUTCOME_LOSE
+            }
+            style={[styles.battleOutcomeImage, battleOutcomeMotionStyle]}
+          />
+        </View>
+      )}
     </ImageBackground>
   );
 }
@@ -2362,6 +2506,17 @@ const styles = StyleSheet.create({
       height: scaleByDeviceWidth(5),
     },
     textShadowRadius: 0,
+  },
+  battleOutcomeOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    zIndex: 40,
+  },
+  battleOutcomeImage: {
+    width: scaleByDeviceWidth(246),
+    height: scaleByDeviceWidth(246 * (724 / 2172)),
   },
   safeArea: {
     flex: 1,
