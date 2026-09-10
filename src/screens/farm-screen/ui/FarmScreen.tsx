@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    backgroundColor: '#5CB33E',
+    backgroundColor: '#FFFDF8',
     width: '100%',
   },
   statusControls: {

@@ -402,7 +402,7 @@ export function BattleMapScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#1189E3',
+    backgroundColor: '#FFFDF8',
   },
   coachButton: {
     position: 'absolute',
