@@ -14,7 +14,6 @@ import {
   useState,
 } from 'react';
 import {
-  Alert,
   AppState,
   Image,
   ImageBackground,
@@ -54,6 +53,7 @@ import { useResumeBattle } from '@/src/features/resume-battle';
 import { useStartBattleFinalRound } from '@/src/features/start-battle-final-round';
 import { useSubmitBattleFinalRound } from '@/src/features/submit-battle-final-round';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import impactGrassLottie from '@/src/shared/assets/images/battle/impact-grass-pixel-sequence.json';
 import impactSeaLottie from '@/src/shared/assets/images/battle/impact-sea-pixel-sequence.json';
 import impactSkyLottie from '@/src/shared/assets/images/battle/impact-sky-pixel-sequence.json';
@@ -595,6 +595,8 @@ export function BattleArenaScreen() {
   const [battleOutcome, setBattleOutcome] = useState<BattleOutcome | null>(
     null,
   );
+  const [battleValidationErrorMessage, setBattleValidationErrorMessage] =
+    useState<string | null>(null);
   const [isFinalClashIntroVisible, setIsFinalClashIntroVisible] =
     useState(false);
   const [isFinalClashIntroComplete, setIsFinalClashIntroComplete] =
@@ -892,8 +894,7 @@ export function BattleArenaScreen() {
         actionSeq < 1 ||
         actionSeq > 9
       ) {
-        Alert.alert(
-          '행동 순서 오류',
+        setBattleValidationErrorMessage(
           '서버에서 올바르지 않은 행동 순서를 받았습니다.',
         );
         return;
@@ -1261,75 +1262,6 @@ export function BattleArenaScreen() {
 
     return () => subscription.remove();
   }, [isFocused, refreshBattleState]);
-
-  useEffect(() => {
-    if (!resumeBattleErrorMessage) {
-      return;
-    }
-
-    clearResumeBattleError();
-    Alert.alert('대전 복구 실패', resumeBattleErrorMessage);
-  }, [clearResumeBattleError, resumeBattleErrorMessage]);
-
-  useEffect(() => {
-    if (!battleActionErrorMessage) {
-      return;
-    }
-
-    clearBattleActionError();
-    Alert.alert('행동 처리 실패', battleActionErrorMessage, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '다시 시도',
-        onPress: () =>
-          void handleSubmitAction(
-            submittedActionRef.current?.skill ?? null,
-            true,
-          ),
-      },
-    ]);
-  }, [
-    battleActionErrorMessage,
-    clearBattleActionError,
-    handleSubmitAction,
-  ]);
-
-  useEffect(() => {
-    if (!finalRoundStartErrorMessage) {
-      return;
-    }
-
-    clearFinalRoundStartError();
-    Alert.alert('최종 승부 시작 실패', finalRoundStartErrorMessage, [
-      { text: '취소', style: 'cancel' },
-      {
-        text: '다시 시도',
-        onPress: () => void handleStartFinalRound(true),
-      },
-    ]);
-  }, [
-    clearFinalRoundStartError,
-    finalRoundStartErrorMessage,
-    handleStartFinalRound,
-  ]);
-
-  useEffect(() => {
-    if (!finalRoundSubmitErrorMessage) {
-      return;
-    }
-
-    clearFinalRoundSubmitError();
-    Alert.alert('최종 승부 결과 제출 실패', finalRoundSubmitErrorMessage, [
-      {
-        text: '다시 시도',
-        onPress: () => void handleSubmitFinalRound(true),
-      },
-    ], { cancelable: false });
-  }, [
-    clearFinalRoundSubmitError,
-    finalRoundSubmitErrorMessage,
-    handleSubmitFinalRound,
-  ]);
 
   useEffect(() => {
     if (
@@ -2431,6 +2363,47 @@ export function BattleArenaScreen() {
           />
         </View>
       )}
+      <ErrorModal
+        message={battleValidationErrorMessage}
+        onClose={() => setBattleValidationErrorMessage(null)}
+      />
+      <ErrorModal
+        message={resumeBattleErrorMessage}
+        onClose={clearResumeBattleError}
+      />
+      <ErrorModal
+        cancelLabel="취소"
+        confirmLabel="다시 시도"
+        message={battleActionErrorMessage}
+        onClose={clearBattleActionError}
+        onConfirm={() => {
+          clearBattleActionError();
+          void handleSubmitAction(
+            submittedActionRef.current?.skill ?? null,
+            true,
+          );
+        }}
+      />
+      <ErrorModal
+        cancelLabel="취소"
+        confirmLabel="다시 시도"
+        message={finalRoundStartErrorMessage}
+        onClose={clearFinalRoundStartError}
+        onConfirm={() => {
+          clearFinalRoundStartError();
+          void handleStartFinalRound(true);
+        }}
+      />
+      <ErrorModal
+        confirmLabel="다시 시도"
+        dismissible={false}
+        message={finalRoundSubmitErrorMessage}
+        onClose={clearFinalRoundSubmitError}
+        onConfirm={() => {
+          clearFinalRoundSubmitError();
+          void handleSubmitFinalRound(true);
+        }}
+      />
     </ImageBackground>
   );
 }

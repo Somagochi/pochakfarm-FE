@@ -1,6 +1,6 @@
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -18,6 +18,7 @@ import { useCreateBattle } from '@/src/features/create-battle';
 import { useResumeBattle } from '@/src/features/resume-battle';
 import { BattleCreatureSelector } from '@/src/features/select-battle-creature';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { BattleActionBar } from '@/src/widgets/battle-action-bar';
 import { ApiError } from '@/src/shared/api/client';
 import { BattleHeader } from '@/src/widgets/battle-header';
@@ -87,6 +88,9 @@ export function BattleScreen() {
     FarmCreatureListItem[]
   >([]);
   const [creatureListRefreshKey, setCreatureListRefreshKey] = useState(0);
+  const [battleStartErrorMessage, setBattleStartErrorMessage] = useState<
+    string | null
+  >(null);
   const recommendedCreatureEnvironments = useMemo(() => {
     if (!gymLeaderDetail) {
       return MORU_RECOMMENDED_ENVIRONMENTS;
@@ -99,18 +103,6 @@ export function BattleScreen() {
 
     return suggestedEnvironment ? [suggestedEnvironment] : [];
   }, [gymLeaderDetail]);
-
-  useEffect(() => {
-    if (!resumeBattleErrorMessage) {
-      return;
-    }
-
-    clearResumeBattleError();
-    Alert.alert('대전 복구 실패', resumeBattleErrorMessage);
-  }, [
-    clearResumeBattleError,
-    resumeBattleErrorMessage,
-  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -192,7 +184,7 @@ export function BattleScreen() {
     }));
 
     if (entries.some((entry) => !Number.isSafeInteger(entry.animalId))) {
-      Alert.alert('대전 시작 실패', '출전 동물 정보가 올바르지 않습니다.');
+      setBattleStartErrorMessage('출전 동물 정보가 올바르지 않습니다.');
       return;
     }
 
@@ -229,8 +221,7 @@ export function BattleScreen() {
 
       if (!isActiveBattleConflict) {
         clearCreateBattleError();
-        Alert.alert(
-          '대전 시작 실패',
+        setBattleStartErrorMessage(
           createError instanceof Error
             ? createError.message
             : '대전을 시작하지 못했습니다.',
@@ -414,6 +405,14 @@ export function BattleScreen() {
         }
         isLoading={isCreatingBattle || isResumingBattle}
         onPress={() => void handleStartBattle()}
+      />
+      <ErrorModal
+        message={resumeBattleErrorMessage}
+        onClose={clearResumeBattleError}
+      />
+      <ErrorModal
+        message={battleStartErrorMessage}
+        onClose={() => setBattleStartErrorMessage(null)}
       />
     </SafeAreaView>
   );
