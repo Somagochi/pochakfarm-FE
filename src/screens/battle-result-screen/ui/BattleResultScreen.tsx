@@ -33,6 +33,7 @@ const EXPERIENCE_REWARD_ICON = require('@/src/shared/assets/images/battle/experi
 const FIRST_CLEAR_REWARD_PANEL = require('@/src/shared/assets/images/battle/first-clear-reward-panel.png');
 const FIRST_CLEAR_REWARD_TITLE = require('@/src/shared/assets/images/battle/first-clear-reward-title.png');
 const FIRST_CLEAR_BADGE = require('@/src/shared/assets/images/battle/first-clear-badge.png');
+const DEFEAT_FIRST_CLEAR_BADGE = require('@/src/shared/assets/images/battle/defeat-first-clear-badge.png');
 const ACHIEVEMENT_PROGRESS_FULL = require('@/src/shared/assets/images/collection/achievement-progress-full.png');
 const COACH_RESULT_PANEL = require('@/src/shared/assets/images/battle/coach-result-panel.png');
 const DEFEAT_COACH_RESULT_PANEL = require('@/src/shared/assets/images/battle/defeat-coach-result-panel.png');
@@ -203,9 +204,12 @@ export function BattleResultScreen() {
     TOTAL_BADGE_COUNT,
   );
   const badgeProgress = earnedBadgeCount / TOTAL_BADGE_COUNT;
-  const shouldShowFirstClearReward = Boolean(
-    battleReward?.firstClear && battleReward.badgeCode,
-  );
+  const shouldShowFirstClearReward =
+    (battleResultParam === 'WIN' || battleResultParam === 'LOSE') &&
+    battleReward?.firstClear === true;
+  const firstClearBadgeImage = isVictory
+    ? FIRST_CLEAR_BADGE
+    : DEFEAT_FIRST_CLEAR_BADGE;
   const opponentCreatures = gymLeaderDetail
     ? gymLeaderDetail.animals
         .map((animal) => ({
@@ -303,7 +307,11 @@ export function BattleResultScreen() {
             style={styles.firstClearRewardTitle}
           />
           <View style={styles.badgeSummary}>
-            <Image resizeMode="contain" source={FIRST_CLEAR_BADGE} style={styles.badgeImage} />
+            <Image
+              resizeMode="contain"
+              source={firstClearBadgeImage}
+              style={styles.badgeImage}
+            />
             <Text style={styles.badgeName}>{coachType} 뱃지</Text>
           </View>
           <View style={styles.badgeDivider} />
