@@ -2,21 +2,30 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Alert,
+  FlatList,
   Image,
-  ImageBackground,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { Image as ExpoImage } from 'expo-image';
 import Animated, { BounceIn } from 'react-native-reanimated';
 
 import { useGymLeaders, type GymLeader } from '@/src/entities/battle';
 import { useResumeBattle } from '@/src/features/resume-battle';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
-const BATTLE_MAP = require('@/src/shared/assets/images/battle/battle-coach-map.png');
+const BATTLE_MAP_SEGMENTS = [
+  require('@/src/shared/assets/images/battle/battle-coach-map-1.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-2.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-3.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-4.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-5.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-6.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-7.png'),
+  require('@/src/shared/assets/images/battle/battle-coach-map-8.png'),
+] as const;
 const COACH_SELECTED_EXCLAMATION = require('@/src/shared/assets/images/battle/coach-selected-exclamation.png');
 const MORU_COACH = require('@/src/shared/assets/images/battle/moru-coach.png');
 const HARU_COACH = require('@/src/shared/assets/images/battle/haru-coach.png');
@@ -35,6 +44,7 @@ const ION_COACH = require('@/src/shared/assets/images/battle/ion-coach.png');
 const ION_COACH_SILHOUETTE = require('@/src/shared/assets/images/battle/ion-coach-silhouette.png');
 const MAP_ORIGINAL_WIDTH = 1440;
 const MAP_ORIGINAL_HEIGHT = 7648;
+const MAP_SEGMENT_ORIGINAL_HEIGHT = 956;
 const MORU_DESIGN_WIDTH = 360;
 const MORU_CENTER_X = 720;
 const MORU_TOP = 6810;
@@ -103,7 +113,7 @@ const COACH_PLACEMENTS = [
 ] as const;
 
 export function BattleMapScreen() {
-  const scrollViewRef = useRef<ScrollView>(null);
+  const mapListRef = useRef<FlatList<number>>(null);
   const hasPositionedInitialScrollRef = useRef(false);
   const navigationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [screenWidth, setScreenWidth] = useState(0);
@@ -231,7 +241,7 @@ export function BattleMapScreen() {
       )[0];
 
     if (!targetGymLeader) {
-      scrollViewRef.current?.scrollToEnd({ animated: false });
+      mapListRef.current?.scrollToEnd({ animated: false });
       hasPositionedInitialScrollRef.current = true;
       return;
     }
@@ -254,9 +264,9 @@ export function BattleMapScreen() {
     );
 
     hasPositionedInitialScrollRef.current = true;
-    scrollViewRef.current?.scrollTo({
+    mapListRef.current?.scrollToOffset({
       animated: false,
-      y: targetScrollY,
+      offset: targetScrollY,
     });
   }, [
     coachWidth,
@@ -308,92 +318,143 @@ export function BattleMapScreen() {
       style={styles.screen}
     >
       {screenWidth > 0 && (
-        <ScrollView
+        <FlatList
           bounces={false}
-          ref={scrollViewRef}
+          data={BATTLE_MAP_SEGMENTS.map((_, index) => index)}
+          getItemLayout={(_, index) => {
+            const segmentHeight =
+              screenWidth *
+              (MAP_SEGMENT_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
+
+            return {
+              index,
+              length: segmentHeight,
+              offset: index * segmentHeight,
+            };
+          }}
+          initialNumToRender={3}
+          keyExtractor={String}
+          maxToRenderPerBatch={2}
+          ref={mapListRef}
+          removeClippedSubviews
+          renderItem={({ index }) => {
+            const segmentHeight =
+              screenWidth *
+              (MAP_SEGMENT_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
+            const segmentTop = index * segmentHeight;
+
+            return (
+              <View
+                style={[
+                  styles.mapSegment,
+                  {
+                    width: screenWidth,
+                    height: segmentHeight,
+                    zIndex: BATTLE_MAP_SEGMENTS.length - index,
+                  },
+                ]}
+              >
+                <Image
+                  resizeMode="stretch"
+                  source={BATTLE_MAP_SEGMENTS[index]}
+                  style={styles.mapSegmentImage}
+                />
+                {gymLeaders.map((gymLeader) => {
+                  const coach =
+                    COACH_PLACEMENTS[gymLeader.challengeOrder - 1];
+
+                  if (!coach) {
+                    return null;
+                  }
+
+                  const coachTop =
+                    gymLeader.challengeOrder === 1
+                      ? moruTop
+                      : mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
+
+                  if (
+                    coachTop < segmentTop ||
+                    coachTop >= segmentTop + segmentHeight
+                  ) {
+                    return null;
+                  }
+
+                  const isSelected =
+                    selectedGymLeaderId === gymLeader.gymLeaderId;
+                  const isUnlocked = gymLeader.unlocked;
+                  const size =
+                    gymLeader.challengeOrder === 1 ? moruWidth : coachWidth;
+                  const left =
+                    screenWidth * (coach.centerX / MAP_ORIGINAL_WIDTH) -
+                    size / 2;
+
+                  return (
+                    <Pressable
+                      accessibilityLabel={
+                        isUnlocked
+                          ? `${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}에게 도전하기`
+                          : `잠긴 ${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}`
+                      }
+                      accessibilityRole="button"
+                      accessibilityState={{
+                        disabled: !isUnlocked,
+                        selected: isSelected,
+                      }}
+                      disabled={
+                        !isUnlocked ||
+                        selectedGymLeaderId !== null ||
+                        isResumingBattle
+                      }
+                      key={gymLeader.gymLeaderId}
+                      onPress={() => handleGymLeaderPress(gymLeader)}
+                      style={({ pressed }) => [
+                        styles.coachButton,
+                        {
+                          top: coachTop - segmentTop,
+                          left,
+                          width: size,
+                          height: size,
+                        },
+                        pressed && styles.pressed,
+                      ]}
+                    >
+                      <ExpoImage
+                        cachePolicy="memory-disk"
+                        contentFit="contain"
+                        source={
+                          isUnlocked
+                            ? gymLeader.thumbnailUrl
+                              ? { uri: gymLeader.thumbnailUrl }
+                              : coach.image
+                            : coach.silhouette
+                        }
+                        style={styles.coachImage}
+                      />
+                      {!isUnlocked && (
+                        <Text style={styles.lockedCoachQuestionMark}>?</Text>
+                      )}
+                      {isSelected && (
+                        <View
+                          style={styles.coachSelectedExclamationPosition}
+                        >
+                          <Animated.View entering={BounceIn.duration(350)}>
+                            <Image
+                              resizeMode="contain"
+                              source={COACH_SELECTED_EXCLAMATION}
+                              style={styles.coachSelectedExclamation}
+                            />
+                          </Animated.View>
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            );
+          }}
           showsVerticalScrollIndicator={false}
-        >
-          <ImageBackground
-            resizeMode="contain"
-            source={BATTLE_MAP}
-            style={{ width: screenWidth, height: mapHeight }}
-          >
-            {gymLeaders.map((gymLeader) => {
-              const coach = COACH_PLACEMENTS[gymLeader.challengeOrder - 1];
-
-              if (!coach) {
-                return null;
-              }
-
-              const isSelected = selectedGymLeaderId === gymLeader.gymLeaderId;
-              const isUnlocked = gymLeader.unlocked;
-              const left =
-                screenWidth * (coach.centerX / MAP_ORIGINAL_WIDTH) -
-                (gymLeader.challengeOrder === 1 ? moruWidth : coachWidth) / 2;
-              const top =
-                gymLeader.challengeOrder === 1
-                  ? moruTop
-                  : mapHeight * (coach.top / MAP_ORIGINAL_HEIGHT);
-              const size =
-                gymLeader.challengeOrder === 1 ? moruWidth : coachWidth;
-
-              return (
-                <Pressable
-                  accessibilityLabel={
-                    isUnlocked
-                      ? `${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}에게 도전하기`
-                      : `잠긴 ${gymLeader.challengeOrder}번째 관장 ${gymLeader.name}`
-                  }
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: !isUnlocked, selected: isSelected }}
-                  disabled={
-                    !isUnlocked ||
-                    selectedGymLeaderId !== null ||
-                    isResumingBattle
-                  }
-                  key={gymLeader.gymLeaderId}
-                  onPress={() => handleGymLeaderPress(gymLeader)}
-                  style={({ pressed }) => [
-                    styles.coachButton,
-                    {
-                      top,
-                      left,
-                      width: size,
-                      height: size,
-                    },
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Image
-                    resizeMode="contain"
-                    source={
-                      isUnlocked
-                        ? gymLeader.thumbnailUrl
-                          ? { uri: gymLeader.thumbnailUrl }
-                          : coach.image
-                        : coach.silhouette
-                    }
-                    style={styles.coachImage}
-                  />
-                  {!isUnlocked && (
-                    <Text style={styles.lockedCoachQuestionMark}>?</Text>
-                  )}
-                  {isSelected && (
-                    <View style={styles.coachSelectedExclamationPosition}>
-                      <Animated.View entering={BounceIn.duration(350)}>
-                        <Image
-                          resizeMode="contain"
-                          source={COACH_SELECTED_EXCLAMATION}
-                          style={styles.coachSelectedExclamation}
-                        />
-                      </Animated.View>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
-          </ImageBackground>
-        </ScrollView>
+          windowSize={3}
+        />
       )}
     </View>
   );
@@ -408,6 +469,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
+  },
+  mapSegment: {
+    position: 'relative',
+    overflow: 'visible',
+  },
+  mapSegmentImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
   coachImage: {
     position: 'absolute',
