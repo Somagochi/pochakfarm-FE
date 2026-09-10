@@ -92,8 +92,10 @@ export function BattleScreen() {
       return MORU_RECOMMENDED_ENVIRONMENTS;
     }
 
-    const suggestedEnvironment =
-      ENVIRONMENT_BY_SUGGEST_TYPE[gymLeaderDetail.gymLeader.suggestType];
+    const suggestType = gymLeaderDetail.gymLeader.suggestType;
+    const suggestedEnvironment = suggestType
+      ? ENVIRONMENT_BY_SUGGEST_TYPE[suggestType]
+      : undefined;
 
     return suggestedEnvironment ? [suggestedEnvironment] : [];
   }, [gymLeaderDetail]);
@@ -302,6 +304,7 @@ export function BattleScreen() {
         gymLeaderId: String(gymLeaderDetail.gymLeader.gymLeaderId),
         gymLeaderImageUrl: gymLeaderDetail.gymLeader.imageUrl,
         gymLeaderName: gymLeaderDetail.gymLeader.name,
+        isNewBattle: 'true',
         party: serializedSelectedParty,
         npcParty: serializedGymLeaderParty,
       },
@@ -310,7 +313,18 @@ export function BattleScreen() {
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.screen}>
-      <BattleHeader />
+      <BattleHeader
+        coinReward={
+          gymLeaderDetail && !gymLeaderDetail.gymLeader.cleared
+            ? gymLeaderDetail.gymLeader.coinReward
+            : 0
+        }
+        experienceReward={
+          gymLeaderDetail && !gymLeaderDetail.gymLeader.cleared
+            ? gymLeaderDetail.gymLeader.experienceReward
+            : 0
+        }
+      />
       <BattleCreatureSelector
         headerContent={
           <View style={styles.matchup}>

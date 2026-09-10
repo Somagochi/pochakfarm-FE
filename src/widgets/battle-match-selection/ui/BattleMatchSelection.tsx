@@ -25,6 +25,7 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
 const CREATURE_CARD_BACKGROUND = require('@/src/shared/assets/images/farm-search/creature-search-card-background.png');
 const COACH_RECOMMENDATION_CARD = require('@/src/shared/assets/images/battle/coach-recommendation-card.png');
+const UNKNOWN_RECOMMENDED_TYPE = require('@/src/shared/assets/images/battle/unknown-recommended-type.png');
 const EMPTY_PARTY_SLOT = require('@/src/shared/assets/images/battle/empty-party-slot.png');
 const PARTY_SEQUENCE_ARROW = require('@/src/shared/assets/images/battle/party-sequence-arrow.png');
 const REMOVE_PARTY_SLOT_BUTTON = require('@/src/shared/assets/images/battle/remove-party-slot-button.png');
@@ -45,6 +46,12 @@ const ENVIRONMENT_LABELS: Record<CreatureEnvironment, string> = {
   sea: '바다',
   sky: '하늘',
   space: '우주',
+};
+const ENVIRONMENT_BADGES: Record<CreatureEnvironment, number> = {
+  land: require('@/src/shared/assets/images/battle/battle-type-land.png'),
+  sea: require('@/src/shared/assets/images/battle/battle-type-sea.png'),
+  sky: require('@/src/shared/assets/images/battle/battle-type-sky.png'),
+  space: require('@/src/shared/assets/images/battle/battle-type-space.png'),
 };
 
 type BattleMatchSelectionProps = {
@@ -234,6 +241,7 @@ export function BattleMatchSelection({
           })}
         </View>
         <Text numberOfLines={1} style={styles.tip}>
+          <Text style={styles.tipLabel}>TIP </Text>
           {tipDescription ?? ''}
         </Text>
       </View>
@@ -253,9 +261,26 @@ export function BattleMatchSelection({
         </View>
         <View style={styles.recommendedType}>
           <Text style={styles.recommendedTypeLabel}>추천타입</Text>
-          <Text style={styles.recommendedTypeValue}>
-            {recommendedTypeLabel}
-          </Text>
+          <View style={styles.recommendedTypeBadges}>
+            {recommendedCreatureEnvironments.length === 0 ? (
+              <Image
+                accessibilityLabel="추천 타입 미정"
+                resizeMode="contain"
+                source={UNKNOWN_RECOMMENDED_TYPE}
+                style={styles.recommendedTypeBadge}
+              />
+            ) : (
+              recommendedCreatureEnvironments.map((environment) => (
+                <Image
+                  accessibilityLabel={`${ENVIRONMENT_LABELS[environment]} 타입`}
+                  key={environment}
+                  resizeMode="contain"
+                  source={ENVIRONMENT_BADGES[environment]}
+                  style={styles.recommendedTypeBadge}
+                />
+              ))
+            )}
+          </View>
         </View>
       </ImageBackground>
     </View>
@@ -346,6 +371,9 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(10),
     lineHeight: TIP_HEIGHT,
   },
+  tipLabel: {
+    fontFamily: 'EliceDXNeolli-Bold',
+  },
   recommendationCard: {
     width: RECOMMENDATION_WIDTH,
     height: RECOMMENDATION_HEIGHT,
@@ -381,11 +409,14 @@ const styles = StyleSheet.create({
     fontSize: scaleByDeviceWidth(10),
     lineHeight: scaleByDeviceWidth(14),
   },
-  recommendedTypeValue: {
-    color: '#8B704D',
-    fontFamily: 'EliceDXNeolli-Bold',
-    fontSize: scaleByDeviceWidth(11),
-    lineHeight: scaleByDeviceWidth(16),
+  recommendedTypeBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: scaleByDeviceWidth(3),
+  },
+  recommendedTypeBadge: {
+    width: scaleByDeviceWidth(17),
+    height: scaleByDeviceWidth(24),
   },
   pressed: {
     opacity: 0.8,
