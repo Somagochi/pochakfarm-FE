@@ -9,6 +9,7 @@ import {
   type ImageSourcePropType,
   PanResponder,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -16,6 +17,7 @@ import {
 } from 'react-native';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 import {
   CardSkiaReflection,
   type CardReflectionVariant,
@@ -48,6 +50,7 @@ const CHOOSE_ONE_TEXT_IMAGE = require('@/src/shared/assets/images/capture/card-o
 const CUT_SCISSORS_IMAGE = require('@/src/shared/assets/images/capture/card-opening/cut-scissors.png');
 const SAVE_TO_FARM_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/save-to-farm-button.png');
 const RETURN_TO_NATURE_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/return-to-nature-button.png');
+const SHARE_CARD_BUTTON_IMAGE = require('@/src/shared/assets/images/capture/card-opening/share-card-button.png');
 const SCANNER_LOTTIE = require('@/src/shared/assets/images/capture/card-opening/scanner.json');
 const PACK_OPEN_GLOW_IMAGE = require('@/src/shared/assets/images/capture/card-opening/glow-static.svg');
 const AnimatedExpoImage = Animated.createAnimatedComponent(ExpoImage);
@@ -72,6 +75,9 @@ const RESULT_CARD_RESET_DURATION_MS = 300;
 const RESULT_AREA_TOP = 133.19;
 const RESULT_CARD_WIDTH = 283.66;
 const RESULT_CARD_HEIGHT = 408.52;
+const RESULT_SHARE_BUTTON_BOTTOM_GAP = 19.89;
+const RESULT_SHARE_BUTTON_WIDTH = 145;
+const RESULT_SHARE_BUTTON_HEIGHT = 19;
 const RESULT_ACTIONS_MARGIN_TOP = 41.7;
 const RESULT_ACTIONS_GAP = 12.34;
 const RESULT_ACTION_BUTTON_HEIGHT = 60;
@@ -378,7 +384,14 @@ export function CardOpeningSequence({
         {isReleaseAlertVisible ? (
           <ReleaseCreatureAlert
             onClose={() => setIsReleaseAlertVisible(false)}
-            onConfirm={onReturnToFarm}
+            onConfirm={() => {
+              captureAnalyticsEvent('capture_discarded', {
+                capture_id: captureDetail?.captureId,
+                card_type: captureDetail?.cardType,
+                tier: captureDetail?.tier,
+              });
+              onReturnToFarm();
+            }}
           />
         ) : (
           <ResultCard
@@ -1285,12 +1298,35 @@ function ResultCard({
       scaleByDeviceWidth(RESULT_BOTTOM_MIN_GAP) -
       resultContentHeight,
   );
+  const handleShareCard = async () => {
+    if (!cardImageUrl) return;
+
+    await Share.share(
+      {
+        message: `포착팜에서 포착한 동물 카드예요!\n${cardImageUrl}`,
+        url: cardImageUrl,
+      },
+      { dialogTitle: '이미지 공유하기' },
+    );
+  };
 
   return (
     <View
       accessibilityLabel="포착한 캐릭터 카드"
       style={[styles.resultArea, { top: resultAreaTop }]}
     >
+      <Pressable
+        accessibilityLabel="이미지 공유하기"
+        disabled={!cardImageUrl}
+        onPress={handleShareCard}
+        style={styles.resultShareButton}
+      >
+        <Image
+          resizeMode="contain"
+          source={SHARE_CARD_BUTTON_IMAGE}
+          style={styles.resultShareButtonImage}
+        />
+      </Pressable>
       <Animated.View
         {...cardPanResponder.panHandlers}
         accessibilityHint="상하좌우로 밀어서 회전하고 두 번 탭하면 처음 방향으로 돌아갑니다"
@@ -1801,6 +1837,19 @@ const styles = StyleSheet.create({
   resultCard: {
     width: scaleByDeviceWidth(RESULT_CARD_WIDTH),
     height: scaleByDeviceWidth(RESULT_CARD_HEIGHT),
+  },
+  resultShareButton: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(
+      -(RESULT_SHARE_BUTTON_HEIGHT + RESULT_SHARE_BUTTON_BOTTOM_GAP),
+    ),
+    zIndex: 1,
+    width: scaleByDeviceWidth(RESULT_SHARE_BUTTON_WIDTH),
+    height: scaleByDeviceWidth(RESULT_SHARE_BUTTON_HEIGHT),
+  },
+  resultShareButtonImage: {
+    width: '100%',
+    height: '100%',
   },
   resultCardFace: {
     ...StyleSheet.absoluteFillObject,

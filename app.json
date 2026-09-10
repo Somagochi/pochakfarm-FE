@@ -2,7 +2,7 @@
   "expo": {
     "name": "pochakfarm",
     "slug": "pochakfarm",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/app-icon.png",
     "scheme": "pochakfarm",
@@ -21,6 +21,7 @@
     },
     "android": {
       "package": "com.pochakfarm.app",
+      "versionCode": 9,
       "adaptiveIcon": {
         "backgroundColor": "#4AB4E4",
         "foregroundImage": "./assets/images/app-icon.png"

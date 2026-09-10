@@ -5,10 +5,19 @@ import {
   RoundedRect,
   vec,
 } from '@shopify/react-native-skia';
+import { useEffect } from 'react';
 import { Animated, StyleSheet, type ViewStyle } from 'react-native';
 import Reanimated, {
+  cancelAnimation,
+  Easing,
   interpolate,
+  interpolateColor,
   useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
   type SharedValue,
 } from 'react-native-reanimated';
 
@@ -28,6 +37,14 @@ type ReanimatedCardSkiaReflectionProps = {
   rotationX: SharedValue<number>;
   rotationY: SharedValue<number>;
   variant: CardReflectionVariant;
+};
+
+type AutoSweepCardSkiaReflectionProps = {
+  cardHeight: number;
+  cardWidth: number;
+  centerLabel?: string;
+  delay?: number;
+  variant: Extract<CardReflectionVariant, 'tier-s' | 'tier-ss' | 'tier-sss'>;
 };
 
 export type CardReflectionVariant =
@@ -252,6 +269,15 @@ const CARD_REFLECTION_VARIANTS: Record<
       },
     ],
   },
+};
+
+const AUTO_SWEEP_OPACITY_SCALE: Record<
+  AutoSweepCardSkiaReflectionProps['variant'],
+  number
+> = {
+  'tier-s': 0.62,
+  'tier-ss': 0.82,
+  'tier-sss': 1,
 };
 
 function normalizeRotation(rotation: number) {
@@ -596,6 +622,167 @@ export function ReanimatedCardSkiaReflection({
   );
 }
 
+export function AutoSweepCardSkiaReflection({
+  cardHeight,
+  cardWidth,
+  centerLabel,
+  delay = 0,
+  variant,
+}: AutoSweepCardSkiaReflectionProps) {
+  const {
+    canvasScale,
+    colors,
+    gradientEndYRatio,
+    gradientPositions,
+    gradientStartYRatio,
+    maxOpacity,
+    underlayGradients,
+  } = CARD_REFLECTION_VARIANTS[variant];
+  const progress = useSharedValue(0);
+  const reflectionCanvasOffset = (canvasScale - 1) / 2;
+  const reflectionWidth = cardWidth * canvasScale;
+  const reflectionHeight = cardHeight * canvasScale;
+  const sweepMaxOpacity =
+    maxOpacity * AUTO_SWEEP_OPACITY_SCALE[variant] * 0.8;
+  const isSingleLineSweep = variant === 'tier-s';
+  const sweepColors = isSingleLineSweep
+    ? [
+        'rgba(255,255,255,0)',
+        'rgba(255,255,255,0.92)',
+        'rgba(255,255,255,0)',
+        'rgba(255,255,255,0)',
+        'rgba(255,255,255,0.92)',
+        'rgba(255,255,255,0)',
+      ]
+    : colors;
+  const sweepGradientPositions = isSingleLineSweep
+    ? [0.42, 0.445, 0.47, 0.53, 0.555, 0.58]
+    : gradientPositions;
+  const sweepUnderlayGradients = isSingleLineSweep ? [] : underlayGradients;
+
+  useEffect(() => {
+    progress.value = withRepeat(
+      withSequence(
+        withDelay(delay + 900, withTiming(0, { duration: 0 })),
+        withTiming(1, {
+          duration: 2125,
+          easing: Easing.inOut(Easing.quad),
+        }),
+        withDelay(2100, withTiming(0, { duration: 0 })),
+      ),
+      -1,
+      false,
+    );
+
+    return () => cancelAnimation(progress);
+  }, [delay, progress]);
+
+  const reflectionAnimatedStyle = useAnimatedStyle(() => {
+    const opacity = interpolate(
+      progress.value,
+      [0, 0.08, 0.5, 0.92, 1],
+      [
+        0,
+        sweepMaxOpacity * 0.35,
+        sweepMaxOpacity,
+        sweepMaxOpacity * 0.35,
+        0,
+      ],
+    );
+
+    return {
+      opacity,
+      transform: [
+        {
+          translateX: interpolate(
+            progress.value,
+            [0, 1],
+            [-cardWidth * 0.85, cardWidth * 0.85],
+          ),
+        },
+        {
+          translateY: interpolate(
+            progress.value,
+            [0, 1],
+            [cardHeight * 0.18, -cardHeight * 0.18],
+          ),
+        },
+      ],
+    };
+  });
+  const labelAnimatedStyle = useAnimatedStyle(() => ({
+    color: interpolateColor(
+      progress.value,
+      [0, 0.3, 0.5, 0.7, 1],
+      ['#69583F', '#FFF1C7', '#FFFFFF', '#BDEEFF', '#69583F'],
+    ),
+    opacity: interpolate(
+      progress.value,
+      [0, 0.2, 0.42, 0.68, 1],
+      [0, 0, 1, 1, 0],
+    ),
+    transform: [
+      {
+        scale: interpolate(progress.value, [0.2, 0.5, 1], [0.88, 1, 1]),
+      },
+    ],
+  }));
+
+  return (
+    <Reanimated.View
+      pointerEvents="none"
+      style={[
+        styles.clip,
+        {
+          width: cardWidth,
+          height: cardHeight,
+          borderRadius: cardWidth * (12 / 226.92),
+        },
+      ]}
+    >
+      <Reanimated.View
+        style={[
+          {
+            position: 'absolute',
+            top: -cardHeight * reflectionCanvasOffset,
+            left: -cardWidth * reflectionCanvasOffset,
+            width: reflectionWidth,
+            height: reflectionHeight,
+          },
+          reflectionAnimatedStyle,
+        ]}
+      >
+        <CardReflectionCanvas
+          canvasScale={canvasScale}
+          cardHeight={cardHeight}
+          cardWidth={cardWidth}
+          fillsEntireCard
+          gradientEndYRatio={gradientEndYRatio}
+          gradientPositions={sweepGradientPositions}
+          gradientStartYRatio={gradientStartYRatio}
+          reflectionColors={sweepColors}
+          underlayGradients={sweepUnderlayGradients}
+        />
+      </Reanimated.View>
+      {centerLabel && (
+        <Reanimated.Text
+          style={[
+            styles.sweepCenterLabel,
+            {
+              fontSize: cardWidth * 0.16,
+              lineHeight: cardWidth * 0.22,
+              top: cardHeight * 0.5 - cardWidth * 0.11,
+            },
+            labelAnimatedStyle,
+          ]}
+        >
+          {centerLabel}
+        </Reanimated.Text>
+      )}
+    </Reanimated.View>
+  );
+}
+
 const styles = StyleSheet.create({
   clip: {
     position: 'absolute',
@@ -603,5 +790,14 @@ const styles = StyleSheet.create({
     left: 0,
     zIndex: 2,
     overflow: 'hidden',
+  },
+  sweepCenterLabel: {
+    position: 'absolute',
+    left: 0,
+    zIndex: 1,
+    width: '100%',
+    color: '#69583F',
+    fontFamily: 'EliceDXNeolli-Bold',
+    textAlign: 'center',
   },
 });

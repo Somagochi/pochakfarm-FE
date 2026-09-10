@@ -1,5 +1,7 @@
 import { useState } from 'react';
 
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
+
 import {
   agreeToTermsApi,
   type TermsAgreementRequest,
@@ -12,6 +14,10 @@ export function useAgreeToTerms() {
     try {
       setIsLoading(true);
       await agreeToTermsApi(agreement);
+      captureAnalyticsEvent('signup_completed', {
+        marketing_agreed: agreement.marketingAgreed,
+        service_quality_agreed: agreement.serviceQualityAgreed,
+      });
     } finally {
       setIsLoading(false);
     }

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { runRequestStep } from '@/src/shared/api/formatRequestError';
 import { uploadImageToPresignedUrl } from '@/src/shared/api/uploadImageToPresignedUrl';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 import { createCaptureApi } from '../api/createCaptureApi';
 import { completeOriginalImageUploadApi } from '../api/completeOriginalImageUploadApi';
@@ -11,6 +12,7 @@ import { submitCaptureGameResultApi } from '../api/submitCaptureGameResultApi';
 import type {
   CaptureDetail,
   CaptureGameResult,
+  CaptureSource,
   CaptureThrowResult,
   CreateCaptureResult,
 } from './types';
@@ -20,6 +22,7 @@ type CreateCaptureParams = {
   animalName: string;
   allowCoinPayment: boolean;
   photoUri: string;
+  source: CaptureSource;
 };
 
 const CAPTURE_POLL_INTERVAL_MS = 2000;
@@ -57,7 +60,19 @@ export function useCreateCapture() {
     setResult(null);
     setCaptureDetail(null);
     setGameResult(null);
-    const { photoUri, ...request } = params;
+    const captureStartedAt = Date.now();
+    captureAnalyticsEvent('capture_started', {
+      content_type: params.contentType,
+      paid_attempt: params.allowCoinPayment,
+      source: params.source,
+    });
+    const { photoUri } = params;
+    const request = {
+      allowCoinPayment: params.allowCoinPayment,
+      animalName: params.animalName,
+      contentType: params.contentType,
+    };
+    let currentStep = 'create';
     const capturePipeline = (async () => {
       const capture = await runRequestStep('POST /api/captures', () =>
         createCaptureApi({
@@ -66,6 +81,7 @@ export function useCreateCapture() {
         }),
       );
       setResult(capture);
+      currentStep = 'upload';
       await runRequestStep('PUT 원본 이미지 Presigned URL', () =>
         uploadImageToPresignedUrl({
           contentType: request.contentType,
@@ -73,6 +89,7 @@ export function useCreateCapture() {
           uploadUrl: capture.upload.url,
         }),
       );
+      currentStep = 'upload_complete';
       await runRequestStep(
         `POST /api/captures/${capture.captureId}/original-image/complete`,
         () => completeOriginalImageUploadApi(capture.captureId),
@@ -85,6 +102,11 @@ export function useCreateCapture() {
       await capturePipeline;
       return true;
     } catch (error) {
+      captureAnalyticsEvent('capture_failed', {
+        duration_ms: Date.now() - captureStartedAt,
+        paid_attempt: params.allowCoinPayment,
+        step: currentStep,
+      });
       setErrorMessage(
         error instanceof Error
           ? error.message
@@ -97,6 +119,7 @@ export function useCreateCapture() {
   }
 
   async function submitGameResult(throws: CaptureThrowResult[]) {
+    const generationStartedAt = Date.now();
     try {
       const capture = await capturePipelineRef.current;
 
@@ -134,6 +157,11 @@ export function useCreateCapture() {
         if (generationStatus === 'FAILED') {
           pollingRunIdRef.current += 1;
           setErrorMessage('카드 변환에 실패했습니다.');
+          captureAnalyticsEvent('capture_failed', {
+            capture_id: capture.captureId,
+            duration_ms: Date.now() - generationStartedAt,
+            step: 'generation',
+          });
           return false;
         }
 
@@ -143,12 +171,23 @@ export function useCreateCapture() {
           }
 
           setCaptureDetail(generation as CaptureDetail);
+          captureAnalyticsEvent('capture_generation_completed', {
+            capture_id: capture.captureId,
+            card_type: generation.cardType,
+            duration_ms: Date.now() - generationStartedAt,
+            server_elapsed_ms: generation.elapsedMs,
+            tier: generation.tier,
+          });
           return true;
         }
       }
 
       return true;
     } catch (error) {
+      captureAnalyticsEvent('capture_failed', {
+        duration_ms: Date.now() - generationStartedAt,
+        step: 'game_result_or_generation',
+      });
       setErrorMessage(
         error instanceof Error
           ? error.message

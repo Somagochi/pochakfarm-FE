@@ -318,12 +318,11 @@ export function FarmScreen() {
         }}
         visible={isCreatureSearchVisible}
       />
-      {isEnvironmentChanging && (
-        <LoadingScreen
-          accessibilityLabel="농장 환경 불러오는 중"
-          style={styles.environmentLoadingOverlay}
-        />
-      )}
+      <LoadingScreen
+        accessibilityLabel="농장 환경 불러오는 중"
+        style={styles.environmentLoadingOverlay}
+        visible={isEnvironmentChanging}
+      />
       {isCreatureDetailVisible && (
         <CreatureDetailSheet
           animalId={selectedAnimalId}
@@ -374,7 +373,7 @@ const styles = StyleSheet.create({
   },
   content: {
     alignItems: 'center',
-    backgroundColor: '#5CB33E',
+    backgroundColor: '#FFFDF8',
     width: '100%',
   },
   statusControls: {

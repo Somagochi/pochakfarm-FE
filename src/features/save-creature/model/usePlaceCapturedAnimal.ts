@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { ApiError } from '@/src/shared/api/client';
 import { formatRequestError } from '@/src/shared/api/formatRequestError';
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 import {
   getCapturePlacementApi,
@@ -38,6 +39,12 @@ export function usePlaceCapturedAnimal() {
     try {
       setIsLoading(true);
       await placeCapturedAnimalApi(captureId, request);
+      captureAnalyticsEvent('capture_saved', {
+        capture_id: captureId,
+        floor_number: request.floorNum,
+        replaced_existing: request.replacedAnimalId !== null,
+        slot_number: request.slotNum,
+      });
       return { ok: true };
     } catch (error) {
       const code = error instanceof ApiError ? error.code : null;

@@ -9,6 +9,7 @@ export type FarmCreatureListItem = {
   environment: CreatureEnvironment;
   id: string;
   name: string;
+  restEndsAt?: string | null;
   tier: CreatureTier;
 };
 
@@ -21,6 +22,7 @@ export type Animal = {
   tier: CreatureTier;
   cardImageUrl: string | null;
   animalImageUrl: string | null;
+  restEndsAt: string | null;
 };
 
 export type AnimalsPage = {

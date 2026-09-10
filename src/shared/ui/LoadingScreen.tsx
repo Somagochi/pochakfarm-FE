@@ -12,17 +12,22 @@ const BATTLE_BACKGROUND_IMAGE = require('@/src/shared/assets/images/battle/backg
 type LoadingScreenProps = {
   accessibilityLabel?: string;
   style?: StyleProp<ViewStyle>;
+  visible?: boolean;
 };
 
 export function LoadingScreen({
   accessibilityLabel = '화면 불러오는 중',
   style,
+  visible = true,
 }: LoadingScreenProps) {
   return (
     <View
+      accessibilityElementsHidden={!visible}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="progressbar"
-      style={[styles.container, style]}
+      importantForAccessibility={visible ? 'yes' : 'no-hide-descendants'}
+      pointerEvents={visible ? 'auto' : 'none'}
+      style={[styles.container, style, !visible && styles.hidden]}
     >
       <Image
         accessible={false}
@@ -30,7 +35,11 @@ export function LoadingScreen({
         source={BATTLE_BACKGROUND_IMAGE}
         style={styles.background}
       />
-      <ActivityIndicator color="#8B6B3F" size="large" />
+      <ActivityIndicator
+        animating={visible}
+        color="#8B6B3F"
+        size="large"
+      />
     </View>
   );
 }
@@ -46,5 +55,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+  },
+  hidden: {
+    opacity: 0,
   },
 });
