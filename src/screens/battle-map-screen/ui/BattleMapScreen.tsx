@@ -43,8 +43,8 @@ const DAON_COACH_SILHOUETTE = require('@/src/shared/assets/images/battle/daon-co
 const ION_COACH = require('@/src/shared/assets/images/battle/ion-coach.png');
 const ION_COACH_SILHOUETTE = require('@/src/shared/assets/images/battle/ion-coach-silhouette.png');
 const MAP_ORIGINAL_WIDTH = 1440;
-const MAP_ORIGINAL_HEIGHT = 7648;
-const MAP_SEGMENT_ORIGINAL_HEIGHT = 956;
+const MAP_ORIGINAL_HEIGHT = 7672;
+const MAP_SEGMENT_ORIGINAL_HEIGHT = 959;
 const MORU_DESIGN_WIDTH = 360;
 const MORU_CENTER_X = 720;
 const MORU_TOP = 6810;
@@ -342,6 +342,24 @@ export function BattleMapScreen() {
               screenWidth *
               (MAP_SEGMENT_ORIGINAL_HEIGHT / MAP_ORIGINAL_WIDTH);
             const segmentTop = index * segmentHeight;
+            const selectedGymLeader = gymLeaders.find(
+              (gymLeader) =>
+                gymLeader.gymLeaderId === selectedGymLeaderId,
+            );
+            const selectedCoach = selectedGymLeader
+              ? COACH_PLACEMENTS[selectedGymLeader.challengeOrder - 1]
+              : undefined;
+            const selectedCoachTop =
+              selectedGymLeader && selectedCoach
+                ? selectedGymLeader.challengeOrder === 1
+                  ? moruTop
+                  : mapHeight *
+                    (selectedCoach.top / MAP_ORIGINAL_HEIGHT)
+                : undefined;
+            const containsSelectedCoach =
+              selectedCoachTop !== undefined &&
+              selectedCoachTop >= segmentTop &&
+              selectedCoachTop < segmentTop + segmentHeight;
 
             return (
               <View
@@ -350,7 +368,9 @@ export function BattleMapScreen() {
                   {
                     width: screenWidth,
                     height: segmentHeight,
-                    zIndex: BATTLE_MAP_SEGMENTS.length - index,
+                    zIndex: containsSelectedCoach
+                      ? BATTLE_MAP_SEGMENTS.length + 1
+                      : BATTLE_MAP_SEGMENTS.length - index,
                   },
                 ]}
               >
