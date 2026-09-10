@@ -72,6 +72,11 @@ const BATTLE_STATUS_BADGE = require('@/src/shared/assets/images/battle/battle-st
 const BATTLE_ROUND_LABEL = require('@/src/shared/assets/images/battle/battle-round-label.png');
 const FINAL_CLASH_INTRO_BURST = require('@/src/shared/assets/images/battle/final-clash-intro-burst.png');
 const FINAL_CLASH_INTRO_TITLE = require('@/src/shared/assets/images/battle/final-clash-intro-title.png');
+const FINAL_CLASH_COUNTDOWN_IMAGES: Record<number, number> = {
+  1: require('@/src/shared/assets/images/battle/final-clash-countdown-1.png'),
+  2: require('@/src/shared/assets/images/battle/final-clash-countdown-2.png'),
+  3: require('@/src/shared/assets/images/battle/final-clash-countdown-3.png'),
+};
 const BATTLE_OUTCOME_WIN = require('@/src/shared/assets/images/battle/battle-outcome-win.png');
 const BATTLE_OUTCOME_LOSE = require('@/src/shared/assets/images/battle/battle-outcome-lose.png');
 const ROUND_INTRO_BACKGROUND_FIXED = require('@/src/shared/assets/images/battle/round-intro-background-fixed.png');
@@ -2372,9 +2377,13 @@ export function BattleArenaScreen() {
               />
             </Animated.View>
           ) : (
-            <Text accessibilityLiveRegion="assertive" style={styles.finalClashCountdown}>
-              {finalClashCountdown}
-            </Text>
+            <Image
+              accessibilityLabel={`${finalClashCountdown}`}
+              accessibilityLiveRegion="assertive"
+              resizeMode="contain"
+              source={FINAL_CLASH_COUNTDOWN_IMAGES[finalClashCountdown]}
+              style={styles.finalClashCountdownImage}
+            />
           )}
         </View>
       )}
@@ -2495,17 +2504,9 @@ const styles = StyleSheet.create({
     width: scaleByDeviceWidth(223),
     height: scaleByDeviceWidth(140),
   },
-  finalClashCountdown: {
-    color: '#FFF2A8',
-    fontFamily: 'Galmuri11-Bold',
-    fontSize: scaleByDeviceWidth(72),
-    lineHeight: scaleByDeviceWidth(86),
-    textShadowColor: '#E83B32',
-    textShadowOffset: {
-      width: scaleByDeviceWidth(4),
-      height: scaleByDeviceWidth(5),
-    },
-    textShadowRadius: 0,
+  finalClashCountdownImage: {
+    width: scaleByDeviceWidth(108),
+    height: scaleByDeviceWidth(108),
   },
   battleOutcomeOverlay: {
     ...StyleSheet.absoluteFillObject,
