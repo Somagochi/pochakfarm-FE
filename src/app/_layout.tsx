@@ -7,10 +7,10 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AppPostHogProvider } from '@/src/app/providers/AppPostHogProvider';
 import { useInitializeSocialLogin } from '@/src/features/social-login';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
 import { subscribeToSessionExpiration } from '@/src/shared/lib/auth/sessionExpiration';
+import { AppPostHogProvider } from '@/src/shared/ui/AppPostHogProvider';
 import { ScreenLoadingOverlay } from '@/src/shared/ui/ScreenLoadingOverlay';
 
 const MINIMUM_SPLASH_DURATION_MS = 1000;
@@ -27,6 +27,7 @@ export default function RootLayout() {
     'EliceDXNeolli-Medium': require('@/src/shared/assets/fonts/EliceDXNeolli-Medium.ttf'),
     'Galmuri11-Bold': require('@/src/shared/assets/fonts/Galmuri11-Bold.ttf'),
     MemomentKkukkukk: require('@/src/shared/assets/fonts/MemomentKkukkukk.otf'),
+    'Pretendard-ExtraBold': require('@/src/shared/assets/fonts/Pretendard-ExtraBold.otf'),
     'Pretendard-SemiBold': require('@/src/shared/assets/fonts/Pretendard-SemiBold.otf'),
   });
 
@@ -77,7 +78,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AppPostHogProvider>
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen
+            name="battle-result"
+            options={{ gestureEnabled: false }}
+          />
+        </Stack>
         <ScreenLoadingOverlay />
         <StatusBar style="auto" />
       </AppPostHogProvider>

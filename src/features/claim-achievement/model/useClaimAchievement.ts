@@ -1,5 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
+import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
+
 import { claimAchievementApi } from '../api/claimAchievementApi';
 
 export function useClaimAchievement() {
@@ -18,6 +20,9 @@ export function useClaimAchievement() {
 
     try {
       await claimAchievementApi(code);
+      captureAnalyticsEvent('achievement_claimed', {
+        achievement_code: code,
+      });
       return true;
     } catch (error) {
       setErrorMessage(

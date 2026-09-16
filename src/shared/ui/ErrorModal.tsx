@@ -18,12 +18,25 @@ const ACTION_BUTTON_WIDTH = scaleByDeviceWidth(105.25);
 const ACTION_BUTTON_HEIGHT = scaleByDeviceWidth(42);
 
 type ErrorModalProps = {
+  cancelLabel?: string;
+  confirmLabel?: string;
+  dismissible?: boolean;
   message: string | null;
   onClose: () => void;
+  onConfirm?: () => void;
 };
 
-export function ErrorDialog({ message, onClose }: ErrorModalProps) {
+export function ErrorDialog({
+  cancelLabel,
+  confirmLabel = '확인',
+  dismissible = true,
+  message,
+  onClose,
+  onConfirm,
+}: ErrorModalProps) {
   if (message === null) return null;
+
+  const handleConfirm = onConfirm ?? onClose;
 
   return (
     <View accessibilityViewIsModal style={styles.overlay}>
@@ -41,47 +54,70 @@ export function ErrorDialog({ message, onClose }: ErrorModalProps) {
         >
           {message}
         </Text>
-        <Pressable
-          accessibilityLabel="오류 메시지 닫기"
-          accessibilityRole="button"
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.button,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Image
-            resizeMode="stretch"
-            source={CONFIRM_BUTTON_BACKGROUND}
-            style={styles.buttonBackground}
+        <View style={styles.actions}>
+          {cancelLabel && (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.button,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Image
+                resizeMode="stretch"
+                source={CONFIRM_BUTTON_BACKGROUND}
+                style={styles.buttonBackground}
+              />
+              <Text style={styles.buttonText}>{cancelLabel}</Text>
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleConfirm}
+            style={({ pressed }) => [
+              styles.button,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Image
+              resizeMode="stretch"
+              source={CONFIRM_BUTTON_BACKGROUND}
+              style={styles.buttonBackground}
+            />
+            <Text style={styles.buttonText}>{confirmLabel}</Text>
+          </Pressable>
+        </View>
+        {dismissible && (
+          <Pressable
+            accessibilityLabel="오류 메시지 닫기"
+            accessibilityRole="button"
+            hitSlop={scaleByDeviceWidth(8)}
+            onPress={onClose}
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && styles.pressed,
+            ]}
           />
-          <Text style={styles.buttonText}>확인</Text>
-        </Pressable>
-        <Pressable
-          accessibilityLabel="오류 메시지 닫기"
-          accessibilityRole="button"
-          hitSlop={scaleByDeviceWidth(8)}
-          onPress={onClose}
-          style={({ pressed }) => [
-            styles.closeButton,
-            pressed && styles.pressed,
-          ]}
-        />
+        )}
       </View>
     </View>
   );
 }
 
-export function ErrorModal({ message, onClose }: ErrorModalProps) {
+export function ErrorModal({
+  dismissible = true,
+  ...props
+}: ErrorModalProps) {
   return (
     <Modal
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={dismissible ? props.onClose : undefined}
       statusBarTranslucent
       transparent
-      visible={message !== null}
+      visible={props.message !== null}
     >
-      <ErrorDialog message={message} onClose={onClose} />
+      <ErrorDialog dismissible={dismissible} {...props} />
     </Modal>
   );
 }
@@ -117,9 +153,13 @@ const styles = StyleSheet.create({
     lineHeight: scaleByDeviceWidth(22),
     textAlign: 'center',
   },
-  button: {
+  actions: {
     position: 'absolute',
     bottom: scaleByDeviceWidth(26),
+    flexDirection: 'row',
+    gap: scaleByDeviceWidth(8),
+  },
+  button: {
     width: ACTION_BUTTON_WIDTH,
     height: ACTION_BUTTON_HEIGHT,
     alignItems: 'center',

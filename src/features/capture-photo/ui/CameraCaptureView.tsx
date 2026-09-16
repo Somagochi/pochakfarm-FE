@@ -43,6 +43,7 @@ import { usePurchaseCaptureAttempt } from '../model/usePurchaseCaptureAttempt';
 import type {
   CaptureCardType,
   CaptureProgression,
+  CaptureSource,
   CaptureTier,
 } from '../model/types';
 
@@ -130,6 +131,8 @@ export function CameraCaptureView() {
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [capturedPhotoContentType, setCapturedPhotoContentType] =
     useState('image/jpeg');
+  const [captureSource, setCaptureSource] =
+    useState<CaptureSource>('camera');
   const [capturedWithCoinPayment, setCapturedWithCoinPayment] =
     useState(false);
   const [creatureName, setCreatureName] = useState('');
@@ -471,6 +474,7 @@ export function CameraCaptureView() {
         setDevelopingPhotoUri(null);
         setCreatureName('');
         setCapturedPhotoContentType('image/jpeg');
+        setCaptureSource('camera');
         setCapturedWithCoinPayment(false);
         setIsNameInputFocused(false);
         setIsNameConfirmModalVisible(false);
@@ -561,6 +565,7 @@ export function CameraCaptureView() {
 
       if (photo?.uri) {
         setCapturedPhotoContentType('image/jpeg');
+        setCaptureSource('camera');
         selectCapturePaymentMethod();
         await developPhoto(photo.uri);
       }
@@ -604,6 +609,7 @@ export function CameraCaptureView() {
           }
 
           setCapturedPhotoContentType('image/jpeg');
+          setCaptureSource('gallery');
           selectCapturePaymentMethod();
           await developPhoto(convertedPhotoUri);
           return;
@@ -617,6 +623,7 @@ export function CameraCaptureView() {
         }
 
         setCapturedPhotoContentType(contentType);
+        setCaptureSource('gallery');
         selectCapturePaymentMethod();
         await developPhoto(selectedPhoto.uri);
       }
@@ -667,6 +674,7 @@ export function CameraCaptureView() {
     setDevelopingPhotoUri(null);
     setCreatureName('');
     setCapturedPhotoContentType('image/jpeg');
+    setCaptureSource('camera');
     setCapturedWithCoinPayment(false);
     setIsNameInputFocused(false);
     setIsNameConfirmModalVisible(false);
@@ -1184,6 +1192,7 @@ export function CameraCaptureView() {
             animalName: creatureName.trim(),
             allowCoinPayment: capturedWithCoinPayment,
             photoUri: capturedPhotoUri,
+            source: captureSource,
           });
 
           if (!isCreated) {

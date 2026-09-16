@@ -1,5 +1,5 @@
-import { BattleScreen } from '@/src/screens/battle-screen';
+import { BattleMapScreen } from '@/src/screens/battle-map-screen';
 
 export default function BattleRoute() {
-  return <BattleScreen />;
+  return <BattleMapScreen />;
 }

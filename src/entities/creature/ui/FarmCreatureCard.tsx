@@ -3,8 +3,10 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  View,
 } from 'react-native';
 import { useState } from 'react';
+import Animated, { ZoomIn, ZoomOut } from 'react-native-reanimated';
 
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 
@@ -15,6 +17,7 @@ import type {
 } from '../model/types';
 
 const CARD_BACKGROUND = require('@/src/shared/assets/images/farm-search/creature-search-card-background.png');
+const SELECTED_CARD_BACKGROUND = require('@/src/shared/assets/images/battle/selected-creature-card-background.png');
 const CARD_DIVIDER = require('@/src/shared/assets/images/farm-search/creature-card-divider.png');
 const ANIMAL_IMAGE_PLACEHOLDER = require('@/src/shared/assets/images/farm/animal-image-placeholder.png');
 const TYPE_BADGES: Record<CreatureEnvironment, number> = {
@@ -35,12 +38,15 @@ const TIER_BADGES: Record<CreatureTier, number> = {
 type FarmCreatureCardProps = {
   creature: FarmCreatureListItem;
   onPress?: () => void;
+  selectionOrder?: number;
 };
 
 export function FarmCreatureCard({
   creature,
   onPress,
+  selectionOrder,
 }: FarmCreatureCardProps) {
+  const isSelected = selectionOrder !== undefined;
   const [failedCreatureImageUri, setFailedCreatureImageUri] =
     useState<string | null>(null);
   const hasCreatureImageFailed =
@@ -59,7 +65,7 @@ export function FarmCreatureCard({
     >
       <Image
         resizeMode="stretch"
-        source={CARD_BACKGROUND}
+        source={isSelected ? SELECTED_CARD_BACKGROUND : CARD_BACKGROUND}
         style={styles.cardImage}
       />
       <Image
@@ -92,9 +98,25 @@ export function FarmCreatureCard({
         source={CARD_DIVIDER}
         style={styles.divider}
       />
-      <Text numberOfLines={1} style={styles.creatureName}>
-        {creature.name}
-      </Text>
+      {isSelected ? (
+        <View style={styles.selectedNameRow}>
+          <Text numberOfLines={1} style={styles.selectedCreatureName}>
+            {creature.name}
+          </Text>
+          <Animated.View
+            entering={ZoomIn.duration(180)}
+            exiting={ZoomOut.duration(100)}
+            key={`selection-order-${selectionOrder}`}
+            style={styles.selectionOrderBadge}
+          >
+            <Text style={styles.selectionOrderText}>{selectionOrder}</Text>
+          </Animated.View>
+        </View>
+      ) : (
+        <Text numberOfLines={1} style={styles.creatureName}>
+          {creature.name}
+        </Text>
+      )}
     </Pressable>
   );
 }
@@ -146,6 +168,39 @@ const styles = StyleSheet.create({
     fontFamily: 'Pretendard-SemiBold',
     fontSize: scaleByDeviceWidth(15),
     lineHeight: scaleByDeviceWidth(21),
+    textAlign: 'center',
+  },
+  selectedNameRow: {
+    position: 'absolute',
+    top: scaleByDeviceWidth(103),
+    left: scaleByDeviceWidth(4),
+    width: scaleByDeviceWidth(92),
+    height: scaleByDeviceWidth(21),
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: scaleByDeviceWidth(4),
+  },
+  selectedCreatureName: {
+    maxWidth: scaleByDeviceWidth(68),
+    color: '#302F2A',
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: scaleByDeviceWidth(15),
+    lineHeight: scaleByDeviceWidth(21),
+  },
+  selectionOrderBadge: {
+    width: scaleByDeviceWidth(16),
+    height: scaleByDeviceWidth(16),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: scaleByDeviceWidth(8),
+    backgroundColor: '#FFD34E',
+  },
+  selectionOrderText: {
+    color: '#FFFFFF',
+    fontFamily: 'Pretendard-SemiBold',
+    fontSize: scaleByDeviceWidth(10),
+    lineHeight: scaleByDeviceWidth(13),
     textAlign: 'center',
   },
   pressed: {
