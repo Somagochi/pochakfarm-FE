@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -16,8 +17,16 @@ type CollectionTab = 'achievement' | 'gym-badge';
 
 export function CollectionScreen() {
   const insets = useSafeAreaInsets();
+  const { tab } = useLocalSearchParams<{ tab?: string | string[] }>();
+  const tabParam = Array.isArray(tab) ? tab[0] : tab;
   const [selectedTab, setSelectedTab] =
     useState<CollectionTab>('achievement');
+
+  useEffect(() => {
+    if (tabParam === 'gym-badge') {
+      setSelectedTab('gym-badge');
+    }
+  }, [tabParam]);
 
   return (
     <View style={styles.screen}>

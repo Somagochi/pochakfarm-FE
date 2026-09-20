@@ -23,7 +23,8 @@ import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 import { BattleHeader } from '@/src/widgets/battle-header';
 
-const RETURN_BUTTON = require('@/src/shared/assets/images/battle/battle-result-return-button.png');
+const VIEW_BADGES_BUTTON = require('@/src/shared/assets/images/battle/battle-result-view-badges-button.png');
+const VIEW_LIST_BUTTON = require('@/src/shared/assets/images/battle/battle-result-view-list-button.png');
 const VICTORY_REWARD_PANEL = require('@/src/shared/assets/images/battle/victory-reward-panel.png');
 const VICTORY_REWARD_TITLE = require('@/src/shared/assets/images/battle/victory-reward-title.png');
 const DEFEAT_REWARD_TITLE = require('@/src/shared/assets/images/battle/defeat-reward-title.png');
@@ -368,16 +369,31 @@ export function BattleResultScreen() {
       </ScrollView>
       <View style={styles.actionsBar}>
         <Pressable
-          accessibilityLabel="돌아가기"
+          accessibilityLabel="뱃지 보기"
           accessibilityRole="button"
-          onPress={() => router.dismissTo('/(tabs)/battle')}
+          onPress={() =>
+            router.dismissTo({
+              pathname: '/(tabs)/collection',
+              params: { tab: 'gym-badge' },
+            })
+          }
           style={({ pressed }) => [
-            styles.returnButton,
+            styles.actionButton,
             pressed && styles.pressed,
           ]}
         >
-          <Image source={RETURN_BUTTON} style={styles.returnButtonImage} />
-          <Text style={styles.returnButtonText}>돌아가기</Text>
+          <Image source={VIEW_BADGES_BUTTON} style={styles.actionButtonImage} />
+        </Pressable>
+        <Pressable
+          accessibilityLabel="목록 보기"
+          accessibilityRole="button"
+          onPress={() => router.dismissTo('/(tabs)/battle')}
+          style={({ pressed }) => [
+            styles.actionButton,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Image source={VIEW_LIST_BUTTON} style={styles.actionButtonImage} />
         </Pressable>
       </View>
     </SafeAreaView>
@@ -551,29 +567,23 @@ const styles = StyleSheet.create({
     lineHeight: scaleByDeviceWidth(12),
   },
   actionsBar: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: scaleByDeviceWidth(20),
     paddingTop: scaleByDeviceWidth(12),
     paddingBottom: scaleByDeviceWidth(12),
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E8DBC8',
     backgroundColor: '#FFF8ED',
   },
-  returnButton: {
+  actionButton: {
     width: scaleByDeviceWidth(154),
-    height: scaleByDeviceWidth(154 * (240 / 616)),
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: scaleByDeviceWidth(60),
   },
-  returnButtonImage: {
-    position: 'absolute',
+  actionButtonImage: {
     width: '100%',
     height: '100%',
-  },
-  returnButtonText: {
-    color: '#6B4B20',
-    fontFamily: 'EliceDXNeolli-Medium',
-    fontSize: scaleByDeviceWidth(14),
-    lineHeight: scaleByDeviceWidth(20),
   },
   pressed: {
     opacity: 0.8,
