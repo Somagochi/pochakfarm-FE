@@ -6,8 +6,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRef, useState } from 'react';
-import * as Haptics from 'expo-haptics';
+import { useState } from 'react';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 
@@ -44,15 +43,6 @@ type FarmAreaRowProps = {
     floorNumber: number,
     slotNumber: number,
   ) => void;
-  onCreatureDragEnd?: (pageX: number, pageY: number) => void;
-  onCreatureDragMove?: (pageX: number, pageY: number) => void;
-  onCreatureDragStart?: (
-    animal: FarmAnimal,
-    floorNumber: number,
-    slotNumber: number,
-    pageX: number,
-    pageY: number,
-  ) => void;
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
   scale: number;
@@ -70,9 +60,6 @@ export function FarmAreaRow({
   isUnlockDisabled = false,
   isUnlocked,
   onPressCreature,
-  onCreatureDragEnd,
-  onCreatureDragMove,
-  onCreatureDragStart,
   onPressSlot,
   onPressUnlock,
   scale,
@@ -81,7 +68,6 @@ export function FarmAreaRow({
   selectedSlotImageSource,
   unlockImageSource,
 }: FarmAreaRowProps) {
-  const draggingAnimalIdRef = useRef<number | null>(null);
   const [failedAnimalImageKeys, setFailedAnimalImageKeys] = useState<
     Set<string>
   >(() => new Set());
@@ -127,44 +113,8 @@ export function FarmAreaRow({
               <Pressable
                 accessibilityLabel={`${creatureSlot.name} 농장 슬롯`}
                 accessibilityRole="button"
-                delayLongPress={350}
                 key={slotNumber}
-                onLongPress={(event) => {
-                  if (!onCreatureDragStart) return;
-
-                  draggingAnimalIdRef.current = creatureSlot.animalId;
-                  void Haptics.impactAsync(
-                    Haptics.ImpactFeedbackStyle.Medium,
-                  );
-                  onCreatureDragStart(
-                    creatureSlot.animal,
-                    areaNumber,
-                    slotNumber,
-                    event.nativeEvent.pageX,
-                    event.nativeEvent.pageY,
-                  );
-                }}
-                onPress={() =>
-                  draggingAnimalIdRef.current === null &&
-                  onPressCreature?.(creatureSlot.animal, areaNumber, slotNumber)
-                }
-                onTouchEnd={(event) => {
-                  if (draggingAnimalIdRef.current === null) return;
-
-                  draggingAnimalIdRef.current = null;
-                  onCreatureDragEnd?.(
-                    event.nativeEvent.pageX,
-                    event.nativeEvent.pageY,
-                  );
-                }}
-                onTouchMove={(event) => {
-                  if (draggingAnimalIdRef.current !== null) {
-                    onCreatureDragMove?.(
-                      event.nativeEvent.pageX,
-                      event.nativeEvent.pageY,
-                    );
-                  }
-                }}
+                onPress={() => onPressCreature?.(creatureSlot.animal, areaNumber, slotNumber)}
                 style={({ pressed }) => [
                   styles.creatureSlot,
                   { width: slotSize, height: slotSize },
