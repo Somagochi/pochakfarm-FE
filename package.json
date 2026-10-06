@@ -11,7 +11,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test:user-profile": "node --test src/entities/user/model/userProfileStore.test.cjs",
-    "test:auth": "node --test src/shared/lib/auth/tokenStorage.test.cjs"
+    "test:auth": "node --test src/shared/lib/auth/tokenStorage.test.cjs",
+    "test:api-timing": "node --test src/shared/api/clientTiming.test.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -10,8 +10,18 @@ import {
 import { notifySessionExpired } from '@/src/shared/lib/auth/sessionExpiration';
 import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
+import { createRequestTiming, type ApiRequestTiming } from './requestTiming';
+
+export type { ApiRequestTiming } from './requestTiming';
+
 type RequestOptions = {
   headers?: Record<string, string>;
+};
+
+type GetRequestOptions = RequestOptions & {
+  onRequestTiming?: (timing: ApiRequestTiming) => void;
+  // 자체 로딩을 관리하는 미리 조회만 전역 화면 로딩에서 제외합니다.
+  affectsScreenLoading?: boolean;
 };
 
 export type ApiResponse<TData> = {
@@ -262,11 +272,14 @@ function getRequestFeature(endpoint: string) {
 async function requestWithResponse<TResponse>(
   path: string,
   init: RequestInit = {},
+  onRequestTiming?: (timing: ApiRequestTiming) => void,
+  affectsScreenLoading = true,
 ): Promise<ApiResponse<TResponse>> {
   const requestSession = path === LOGIN_PATH || path === REFRESH_PATH
     ? null
     : getServiceTokenSession();
-  const endApiRequest = beginApiRequest();
+  const measurement = onRequestTiming ? createRequestTiming(onRequestTiming) : null;
+  const endApiRequest = affectsScreenLoading ? beginApiRequest() : undefined;
   const requestedAt = Date.now();
   const endpoint = normalizeRequestEndpoint(path);
   const feature = getRequestFeature(endpoint);
@@ -276,30 +289,47 @@ async function requestWithResponse<TResponse>(
       throw new Error('EXPO_PUBLIC_API_BASE_URL이 설정되지 않았습니다.');
     }
 
+    measurement?.startPhase('auth_ms');
     const authenticatedInit = await withAccessToken(path, init);
     assertServiceTokenSession(requestSession);
+    measurement?.startPhase('fetch_ms');
     let response = await fetch(
       `${env.apiBaseUrl}${path}`,
       authenticatedInit,
     );
+
+    if (measurement) {
+      measurement.timing.initial_status = response.status;
+      measurement.timing.final_status = response.status;
+    }
     assertServiceTokenSession(requestSession);
 
     if (
       response.status === 401 &&
       requestSession !== null
     ) {
+      if (measurement) {
+        measurement.timing.token_refresh_attempted = true;
+        measurement.timing.final_status = null;
+      }
+      // 동시 요청에서는 해당 요청이 공유 토큰 갱신을 기다린 시간입니다.
+      measurement?.startPhase('refresh_ms');
       const refreshedToken = await getRefreshedToken(requestSession);
       assertServiceTokenSession(requestSession);
+      measurement?.startPhase('retry_ms');
       response = await retryWithAccessToken(
         path,
         init,
         refreshedToken.accessToken,
       );
+      if (measurement) measurement.timing.final_status = response.status;
       assertServiceTokenSession(requestSession);
     }
 
+    measurement?.startPhase('json_ms');
     const data = await parseResponse(response);
     assertServiceTokenSession(requestSession);
+    measurement?.startPhase('postprocess_ms');
 
     if (!response.ok) {
       const message = getErrorMessage(data) ?? 'API 요청에 실패했습니다.';
@@ -320,6 +350,8 @@ async function requestWithResponse<TResponse>(
       status: response.status,
     };
   } catch (error) {
+    // 실패한 await의 경과 시간도 남긴 뒤 오류 처리를 따로 측정합니다.
+    measurement?.startPhase('postprocess_ms');
     captureAnalyticsEvent('request_failed', {
       duration_ms: Date.now() - requestedAt,
       endpoint,
@@ -336,15 +368,26 @@ async function requestWithResponse<TResponse>(
     });
     throw error;
   } finally {
-    endApiRequest();
+    try {
+      endApiRequest?.();
+    } finally {
+      measurement?.complete();
+    }
   }
 }
 
 async function request<TResponse>(
   path: string,
   init: RequestInit = {},
+  onRequestTiming?: (timing: ApiRequestTiming) => void,
+  affectsScreenLoading = true,
 ): Promise<TResponse> {
-  const response = await requestWithResponse<TResponse>(path, init);
+  const response = await requestWithResponse<TResponse>(
+    path,
+    init,
+    onRequestTiming,
+    affectsScreenLoading,
+  );
   return response.data;
 }
 
@@ -369,17 +412,21 @@ export const apiClient = {
       body: JSON.stringify(body),
     });
   },
-  get<TResponse>(path: string, options: RequestOptions = {}) {
-    return request<TResponse>(path, {
-      method: 'GET',
-      headers: options.headers,
-    });
+  get<TResponse>(path: string, options: GetRequestOptions = {}) {
+    return request<TResponse>(
+      path,
+      { method: 'GET', headers: options.headers },
+      options.onRequestTiming,
+      options.affectsScreenLoading,
+    );
   },
-  getWithResponse<TResponse>(path: string, options: RequestOptions = {}) {
-    return requestWithResponse<TResponse>(path, {
-      method: 'GET',
-      headers: options.headers,
-    });
+  getWithResponse<TResponse>(path: string, options: GetRequestOptions = {}) {
+    return requestWithResponse<TResponse>(
+      path,
+      { method: 'GET', headers: options.headers },
+      options.onRequestTiming,
+      options.affectsScreenLoading,
+    );
   },
   post<TResponse, TBody extends object>(
     path: string,
