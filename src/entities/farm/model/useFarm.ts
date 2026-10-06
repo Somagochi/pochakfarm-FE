@@ -1,56 +1,61 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
-import { getFarmApi } from '../api/getFarmApi';
-import type { Farm, FarmType } from './types';
+import { getFarmSnapshot, loadFarm, subscribeToFarm } from './farmStore';
+import type { FarmType } from './types';
 
 export function useFarm(type: FarmType) {
-  const [farm, setFarm] = useState<Farm | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const subscribe = useCallback(
+    (listener: () => void) => subscribeToFarm(type, listener),
+    [type],
+  );
+  const getSnapshot = useCallback(() => getFarmSnapshot(type), [type]);
+  const { farm, isLoading, isRefreshing } = useSyncExternalStore(
+    subscribe,
+    getSnapshot,
+    getSnapshot,
+  );
+  const [error, setError] = useState<{
+    type: FarmType;
+    message: string;
+  } | null>(null);
+  const currentTypeRef = useRef(type);
   const requestIdRef = useRef(0);
+  currentTypeRef.current = type;
 
-  const loadFarm = useCallback(async () => {
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    setErrorMessage(null);
-    setIsLoading(true);
+  const load = useCallback(async (force: boolean) => {
+    const requestId = ++requestIdRef.current;
+    setError(null);
 
     try {
-      const nextFarm = await getFarmApi(type);
-
-      if (requestId === requestIdRef.current) {
-        setFarm(nextFarm);
-      }
-
-      return nextFarm;
+      return await loadFarm(type, { force });
     } catch (error) {
-      if (requestId === requestIdRef.current) {
-        setErrorMessage(
-          error instanceof Error
+      if (currentTypeRef.current === type && requestId === requestIdRef.current) {
+        setError({
+          type,
+          message: error instanceof Error
             ? error.message
             : '농장 정보를 불러오지 못했습니다.',
-        );
+        });
       }
 
       return null;
-    } finally {
-      if (requestId === requestIdRef.current) {
-        setIsLoading(false);
-      }
     }
   }, [type]);
+  const reload = useCallback(() => load(true), [load]);
+  const refreshIfStale = useCallback(() => load(false), [load]);
+  const clearError = useCallback(() => setError(null), []);
 
   useEffect(() => {
-    setFarm(null);
-
-    void loadFarm();
-  }, [loadFarm]);
+    void refreshIfStale();
+  }, [refreshIfStale]);
 
   return {
-    clearError: () => setErrorMessage(null),
-    errorMessage,
+    clearError,
+    errorMessage: error?.type === type ? error.message : null,
     farm,
     isLoading,
-    reload: loadFarm,
+    isRefreshing,
+    refreshIfStale,
+    reload,
   };
 }

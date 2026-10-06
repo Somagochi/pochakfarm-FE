@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useIsFocused } from '@react-navigation/native';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -16,7 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FarmCreatureSearchModal } from '@/src/features/find-farm-creature';
 import { useMoveFarmCreature } from '@/src/features/move-farm-creature';
-import { type FarmType, useFarm } from '@/src/entities/farm';
+import { type Farm, type FarmType, useFarm, usePreloadFarm } from '@/src/entities/farm';
 import { useUserProfile } from '@/src/entities/user';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { LoadingScreen } from '@/src/shared/ui/LoadingScreen';
@@ -60,12 +60,16 @@ export function FarmScreen() {
     errorMessage: farmErrorMessage,
     farm,
     isLoading: isFarmLoading,
+    refreshIfStale: refreshFarmIfStale,
     reload: reloadFarm,
   } = useFarm(FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]);
   const [isEnvironmentChanging, setIsEnvironmentChanging] = useState(false);
   const [isFarmBackgroundReady, setIsFarmBackgroundReady] = useState(true);
-  const [areFarmAnimalImagesReady, setAreFarmAnimalImagesReady] =
-    useState(true);
+  const [animalImageReadiness, setAnimalImageReadiness] = useState<{
+    farm: Farm | null;
+    width: number;
+    ready: boolean;
+  } | null>(null);
   const [isCreatureDetailVisible, setIsCreatureDetailVisible] =
     useState(false);
   const [selectedAnimalId, setSelectedAnimalId] = useState<
@@ -84,9 +88,33 @@ export function FarmScreen() {
     height: 0,
     width: 0,
   });
+  const areFarmAnimalImagesReady =
+    animalImageReadiness?.farm === farm &&
+    animalImageReadiness.width === contentSize.width &&
+    animalImageReadiness.ready;
+  const handleAnimalImagesReady = useCallback((ready: boolean) => {
+    setAnimalImageReadiness((current) => {
+      if (current?.farm === farm && current.width === contentSize.width && current.ready === ready) {
+        return current;
+      }
+      return { farm, width: contentSize.width, ready };
+    });
+  }, [contentSize.width, farm]);
+
+  usePreloadFarm(
+    'SPACE',
+    isFocused &&
+      selectedEnvironment === 'land' &&
+      farm?.type === 'GROUND' &&
+      !isFarmLoading &&
+      !isEnvironmentChanging &&
+      areFarmAnimalImagesReady &&
+      contentSize.width > 0 &&
+      contentSize.height > 0,
+  );
 
   useRefreshOnFocus(async () => {
-    await Promise.all([reloadFarm(), refreshProfileIfStale()]);
+    await Promise.all([refreshFarmIfStale(), refreshProfileIfStale()]);
   });
 
   useEffect(() => {
@@ -116,34 +144,8 @@ export function FarmScreen() {
 
   useEffect(() => {
     if (
-      !isEnvironmentChanging ||
-      pendingEnvironment !== null ||
-      farm?.type !== FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]
-    ) {
-      return;
-    }
-
-    let isCancelled = false;
-    const animalImageUrls = farm.floors.flatMap((floor) =>
-      floor.slots.flatMap((slot) =>
-        slot.animal?.animalImageUrl ? [slot.animal.animalImageUrl] : [],
-      ),
-    );
-
-    void Promise.allSettled(
-      animalImageUrls.map((imageUrl) => Image.prefetch(imageUrl)),
-    ).then(() => {
-      if (!isCancelled) setAreFarmAnimalImagesReady(true);
-    });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [farm, isEnvironmentChanging, pendingEnvironment, selectedEnvironment]);
-
-  useEffect(() => {
-    if (
       isEnvironmentChanging &&
+      pendingEnvironment === null &&
       isFarmBackgroundReady &&
       (areFarmAnimalImagesReady || farmErrorMessage !== null) &&
       !isFarmLoading &&
@@ -159,6 +161,7 @@ export function FarmScreen() {
     isEnvironmentChanging,
     isFarmBackgroundReady,
     isFarmLoading,
+    pendingEnvironment,
     selectedEnvironment,
   ]);
 
@@ -196,6 +199,7 @@ export function FarmScreen() {
             floors={farm?.floors ?? []}
             isActive={isFocused}
             isReordering={isReordering}
+            onAnimalImagesReady={handleAnimalImagesReady}
             onBackgroundReady={() => setIsFarmBackgroundReady(true)}
             onMoveCreature={async (
               animalId,
@@ -250,7 +254,7 @@ export function FarmScreen() {
 
                 setIsEnvironmentChanging(true);
                 setIsFarmBackgroundReady(false);
-                setAreFarmAnimalImagesReady(false);
+                setAnimalImageReadiness(null);
                 setPendingEnvironment(environment);
               }}
               selectedEnvironment={selectedEnvironment}
@@ -320,9 +324,15 @@ export function FarmScreen() {
         visible={isCreatureSearchVisible}
       />
       <LoadingScreen
-        accessibilityLabel="농장 환경 불러오는 중"
+        accessibilityLabel="농장 불러오는 중"
         style={styles.environmentLoadingOverlay}
-        visible={isEnvironmentChanging}
+        visible={
+          isEnvironmentChanging ||
+          (farm === null && isFarmLoading) ||
+          (farm !== null && !areFarmAnimalImagesReady) ||
+          contentSize.width === 0 ||
+          contentSize.height === 0
+        }
       />
       {isCreatureDetailVisible && (
         <CreatureDetailSheet

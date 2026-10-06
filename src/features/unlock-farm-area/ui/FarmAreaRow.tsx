@@ -7,6 +7,7 @@ import {
   View,
 } from 'react-native';
 import { useState } from 'react';
+import { Image as ExpoImage, type ImageRef } from 'expo-image';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 
@@ -25,11 +26,12 @@ const BASE_UNLOCK_IMAGE_WIDTH = 112 * 1.3;
 
 type FarmAreaRowProps = {
   areaNumber: number;
+  animalImagesBatchKey: string;
   creatureSlots: {
     animal: FarmAnimal;
     animalId: number;
-    animalImageSource?: ImageSourcePropType;
-    animalImageUri?: string;
+    animalImageKey: string;
+    preparedAnimalImage?: ImageRef | null;
     name: string;
     nameplateImageSource: ImageSourcePropType;
     slotNumber: number;
@@ -38,6 +40,8 @@ type FarmAreaRowProps = {
   isUnlockAvailable: boolean;
   isUnlockDisabled?: boolean;
   isUnlocked: boolean;
+  onAnimalImageDisplayed?: (key: string) => void;
+  onAnimalImageFailed?: (key: string) => void;
   onPressCreature?: (
     animal: FarmAnimal,
     floorNumber: number,
@@ -54,11 +58,14 @@ type FarmAreaRowProps = {
 
 export function FarmAreaRow({
   areaNumber,
+  animalImagesBatchKey,
   creatureSlots,
   draggingAnimalId,
   isUnlockAvailable,
   isUnlockDisabled = false,
   isUnlocked,
+  onAnimalImageDisplayed,
+  onAnimalImageFailed,
   onPressCreature,
   onPressSlot,
   onPressUnlock,
@@ -99,11 +106,13 @@ export function FarmAreaRow({
           );
 
           if (creatureSlot) {
-            const animalImageKey =
-              `${creatureSlot.animalId}:${creatureSlot.animalImageUri ?? ''}`;
+            const { animalImageKey, preparedAnimalImage } = creatureSlot;
+            const failedImageKey = `${animalImagesBatchKey}:${animalImageKey}`;
             const hasAnimalImageFailed = failedAnimalImageKeys.has(
-              animalImageKey,
+              failedImageKey,
             );
+            const isPrepared = preparedAnimalImage !== undefined;
+            const isFallback = preparedAnimalImage === null || hasAnimalImageFailed;
             const nameplateWidth = BASE_NAMEPLATE_WIDTH * scale;
             const nameplateHeight = BASE_NAMEPLATE_HEIGHT * scale;
             const animalWidth = BASE_CREATURE_WIDTH * scale;
@@ -123,50 +132,45 @@ export function FarmAreaRow({
                   pressed && styles.pressed,
                 ]}
               >
-                {(!creatureSlot.animalImageSource ||
-                  hasAnimalImageFailed) && (
-                  <Image
-                    resizeMode="contain"
-                    source={ANIMAL_IMAGE_PLACEHOLDER}
-                    style={[
-                      styles.creatureImage,
-                      {
-                        top:
-                          slotSize * 0.04 +
-                          BASE_CREATURE_TOP_OFFSET * scale,
-                        left: (slotSize - animalWidth) / 2,
-                        width: animalWidth,
-                        height: animalHeight,
-                      },
-                    ]}
-                  />
-                )}
-                {creatureSlot.animalImageSource &&
-                  !hasAnimalImageFailed && (
-                  <Image
-                    defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
-                    onError={() => {
-                      setFailedAnimalImageKeys((currentKeys) => {
-                        const nextKeys = new Set(currentKeys);
-                        nextKeys.add(animalImageKey);
-                        return nextKeys;
-                      });
-                    }}
-                    resizeMode="contain"
-                    source={creatureSlot.animalImageSource}
-                    style={[
-                      styles.creatureImage,
-                      {
-                        top:
-                          slotSize * 0.04 +
-                          BASE_CREATURE_TOP_OFFSET * scale,
-                        left: (slotSize - animalWidth) / 2,
-                        width: animalWidth,
-                        height: animalHeight,
-                      },
-                    ]}
-                  />
-                )}
+                <ExpoImage
+                  contentFit="contain"
+                  key={`${failedImageKey}:${!isPrepared ? 'pending' : isFallback ? 'fallback' : 'prepared'}`}
+                  onDisplay={() => {
+                    if (isPrepared) onAnimalImageDisplayed?.(animalImageKey);
+                  }}
+                  onError={() => {
+                    if (!isPrepared) return;
+                    if (isFallback) {
+                      onAnimalImageDisplayed?.(animalImageKey);
+                      return;
+                    }
+                    setFailedAnimalImageKeys((currentKeys) => {
+                      if (currentKeys.has(failedImageKey)) return currentKeys;
+                      const nextKeys = new Set(currentKeys);
+                      nextKeys.add(failedImageKey);
+                      return nextKeys;
+                    });
+                    onAnimalImageFailed?.(animalImageKey);
+                  }}
+                  recyclingKey={failedImageKey}
+                  source={
+                    !isPrepared || isFallback
+                      ? ANIMAL_IMAGE_PLACEHOLDER
+                      : preparedAnimalImage
+                  }
+                  style={[
+                    styles.creatureImage,
+                    {
+                      top:
+                        slotSize * 0.04 +
+                        BASE_CREATURE_TOP_OFFSET * scale,
+                      left: (slotSize - animalWidth) / 2,
+                      width: animalWidth,
+                      height: animalHeight,
+                    },
+                  ]}
+                  transition={0}
+                />
                 <View
                   style={[
                     styles.nameplate,

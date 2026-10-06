@@ -1,5 +1,9 @@
+import { invalidateFarm } from '@/src/entities/farm';
 import { apiClient } from '@/src/shared/api/client';
 
-export function releaseAnimalApi(animalId: number) {
-  return apiClient.delete<unknown>(`/api/animals/${animalId}`);
+export async function releaseAnimalApi(animalId: number) {
+  const response = await apiClient.delete<unknown>(`/api/animals/${animalId}`);
+
+  invalidateFarm();
+  return response;
 }

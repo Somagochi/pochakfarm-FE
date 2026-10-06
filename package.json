@@ -11,8 +11,10 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "test:user-profile": "node --test src/entities/user/model/userProfileStore.test.cjs",
+    "test:farm": "node --test src/entities/farm/model/farmStore.test.cjs",
+    "test:api-timing": "node --test src/shared/api/clientTiming.test.cjs",
     "test:auth": "node --test src/shared/lib/auth/tokenStorage.test.cjs",
-    "test:api-timing": "node --test src/shared/api/clientTiming.test.cjs"
+    "test:farm-images": "node --test src/shared/lib/image/preparedImageCache.test.cjs src/entities/farm/model/useFarmAnimalImages.test.cjs"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

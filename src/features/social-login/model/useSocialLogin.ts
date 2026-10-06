@@ -7,6 +7,7 @@ import {
 } from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
+import { resetFarms } from '@/src/entities/farm';
 import { resetUserProfile } from '@/src/entities/user';
 
 import { socialLoginApi } from '../api/socialLoginApi';
@@ -147,6 +148,7 @@ export function useSocialLogin() {
 
       await saveServiceToken(serviceToken);
       resetUserProfile();
+      resetFarms();
 
       return { isNew };
     } finally {

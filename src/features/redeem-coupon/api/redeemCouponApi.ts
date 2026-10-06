@@ -1,3 +1,4 @@
+import { invalidateFarm } from '@/src/entities/farm';
 import { apiClient } from '@/src/shared/api/client';
 
 type RedeemCouponRequest = {
@@ -18,12 +19,15 @@ type RedeemCouponResponse = {
   datetime: string;
 };
 
-export function redeemCouponApi(couponCode: string) {
-  return apiClient.postWithResponse<
+export async function redeemCouponApi(couponCode: string) {
+  const response = await apiClient.postWithResponse<
     RedeemCouponResponse,
     RedeemCouponRequest
   >(
     '/api/coupons/redeem',
     { couponCode },
   );
+
+  invalidateFarm();
+  return response;
 }

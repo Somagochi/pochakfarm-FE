@@ -1,3 +1,4 @@
+import { resetFarms } from '@/src/entities/farm';
 import { loadUserProfile, resetUserProfile } from '@/src/entities/user';
 import { getServiceToken } from '@/src/shared/lib/auth/tokenStorage';
 
@@ -8,6 +9,7 @@ export async function resolveAuthenticatedRoute(): Promise<AuthenticatedRoute> {
 
   if (!token) {
     resetUserProfile();
+    resetFarms();
     return '/login';
   }
 

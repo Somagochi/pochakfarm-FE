@@ -6,22 +6,36 @@ import { useActiveApiRequestCount } from '@/src/shared/api/requestActivity';
 import { LoadingScreen } from '@/src/shared/ui/LoadingScreen';
 
 const INITIAL_REQUEST_WAIT_MS = 120;
+const DEFAULT_LOCALLY_MANAGED_PATHS: readonly string[] = [];
 
-export function ScreenLoadingOverlay() {
+type ScreenLoadingOverlayProps = {
+  locallyManagedPaths?: readonly string[];
+};
+
+export function ScreenLoadingOverlay({
+  locallyManagedPaths = DEFAULT_LOCALLY_MANAGED_PATHS,
+}: ScreenLoadingOverlayProps) {
   const pathname = usePathname();
+  const isLocallyManaged = locallyManagedPaths.includes(pathname);
   const activeRequestCount = useActiveApiRequestCount();
   const previousPathnameRef = useRef(pathname);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
   useLayoutEffect(() => {
+    if (isLocallyManaged) {
+      previousPathnameRef.current = pathname;
+      setIsTransitioning(false);
+      return;
+    }
+
     if (previousPathnameRef.current === pathname) return;
 
     previousPathnameRef.current = pathname;
     setIsTransitioning(true);
-  }, [pathname]);
+  }, [isLocallyManaged, pathname]);
 
   useEffect(() => {
-    if (!isTransitioning || activeRequestCount > 0) return;
+    if (isLocallyManaged || !isTransitioning || activeRequestCount > 0) return;
 
     let frameId: number | undefined;
     let interactionTask: ReturnType<
@@ -38,9 +52,9 @@ export function ScreenLoadingOverlay() {
       interactionTask?.cancel();
       if (frameId !== undefined) cancelAnimationFrame(frameId);
     };
-  }, [activeRequestCount, isTransitioning]);
+  }, [activeRequestCount, isLocallyManaged, isTransitioning, pathname]);
 
-  if (!isTransitioning) return null;
+  if (isLocallyManaged || !isTransitioning) return null;
 
   return <LoadingScreen style={styles.overlay} />;
 }

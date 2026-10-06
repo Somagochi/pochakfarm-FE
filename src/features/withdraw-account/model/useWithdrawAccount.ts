@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 
+import { resetFarms } from '@/src/entities/farm';
 import { getUserAccountApi, resetUserProfile } from '@/src/entities/user';
 import {
   clearServiceToken,
@@ -39,6 +40,7 @@ export function useWithdrawAccount() {
       } finally {
         await clearServiceToken();
         resetUserProfile();
+        resetFarms();
       }
 
       return true;

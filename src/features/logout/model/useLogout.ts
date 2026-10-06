@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { resetFarms } from '@/src/entities/farm';
 import { resetUserProfile } from '@/src/entities/user';
 import { clearServiceToken, getServiceToken } from '@/src/shared/lib/auth/tokenStorage';
 
@@ -21,6 +22,7 @@ export function useLogout() {
       await logoutApi(token.refreshToken);
       await clearServiceToken();
       resetUserProfile();
+      resetFarms();
     } finally {
       setIsLoading(false);
     }

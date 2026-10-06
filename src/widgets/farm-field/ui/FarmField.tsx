@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { router } from 'expo-router';
+import { Image as ExpoImage } from 'expo-image';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Reanimated from 'react-native-reanimated';
 import { useFarmCreatureDrag, type FarmDragSlot } from '@/src/features/move-farm-creature';
@@ -17,7 +18,13 @@ import {
   FarmExpansionModal,
   useExpandFarmFloor,
 } from '@/src/features/unlock-farm-area';
-import type { FarmAnimal, FarmFloor, FarmType } from '@/src/entities/farm';
+import {
+  getFarmAnimalImageKey,
+  useFarmAnimalImages,
+  type FarmAnimal,
+  type FarmFloor,
+  type FarmType,
+} from '@/src/entities/farm';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { FarmAmbientEffects } from './FarmAmbientEffects';
 import { SkyFarmCloudLayer } from './SkyFarmCloudLayer';
@@ -67,6 +74,7 @@ type FarmFieldProps = {
   ) => void;
   onExpansionSuccess?: () => Promise<unknown>;
   onBackgroundReady?: () => void;
+  onAnimalImagesReady?: (ready: boolean) => void;
   onStartReordering?: () => void;
   onPressEmptySlot?: (floorNumber: number, slotNumber: number) => void;
   onPressCreature?: (
@@ -89,6 +97,7 @@ export function FarmField({
   onMoveCreature,
   onExpansionSuccess,
   onBackgroundReady,
+  onAnimalImagesReady,
   onStartReordering,
   onPressEmptySlot,
   onPressCreature,
@@ -123,6 +132,26 @@ export function FarmField({
   const slotSize = BASE_SLOT_SIZE * uiScale;
   const slotGap = BASE_SLOT_GAP * uiScale;
   const rowWidth = slotSize * SLOT_COUNT + slotGap * (SLOT_COUNT - 1);
+  const visibleImageFloors = useMemo(
+    () => floors.filter((floor) => FARM_AREAS.some(({ areaNumber }) => areaNumber === floor.floorNum)),
+    [floors],
+  );
+  const {
+    batchKey: animalImagesBatchKey,
+    images: animalImages,
+    isReady: areAnimalImagesReady,
+    markDisplayed: markAnimalImageDisplayed,
+    markFailed: markAnimalImageFailed,
+  } = useFarmAnimalImages({
+    type: farmType,
+    floors: visibleImageFloors,
+    imageWidth: 80 * uiScale,
+    imageHeight: 73 * uiScale,
+  });
+
+  useEffect(() => {
+    onAnimalImagesReady?.(areAnimalImagesReady);
+  }, [animalImagesBatchKey, areAnimalImagesReady, onAnimalImagesReady]);
 
   useEffect(() => {
     if (background === displayedBackground) {
@@ -197,6 +226,16 @@ export function FarmField({
     onMove: onMoveCreature,
   });
   const draggedCreature = draggedSlot?.animal;
+  const draggedAnimalImageKey = draggedSlot && draggedCreature
+    ? getFarmAnimalImageKey(
+        draggedSlot.floorNumber,
+        draggedSlot.slotNumber,
+        draggedCreature,
+      )
+    : null;
+  const preparedDraggedAnimalImage = draggedAnimalImageKey
+    ? animalImages.get(draggedAnimalImageKey)
+    : undefined;
 
   const handleExpandFloor = async () => {
     try {
@@ -293,19 +332,23 @@ export function FarmField({
             >
               <FarmAreaRow
                 areaNumber={areaNumber}
+                animalImagesBatchKey={animalImagesBatchKey}
                 creatureSlots={(floor?.slots ?? []).flatMap((slot) => {
                   const animal = slot.animal;
                   if (!animal) {
                     return [];
                   }
 
+                  const animalImageKey = getFarmAnimalImageKey(
+                    areaNumber,
+                    slot.slotNum,
+                    animal,
+                  );
                   return [{
                     animal,
                     animalId: animal.animalId,
-                    animalImageSource: animal.animalImageUrl
-                      ? { uri: animal.animalImageUrl }
-                      : undefined,
-                    animalImageUri: animal.animalImageUrl ?? undefined,
+                    animalImageKey,
+                    preparedAnimalImage: animalImages.get(animalImageKey),
                     name: animal.animalName,
                     nameplateImageSource: CREATURE_NAMEPLATE_IMAGE,
                     slotNumber: slot.slotNum,
@@ -318,6 +361,8 @@ export function FarmField({
                 }
                 isUnlockDisabled={isReordering}
                 isUnlocked={floor?.unlocked === true}
+                onAnimalImageDisplayed={markAnimalImageDisplayed}
+                onAnimalImageFailed={markAnimalImageFailed}
                 onPressCreature={onPressCreature}
                 onPressSlot={(slotNumber) => {
                   if (isReordering) return;
@@ -357,17 +402,31 @@ export function FarmField({
               dragStyle,
             ]}
           >
-            <Image
-              defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
-              onError={() => setHasDraggedCreatureImageFailed(true)}
-              resizeMode="contain"
+            <ExpoImage
+              contentFit="contain"
+              key={`${animalImagesBatchKey}:${draggedAnimalImageKey}:${preparedDraggedAnimalImage === undefined ? 'pending' : preparedDraggedAnimalImage === null || hasDraggedCreatureImageFailed ? 'fallback' : 'prepared'}`}
+              onDisplay={() => {
+                if (preparedDraggedAnimalImage !== undefined && draggedAnimalImageKey) {
+                  markAnimalImageDisplayed(draggedAnimalImageKey);
+                }
+              }}
+              onError={() => {
+                if (preparedDraggedAnimalImage === undefined || !draggedAnimalImageKey) return;
+                if (preparedDraggedAnimalImage === null || hasDraggedCreatureImageFailed) {
+                  markAnimalImageDisplayed(draggedAnimalImageKey);
+                  return;
+                }
+                setHasDraggedCreatureImageFailed(true);
+                markAnimalImageFailed(draggedAnimalImageKey);
+              }}
+              recyclingKey={`${animalImagesBatchKey}:${draggedAnimalImageKey}`}
               source={
-                draggedCreature.animalImageUrl &&
-                !hasDraggedCreatureImageFailed
-                  ? { uri: draggedCreature.animalImageUrl }
+                preparedDraggedAnimalImage && !hasDraggedCreatureImageFailed
+                  ? preparedDraggedAnimalImage
                   : ANIMAL_IMAGE_PLACEHOLDER
               }
               style={styles.draggedCreatureImage}
+              transition={0}
             />
           </Reanimated.View>
         )}

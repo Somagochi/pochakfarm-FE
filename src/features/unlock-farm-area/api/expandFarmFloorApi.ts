@@ -1,4 +1,4 @@
-import type { FarmType } from '@/src/entities/farm';
+import { invalidateFarm, type FarmType } from '@/src/entities/farm';
 import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 
@@ -7,6 +7,7 @@ export async function expandFarmFloorApi(type: FarmType) {
     `/api/farms/${type}/floors`,
   );
 
+  invalidateFarm(type);
   invalidateUserProfile();
   return response;
 }

@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from 'expo-router';
-import { useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   type FarmAnimal,
+  type Farm,
   type FarmType,
   useFarm,
 } from '@/src/entities/farm';
@@ -24,6 +25,7 @@ import { ReplaceCreatureModal } from '@/src/features/replace-creature';
 import { useSelectFarmSlot } from '@/src/features/select-farm-slot';
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
+import { LoadingScreen } from '@/src/shared/ui/LoadingScreen';
 import { FarmField } from '@/src/widgets/farm-field';
 
 const EMPTY_SAVE_SLOT_IMAGE = require('@/src/shared/assets/images/farm/empty-save-slot.png');
@@ -73,6 +75,7 @@ export function SaveToFarmScreen() {
     clearError,
     errorMessage,
     farm,
+    isLoading: isFarmLoading,
     reload: reloadFarm,
   } = useFarm(farmType);
   const { clearSelection, selectedSlot, selectSlot } = useSelectFarmSlot();
@@ -86,6 +89,23 @@ export function SaveToFarmScreen() {
   } | null>(null);
   const [placementError, setPlacementError] = useState<string | null>(null);
   const [fieldWidth, setFieldWidth] = useState(0);
+  const [animalImageReadiness, setAnimalImageReadiness] = useState<{
+    farm: Farm | null;
+    width: number;
+    ready: boolean;
+  } | null>(null);
+  const areFarmAnimalImagesReady =
+    animalImageReadiness?.farm === farm &&
+    animalImageReadiness.width === fieldWidth &&
+    animalImageReadiness.ready;
+  const handleAnimalImagesReady = useCallback((ready: boolean) => {
+    setAnimalImageReadiness((current) => {
+      if (current?.farm === farm && current.width === fieldWidth && current.ready === ready) {
+        return current;
+      }
+      return { farm, width: fieldWidth, ready };
+    });
+  }, [farm, fieldWidth]);
   const slotSummary = useMemo(() => {
     const unlockedSlots = (farm?.floors ?? [])
       .filter((floor) => floor.unlocked)
@@ -212,6 +232,7 @@ export function SaveToFarmScreen() {
               environment={ENVIRONMENT_BY_FARM_TYPE[farmType]}
               farmType={farmType}
               floors={farm?.floors ?? []}
+              onAnimalImagesReady={handleAnimalImagesReady}
               onExpansionSuccess={reloadFarm}
               onPressEmptySlot={selectSlot}
               onPressCreature={(animal, floorNumber, slotNumber) => {
@@ -268,6 +289,15 @@ export function SaveToFarmScreen() {
         </Pressable>
       </View>
 
+      <LoadingScreen
+        accessibilityLabel="농장 불러오는 중"
+        style={styles.loadingOverlay}
+        visible={
+          (farm === null && isFarmLoading) ||
+          (farm !== null && !areFarmAnimalImagesReady) ||
+          fieldWidth === 0
+        }
+      />
       <SaveCreatureConfirmModal
         errorMessage={
           isSaveConfirmVisible ? placementError ?? errorMessage : null
@@ -327,6 +357,10 @@ export function SaveToFarmScreen() {
 }
 
 const styles = StyleSheet.create({
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+  },
   screen: {
     flex: 1,
     alignItems: 'center',
