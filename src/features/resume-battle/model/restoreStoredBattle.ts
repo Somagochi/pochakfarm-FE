@@ -1,4 +1,5 @@
 import { getBattleStateApi } from '@/src/entities/battle';
+import { invalidateUserProfile } from '@/src/entities/user';
 import { ApiError } from '@/src/shared/api/client';
 
 import {
@@ -15,6 +16,11 @@ export async function restoreStoredBattle() {
 
   try {
     const state = await getBattleStateApi(session.battleId);
+
+    if (state.status === 'FINISHED') {
+      invalidateUserProfile();
+    }
+
     return { session, state };
   } catch (error) {
     if (

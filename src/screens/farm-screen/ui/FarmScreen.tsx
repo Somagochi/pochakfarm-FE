@@ -48,6 +48,7 @@ export function FarmScreen() {
     clearError,
     errorMessage,
     profile,
+    refreshIfStale: refreshProfileIfStale,
     reload: reloadProfile,
   } = useUserProfile();
   const [selectedEnvironment, setSelectedEnvironment] =
@@ -85,7 +86,7 @@ export function FarmScreen() {
   });
 
   useRefreshOnFocus(async () => {
-    await Promise.all([reloadFarm(), reloadProfile()]);
+    await Promise.all([reloadFarm(), refreshProfileIfStale()]);
   });
 
   useEffect(() => {

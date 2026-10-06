@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { getBattleStateApi } from '@/src/entities/battle';
+import { invalidateUserProfile } from '@/src/entities/user';
 import { ApiError } from '@/src/shared/api/client';
 
 import {
@@ -79,6 +80,11 @@ export function useResumeBattle() {
         isSavedSessionRequest = savedSession?.battleId === requestedBattleId;
 
         const state = await getBattleStateApi(requestedBattleId);
+
+        if (state.status === 'FINISHED') {
+          invalidateUserProfile();
+        }
+
         return {
           session:
             savedSession?.battleId === requestedBattleId

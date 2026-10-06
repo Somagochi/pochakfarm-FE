@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { getBattleStateApi } from '@/src/entities/battle';
+import { invalidateUserProfile } from '@/src/entities/user';
 import { ApiError } from '@/src/shared/api/client';
 
 import { submitBattleActionApi } from '../api/submitBattleActionApi';
@@ -64,6 +65,14 @@ export function useSubmitBattleAction() {
             error.code === 'BATTLE_ACTION_SEQUENCE_MISMATCH'
           ) {
             const state = await getBattleStateApi(attempt.battleId);
+
+            if (
+              state.status === 'FINISHED' ||
+              state.reward?.rewardGranted === true
+            ) {
+              invalidateUserProfile();
+            }
+
             const result = { action: null, state };
 
             if (
@@ -82,6 +91,14 @@ export function useSubmitBattleAction() {
         }
 
         const state = await getBattleStateApi(attempt.battleId);
+
+        if (
+          state.status === 'FINISHED' ||
+          state.reward?.rewardGranted === true
+        ) {
+          invalidateUserProfile();
+        }
+
         const result = { action, state };
         attempt.result = result;
         return result;

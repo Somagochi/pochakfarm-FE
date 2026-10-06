@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { resetUserProfile } from '@/src/entities/user';
 import { clearServiceToken, getServiceToken } from '@/src/shared/lib/auth/tokenStorage';
 
 import { logoutApi } from '../api/logoutApi';
@@ -19,6 +20,7 @@ export function useLogout() {
 
       await logoutApi(token.refreshToken);
       await clearServiceToken();
+      resetUserProfile();
     } finally {
       setIsLoading(false);
     }

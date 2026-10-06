@@ -2,6 +2,7 @@ import * as Crypto from 'expo-crypto';
 import { useCallback, useRef, useState } from 'react';
 
 import { getBattleStateApi } from '@/src/entities/battle';
+import { invalidateUserProfile } from '@/src/entities/user';
 import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 import { createBattleApi } from '../api/createBattleApi';
@@ -56,6 +57,14 @@ export function useCreateBattle() {
         clientRequestId: attempt.clientRequestId,
       });
       const initialState = await getBattleStateApi(createdBattle.battleId);
+
+      if (
+        initialState.status === 'FINISHED' ||
+        initialState.reward?.rewardGranted === true
+      ) {
+        invalidateUserProfile();
+      }
+
       const result = {
         battleId: createdBattle.battleId,
         initialState,

@@ -1,5 +1,7 @@
 export const env = {
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? '',
+  measureUserProfileRequests:
+    process.env.EXPO_PUBLIC_MEASURE_USER_PROFILE === '1',
   posthog: {
     apiKey: process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? '',
     host: process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',

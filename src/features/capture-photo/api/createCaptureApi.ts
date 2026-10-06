@@ -1,3 +1,4 @@
+import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 
 import type { CreateCaptureResult } from '../model/types';
@@ -22,6 +23,10 @@ export async function createCaptureApi(body: CreateCaptureRequest) {
     '/api/captures',
     body,
   );
+
+  if (body.allowCoinPayment) {
+    invalidateUserProfile();
+  }
 
   return response.data;
 }

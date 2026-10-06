@@ -42,6 +42,7 @@ export function MoreScreen() {
     errorMessage: profileErrorMessage,
     isLoading: isProfileLoading,
     profile,
+    refreshIfStale: refreshProfileIfStale,
     reload: reloadProfile,
   } = useUserProfile();
   const {
@@ -56,7 +57,7 @@ export function MoreScreen() {
     null,
   );
 
-  useRefreshOnFocus(reloadProfile);
+  useRefreshOnFocus(refreshProfileIfStale);
   useEffect(() => {
     const keyboardHideSubscription = Keyboard.addListener(
       'keyboardDidHide',

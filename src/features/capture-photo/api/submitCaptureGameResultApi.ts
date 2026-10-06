@@ -1,3 +1,4 @@
+import { invalidateUserProfile } from '@/src/entities/user';
 import { ApiError, apiClient } from '@/src/shared/api/client';
 
 import type {
@@ -55,6 +56,8 @@ export async function submitCaptureGameResultApi(
       response.status,
     );
   }
+
+  invalidateUserProfile();
 
   if (!response.data.data?.progression?.after) {
     throw new Error('미니게임 결과 응답이 올바르지 않습니다.');

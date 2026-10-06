@@ -7,6 +7,8 @@ import {
 } from '@react-native-seoul/kakao-login';
 import NaverLogin from '@react-native-seoul/naver-login';
 
+import { resetUserProfile } from '@/src/entities/user';
+
 import { socialLoginApi } from '../api/socialLoginApi';
 import { AuthCancelledError } from '../lib/authError';
 import { saveServiceToken } from '../lib/tokenStorage';
@@ -144,6 +146,7 @@ export function useSocialLogin() {
       );
 
       await saveServiceToken(serviceToken);
+      resetUserProfile();
 
       return { isNew };
     } finally {

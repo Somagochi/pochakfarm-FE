@@ -1,7 +1,11 @@
+import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 
-export function claimAchievementApi(code: string) {
-  return apiClient.postWithoutBody<unknown>(
+export async function claimAchievementApi(code: string) {
+  const response = await apiClient.postWithoutBody<unknown>(
     `/api/achievements/${encodeURIComponent(code)}/claim`,
   );
+
+  invalidateUserProfile();
+  return response;
 }
