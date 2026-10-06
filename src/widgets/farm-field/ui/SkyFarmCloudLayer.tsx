@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { PAUSE_FARM_AMBIENT_ANIMATIONS } from '../config/animationExperiment';
 import {
   Image,
   type ImageSourcePropType,
@@ -143,7 +144,8 @@ export function SkyFarmCloudLayer({
   height,
   width,
 }: SkyFarmCloudLayerProps) {
-  const reducedMotion = useReducedMotion();
+  const systemReducedMotion = useReducedMotion();
+  const reducedMotion = systemReducedMotion || PAUSE_FARM_AMBIENT_ANIMATIONS;
 
   if (environment !== 'sky') {
     return null;
