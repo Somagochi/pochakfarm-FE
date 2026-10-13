@@ -19,6 +19,7 @@ import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CardOpeningSequence } from './CardOpeningSequence';
+import { useCaptureGameResultCallback } from '../model/useCaptureGameResultCallback';
 import type {
   CaptureCardType,
   CaptureDetail,
@@ -133,6 +134,7 @@ export function CaptureGame({
   ringShrinkDurationMs = DEFAULT_RING_SHRINK_DURATION_MS,
   tier,
 }: CaptureGameProps) {
+  const reportGameResult = useCaptureGameResultCallback(onGameResult);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [secondsLeft, setSecondsLeft] = useState(CAPTURE_SECONDS);
@@ -215,7 +217,7 @@ export function CaptureGame({
       }
 
       resultRef.current = nextResult;
-      onGameResult(
+      reportGameResult(
         Array.from({ length: throwCount }, (_, index) => ({
           round: index + 1,
           succeeded:
@@ -225,7 +227,7 @@ export function CaptureGame({
       setFailureReason(nextFailureReason);
       setResult(nextResult);
     },
-    [onGameResult],
+    [reportGameResult],
   );
 
   const handleTimingMissAnimationFinish = useCallback(
