@@ -184,4 +184,3 @@ test('판정 후 JS 큐에 대기 중이더라도 화면이 닫히면 결과를 
   h.flushJS();
   assert.equal(h.received.length, 0);
 });
-
