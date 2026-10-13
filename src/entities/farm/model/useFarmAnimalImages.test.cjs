@@ -120,14 +120,11 @@ function createHarness() {
       module,
       Map,
       Set,
-      performance: { now() { assert.fail('측정 플래그가 꺼져 있으면 시간을 수집하지 않는다'); } },
-      console: { info() { assert.fail('측정 플래그가 꺼져 있으면 로그를 출력하지 않는다'); } },
       require(id) {
         if (id === 'react') return runner.react;
         if (id === 'react-native') {
           return { Dimensions: { get: () => ({ width: 360 }) }, PixelRatio: { get: () => 3 } };
         }
-        if (id === '@/src/shared/config/env') return { env: { measureFarmLoading: false } };
         if (id === '@/src/shared/lib/image/preparedImageCache') return cache;
         if (id === '../lib/farmAnimalImages') return modules.get(manifestPath);
         assert.fail(`예상하지 못한 import: ${id}`);

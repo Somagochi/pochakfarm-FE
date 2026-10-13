@@ -11,7 +11,6 @@ function createStore(options = {}) {
   let now = 0;
   const requests = [];
   const imagePreparations = [];
-  const preloadEvents = [];
   let imageCacheResets = 0;
   const module = { exports: {} };
   const source = ts.transpileModule(readFileSync(storePath, 'utf8'), {
@@ -27,12 +26,6 @@ function createStore(options = {}) {
     module,
     performance: { now: () => now },
     require(id) {
-      if (id === '../lib/measureFarmRequest') {
-        return {
-          logFarmCacheHit() {},
-          logFarmPreload(type, outcome) { preloadEvents.push({ type, outcome }); },
-        };
-      }
       if (id === '@/src/shared/lib/image/preparedImageCache') {
         return { resetPreparedImageCache() { imageCacheResets += 1; } };
       }
@@ -40,10 +33,10 @@ function createStore(options = {}) {
         return {
           getFarmAnimalImages: (floors) => floors,
           getFarmAnimalImageSize: () => ({ maxWidth: 288, maxHeight: 263 }),
-          prepareFarmAnimalImages(type, images, size) {
+          prepareFarmAnimalImages(images, size) {
             if (!options.deferImages) return Promise.resolve(new Map());
             return new Promise((resolve, reject) => {
-              imagePreparations.push({ type, images, size, resolve, reject });
+              imagePreparations.push({ images, size, resolve, reject });
             });
           },
         };
@@ -63,7 +56,6 @@ function createStore(options = {}) {
     store: module.exports,
     requests,
     imagePreparations,
-    preloadEvents,
     imageCacheResetCount: () => imageCacheResets,
     setNow(value) {
       now = value;
@@ -114,7 +106,6 @@ test('미리 조회는 데이터 뒤에 이미지까지 준비하며 실제 데�
   harness.requests[0].resolve(value);
   await nextTurn();
   assert.equal(harness.imagePreparations.length, 1);
-  assert.equal(harness.imagePreparations[0].type, 'SPACE');
   assert.equal(harness.imagePreparations[0].images, value.floors);
   assert.equal(isReady, false);
   assert.equal(await harness.store.loadFarm('SPACE'), value);
@@ -122,10 +113,9 @@ test('미리 조회는 데이터 뒤에 이미지까지 준비하며 실제 데�
   harness.imagePreparations[0].resolve(new Map());
   await warm;
   assert.equal(isReady, true);
-  assert.equal(harness.preloadEvents.at(-1).outcome, 'ready');
 });
 
-test('이미지 준비 중 농장 무효화는 준비 완료로 표시하지 않고 추가 요청도 만들지 않는다', async () => {
+test('이미지 준비 중 농장 무효화는 캐시를 갱신하지 않고 다음 진입에서 재조회한다', async () => {
   const harness = createStore({ deferImages: true });
   const warm = harness.store.preloadFarm('SPACE');
   await nextTurn();
@@ -134,7 +124,6 @@ test('이미지 준비 중 농장 무효화는 준비 완료로 표시하지 않
   harness.store.invalidateFarm('SPACE');
   harness.imagePreparations[0].resolve(new Map());
   await warm;
-  assert.equal(harness.preloadEvents.at(-1).outcome, 'failed');
   assert.equal(harness.requests.length, 1);
   const latest = harness.store.loadFarm('SPACE');
   await nextTurn();
@@ -151,6 +140,8 @@ test('계정 초기화는 이미지 캐시도 비우고 이전 이미지 완료�
   harness.store.resetFarms();
   assert.equal(harness.imageCacheResetCount(), 1);
   const newWarm = harness.store.preloadFarm('SPACE');
+  let isNewReady = false;
+  void newWarm.then(() => { isNewReady = true; });
   await nextTurn();
   const value = farm('SPACE', '새 계정');
   harness.requests[1].resolve(value);
@@ -158,11 +149,12 @@ test('계정 초기화는 이미지 캐시도 비우고 이전 이미지 완료�
   harness.imagePreparations[0].resolve(new Map());
   await oldWarm;
   assert.equal(harness.store.preloadFarm('SPACE'), newWarm);
-  assert.equal(harness.preloadEvents.filter((event) => event.outcome === 'ready').length, 0);
+  assert.equal(isNewReady, false);
+  assert.equal(harness.store.getFarmSnapshot('SPACE').farm, value);
   harness.imagePreparations[1].resolve(new Map());
   await newWarm;
   assert.equal(harness.store.getFarmSnapshot('SPACE').farm, value);
-  assert.equal(harness.preloadEvents.filter((event) => event.outcome === 'ready').length, 1);
+  assert.equal(isNewReady, true);
 });
 
 test('이미지 준비 완료는 데이터 캐시의 30초 유효시간을 연장하지 않는다', async () => {
@@ -192,7 +184,6 @@ test('이미지 준비 오류는 농장 데이터 캐시를 제거하지 않고 
   await nextTurn();
   harness.imagePreparations[0].reject(new Error('이미지 초기화 실패'));
   await warm;
-  assert.equal(harness.preloadEvents.at(-1).outcome, 'failed');
   assert.equal(await harness.store.loadFarm('SPACE'), value);
   assert.equal(harness.requests.length, 1);
 });

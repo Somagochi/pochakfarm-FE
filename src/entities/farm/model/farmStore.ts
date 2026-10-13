@@ -6,7 +6,6 @@ import {
   getFarmAnimalImageSize,
   prepareFarmAnimalImages,
 } from '../lib/farmAnimalImages';
-import { logFarmCacheHit, logFarmPreload } from '../lib/measureFarmRequest';
 import type { Farm, FarmType } from './types';
 
 type FarmSnapshot = {
@@ -125,7 +124,6 @@ export function loadFarm(
     entry.freshUntil !== null &&
     performance.now() < entry.freshUntil
   ) {
-    logFarmCacheHit(type);
     return Promise.resolve(entry.snapshot.farm);
   }
 
@@ -205,24 +203,17 @@ export function preloadFarm(type: FarmType): Promise<void> {
   if (entry.preloadPromise !== null) return entry.preloadPromise;
 
   const preloadSession = session;
-  logFarmPreload(type, 'started');
   entry.preloadPromise = loadFarm(type, { background: true }).then(async (farm) => {
     const imageRevision = entry.revision;
     if (preloadSession !== session || entry.snapshot.farm !== farm || entry.freshUntil === null) {
       throw new Error('미리 조회한 농장 데이터가 변경되었습니다.');
     }
-    await prepareFarmAnimalImages(type, getFarmAnimalImages(farm.floors), getFarmAnimalImageSize());
+    await prepareFarmAnimalImages(getFarmAnimalImages(farm.floors), getFarmAnimalImageSize());
     if (preloadSession !== session || imageRevision !== entry.revision || entry.snapshot.farm !== farm) {
       throw new Error('미리 준비한 농장 이미지가 변경되었습니다.');
     }
-  }).then(
-    () => {
-      if (preloadSession === session) logFarmPreload(type, 'ready');
-    },
-    () => {
-      // 실패한 미리 조회는 재시도하지 않고 실제 진입 시 일반 조회로 복구합니다.
-      if (preloadSession === session) logFarmPreload(type, 'failed');
-    },
-  );
+  }).catch(() => {
+    // 실패한 미리 조회는 재시도하지 않고 실제 진입 시 일반 조회로 복구합니다.
+  });
   return entry.preloadPromise;
 }

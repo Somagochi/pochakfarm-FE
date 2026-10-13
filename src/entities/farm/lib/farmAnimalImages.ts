@@ -1,7 +1,6 @@
 import type { ImageRef } from 'expo-image';
 import { Dimensions, PixelRatio } from 'react-native';
 
-import { env } from '@/src/shared/config/env';
 import {
   getPreparedImage,
   getPreparedImageCacheSession,
@@ -9,7 +8,7 @@ import {
   type PreparedImageSize,
 } from '@/src/shared/lib/image/preparedImageCache';
 
-import type { FarmAnimal, FarmFloor, FarmType } from '../model/types';
+import type { FarmAnimal, FarmFloor } from '../model/types';
 
 export type FarmAnimalImage = { key: string; uri: string | null };
 export type FarmAnimalImageSources = ReadonlyMap<string, ImageRef | null>;
@@ -62,37 +61,21 @@ export function getCachedFarmAnimalImages(
 }
 
 export async function prepareFarmAnimalImages(
-  type: FarmType,
   images: readonly FarmAnimalImage[],
   size: PreparedImageSize,
 ): Promise<FarmAnimalImageSources> {
   const session = getPreparedImageCacheSession();
-  const startedAt = env.measureFarmLoading ? performance.now() : null;
-  const memoryHits = images.filter((image) => (
-    image.uri !== null && getPreparedImage(image.uri, size) !== undefined
-  )).length;
-  let failedCount = 0;
   const sources = await Promise.all(images.map(async (image) => {
     if (image.uri === null) return [image.key, null] as const;
     try {
       return [image.key, await prepareImage(image.uri, size)] as const;
     } catch {
       // 실패한 동물도 준비된 기본 이미지로 함께 표시할 수 있습니다.
-      failedCount += 1;
       return [image.key, null] as const;
     }
   }));
   if (session !== getPreparedImageCacheSession()) {
     throw new Error('로그인 상태가 변경되었습니다.');
-  }
-  if (startedAt !== null) {
-    console.info('[farm-images:prepared]', JSON.stringify({
-      farm_type: type,
-      duration_ms: Math.round(performance.now() - startedAt),
-      animal_count: images.length,
-      memory_hits: memoryHits,
-      failed_count: failedCount,
-    }));
   }
   return new Map(sources);
 }

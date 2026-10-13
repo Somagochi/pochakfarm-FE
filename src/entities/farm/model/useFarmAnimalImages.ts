@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { env } from '@/src/shared/config/env';
 import { getPreparedImageCacheSession } from '@/src/shared/lib/image/preparedImageCache';
 
 import {
@@ -62,16 +61,12 @@ export function useFarmAnimalImages({
   const batch = storedBatch.batchKey === batchKey ? storedBatch : initialBatch;
   const currentBatchKey = useRef(batchKey);
   currentBatchKey.current = batchKey;
-  const preparationStart = useRef<{ batchKey: string; time: number } | null>(null);
-  if (env.measureFarmLoading && preparationStart.current?.batchKey !== batchKey) {
-    preparationStart.current = { batchKey, time: performance.now() };
-  }
 
   useEffect(() => {
     let isCancelled = false;
     if (initialBatch.isPrepared) return;
 
-    void prepareFarmAnimalImages(type, manifest, size).then((images) => {
+    void prepareFarmAnimalImages(manifest, size).then((images) => {
       if (
         isCancelled || currentBatchKey.current !== batchKey ||
         session !== getPreparedImageCacheSession()
@@ -91,7 +86,7 @@ export function useFarmAnimalImages({
     });
 
     return () => { isCancelled = true; };
-  }, [batchKey, initialBatch, manifest, session, size, type]);
+  }, [batchKey, initialBatch, manifest, session, size]);
 
   const markDisplayed = useCallback((key: string) => {
     if (currentBatchKey.current !== batchKey || session !== getPreparedImageCacheSession()) return;
@@ -116,17 +111,6 @@ export function useFarmAnimalImages({
     });
   }, [batchKey, initialBatch, session]);
   const isReady = batch.isPrepared && manifest.every((image) => batch.displayed.has(image.key));
-
-  useEffect(() => {
-    if (!isReady || !env.measureFarmLoading) return;
-    const start = preparationStart.current;
-    if (start?.batchKey !== batchKey) return;
-    console.info('[farm-images:displayed]', JSON.stringify({
-      farm_type: type,
-      duration_ms: Math.round(performance.now() - start.time),
-      animal_count: manifest.length,
-    }));
-  }, [batchKey, isReady, manifest.length, type]);
 
   return {
     batchKey,
