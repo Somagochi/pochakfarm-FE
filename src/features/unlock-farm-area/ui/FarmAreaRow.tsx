@@ -6,8 +6,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRef, useState } from 'react';
-import * as Haptics from 'expo-haptics';
+import { useState } from 'react';
+import { Image as ExpoImage, type ImageRef } from 'expo-image';
 
 import type { FarmAnimal } from '@/src/entities/farm';
 
@@ -26,11 +26,12 @@ const BASE_UNLOCK_IMAGE_WIDTH = 112 * 1.3;
 
 type FarmAreaRowProps = {
   areaNumber: number;
+  animalImagesBatchKey: string;
   creatureSlots: {
     animal: FarmAnimal;
     animalId: number;
-    animalImageSource?: ImageSourcePropType;
-    animalImageUri?: string;
+    animalImageKey: string;
+    preparedAnimalImage?: ImageRef | null;
     name: string;
     nameplateImageSource: ImageSourcePropType;
     slotNumber: number;
@@ -39,19 +40,12 @@ type FarmAreaRowProps = {
   isUnlockAvailable: boolean;
   isUnlockDisabled?: boolean;
   isUnlocked: boolean;
+  onAnimalImageDisplayed?: (key: string) => void;
+  onAnimalImageFailed?: (key: string) => void;
   onPressCreature?: (
     animal: FarmAnimal,
     floorNumber: number,
     slotNumber: number,
-  ) => void;
-  onCreatureDragEnd?: (pageX: number, pageY: number) => void;
-  onCreatureDragMove?: (pageX: number, pageY: number) => void;
-  onCreatureDragStart?: (
-    animal: FarmAnimal,
-    floorNumber: number,
-    slotNumber: number,
-    pageX: number,
-    pageY: number,
   ) => void;
   onPressSlot: (slotNumber: number) => void;
   onPressUnlock: () => void;
@@ -64,15 +58,15 @@ type FarmAreaRowProps = {
 
 export function FarmAreaRow({
   areaNumber,
+  animalImagesBatchKey,
   creatureSlots,
   draggingAnimalId,
   isUnlockAvailable,
   isUnlockDisabled = false,
   isUnlocked,
+  onAnimalImageDisplayed,
+  onAnimalImageFailed,
   onPressCreature,
-  onCreatureDragEnd,
-  onCreatureDragMove,
-  onCreatureDragStart,
   onPressSlot,
   onPressUnlock,
   scale,
@@ -81,7 +75,6 @@ export function FarmAreaRow({
   selectedSlotImageSource,
   unlockImageSource,
 }: FarmAreaRowProps) {
-  const draggingAnimalIdRef = useRef<number | null>(null);
   const [failedAnimalImageKeys, setFailedAnimalImageKeys] = useState<
     Set<string>
   >(() => new Set());
@@ -113,11 +106,13 @@ export function FarmAreaRow({
           );
 
           if (creatureSlot) {
-            const animalImageKey =
-              `${creatureSlot.animalId}:${creatureSlot.animalImageUri ?? ''}`;
+            const { animalImageKey, preparedAnimalImage } = creatureSlot;
+            const failedImageKey = `${animalImagesBatchKey}:${animalImageKey}`;
             const hasAnimalImageFailed = failedAnimalImageKeys.has(
-              animalImageKey,
+              failedImageKey,
             );
+            const isPrepared = preparedAnimalImage !== undefined;
+            const isFallback = preparedAnimalImage === null || hasAnimalImageFailed;
             const nameplateWidth = BASE_NAMEPLATE_WIDTH * scale;
             const nameplateHeight = BASE_NAMEPLATE_HEIGHT * scale;
             const animalWidth = BASE_CREATURE_WIDTH * scale;
@@ -127,44 +122,8 @@ export function FarmAreaRow({
               <Pressable
                 accessibilityLabel={`${creatureSlot.name} 농장 슬롯`}
                 accessibilityRole="button"
-                delayLongPress={350}
                 key={slotNumber}
-                onLongPress={(event) => {
-                  if (!onCreatureDragStart) return;
-
-                  draggingAnimalIdRef.current = creatureSlot.animalId;
-                  void Haptics.impactAsync(
-                    Haptics.ImpactFeedbackStyle.Medium,
-                  );
-                  onCreatureDragStart(
-                    creatureSlot.animal,
-                    areaNumber,
-                    slotNumber,
-                    event.nativeEvent.pageX,
-                    event.nativeEvent.pageY,
-                  );
-                }}
-                onPress={() =>
-                  draggingAnimalIdRef.current === null &&
-                  onPressCreature?.(creatureSlot.animal, areaNumber, slotNumber)
-                }
-                onTouchEnd={(event) => {
-                  if (draggingAnimalIdRef.current === null) return;
-
-                  draggingAnimalIdRef.current = null;
-                  onCreatureDragEnd?.(
-                    event.nativeEvent.pageX,
-                    event.nativeEvent.pageY,
-                  );
-                }}
-                onTouchMove={(event) => {
-                  if (draggingAnimalIdRef.current !== null) {
-                    onCreatureDragMove?.(
-                      event.nativeEvent.pageX,
-                      event.nativeEvent.pageY,
-                    );
-                  }
-                }}
+                onPress={() => onPressCreature?.(creatureSlot.animal, areaNumber, slotNumber)}
                 style={({ pressed }) => [
                   styles.creatureSlot,
                   { width: slotSize, height: slotSize },
@@ -173,50 +132,45 @@ export function FarmAreaRow({
                   pressed && styles.pressed,
                 ]}
               >
-                {(!creatureSlot.animalImageSource ||
-                  hasAnimalImageFailed) && (
-                  <Image
-                    resizeMode="contain"
-                    source={ANIMAL_IMAGE_PLACEHOLDER}
-                    style={[
-                      styles.creatureImage,
-                      {
-                        top:
-                          slotSize * 0.04 +
-                          BASE_CREATURE_TOP_OFFSET * scale,
-                        left: (slotSize - animalWidth) / 2,
-                        width: animalWidth,
-                        height: animalHeight,
-                      },
-                    ]}
-                  />
-                )}
-                {creatureSlot.animalImageSource &&
-                  !hasAnimalImageFailed && (
-                  <Image
-                    defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
-                    onError={() => {
-                      setFailedAnimalImageKeys((currentKeys) => {
-                        const nextKeys = new Set(currentKeys);
-                        nextKeys.add(animalImageKey);
-                        return nextKeys;
-                      });
-                    }}
-                    resizeMode="contain"
-                    source={creatureSlot.animalImageSource}
-                    style={[
-                      styles.creatureImage,
-                      {
-                        top:
-                          slotSize * 0.04 +
-                          BASE_CREATURE_TOP_OFFSET * scale,
-                        left: (slotSize - animalWidth) / 2,
-                        width: animalWidth,
-                        height: animalHeight,
-                      },
-                    ]}
-                  />
-                )}
+                <ExpoImage
+                  contentFit="contain"
+                  key={`${failedImageKey}:${!isPrepared ? 'pending' : isFallback ? 'fallback' : 'prepared'}`}
+                  onDisplay={() => {
+                    if (isPrepared) onAnimalImageDisplayed?.(animalImageKey);
+                  }}
+                  onError={() => {
+                    if (!isPrepared) return;
+                    if (isFallback) {
+                      onAnimalImageDisplayed?.(animalImageKey);
+                      return;
+                    }
+                    setFailedAnimalImageKeys((currentKeys) => {
+                      if (currentKeys.has(failedImageKey)) return currentKeys;
+                      const nextKeys = new Set(currentKeys);
+                      nextKeys.add(failedImageKey);
+                      return nextKeys;
+                    });
+                    onAnimalImageFailed?.(animalImageKey);
+                  }}
+                  recyclingKey={failedImageKey}
+                  source={
+                    !isPrepared || isFallback
+                      ? ANIMAL_IMAGE_PLACEHOLDER
+                      : preparedAnimalImage
+                  }
+                  style={[
+                    styles.creatureImage,
+                    {
+                      top:
+                        slotSize * 0.04 +
+                        BASE_CREATURE_TOP_OFFSET * scale,
+                      left: (slotSize - animalWidth) / 2,
+                      width: animalWidth,
+                      height: animalHeight,
+                    },
+                  ]}
+                  transition={0}
+                />
                 <View
                   style={[
                     styles.nameplate,

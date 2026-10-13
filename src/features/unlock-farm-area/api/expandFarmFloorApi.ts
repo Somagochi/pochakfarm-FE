@@ -1,6 +1,13 @@
-import type { FarmType } from '@/src/entities/farm';
+import { invalidateFarm, type FarmType } from '@/src/entities/farm';
+import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 
-export function expandFarmFloorApi(type: FarmType) {
-  return apiClient.postWithoutBody<unknown>(`/api/farms/${type}/floors`);
+export async function expandFarmFloorApi(type: FarmType) {
+  const response = await apiClient.postWithoutBody<unknown>(
+    `/api/farms/${type}/floors`,
+  );
+
+  invalidateFarm(type);
+  invalidateUserProfile();
+  return response;
 }

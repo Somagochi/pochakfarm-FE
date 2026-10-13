@@ -8,9 +8,7 @@ type UserProfileResponse = {
 };
 
 export async function getUserProfileApi() {
-  const response = await apiClient.get<UserProfileResponse>(
-    '/api/users/profile',
-  );
+  const response = await apiClient.get<UserProfileResponse>('/api/users/profile');
 
   return response.data;
 }

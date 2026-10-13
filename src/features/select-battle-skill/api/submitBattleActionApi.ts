@@ -1,3 +1,4 @@
+import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 
 import type {
@@ -18,6 +19,13 @@ export async function submitBattleActionApi(
     BattleActionResponse,
     BattleActionRequest
   >(`/api/battles/${battleId}/actions`, body);
+
+  if (
+    response.data?.battleStatus === 'FINISHED' ||
+    response.data?.reward?.rewardGranted === true
+  ) {
+    invalidateUserProfile();
+  }
 
   return response.data;
 }

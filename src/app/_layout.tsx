@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react';
 import { AppState, Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { resetFarms } from '@/src/entities/farm';
+import { resetUserProfile } from '@/src/entities/user';
 import { useInitializeSocialLogin } from '@/src/features/social-login';
 import { AppSplashScreen } from '@/src/screens/splash-screen';
 import { subscribeToSessionExpiration } from '@/src/shared/lib/auth/sessionExpiration';
@@ -14,6 +16,7 @@ import { AppPostHogProvider } from '@/src/shared/ui/AppPostHogProvider';
 import { ScreenLoadingOverlay } from '@/src/shared/ui/ScreenLoadingOverlay';
 
 const MINIMUM_SPLASH_DURATION_MS = 1000;
+const LOCALLY_MANAGED_LOADING_PATHS = ['/farm'];
 
 void NativeSplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -44,6 +47,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     return subscribeToSessionExpiration(() => {
+      resetFarms();
+      resetUserProfile();
       router.replace('/login');
     });
   }, []);
@@ -84,7 +89,7 @@ export default function RootLayout() {
             options={{ gestureEnabled: false }}
           />
         </Stack>
-        <ScreenLoadingOverlay />
+        <ScreenLoadingOverlay locallyManagedPaths={LOCALLY_MANAGED_LOADING_PATHS} />
         <StatusBar style="auto" />
       </AppPostHogProvider>
     </GestureHandlerRootView>

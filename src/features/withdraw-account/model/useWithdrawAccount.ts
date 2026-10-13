@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 
-import { getUserAccountApi } from '@/src/entities/user';
+import { resetFarms } from '@/src/entities/farm';
+import { getUserAccountApi, resetUserProfile } from '@/src/entities/user';
 import {
   clearServiceToken,
   getServiceToken,
@@ -38,6 +39,8 @@ export function useWithdrawAccount() {
         console.warn('소셜 로그인 SDK 정보를 초기화하지 못했습니다.', error);
       } finally {
         await clearServiceToken();
+        resetUserProfile();
+        resetFarms();
       }
 
       return true;

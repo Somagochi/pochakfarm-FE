@@ -134,9 +134,9 @@ const SPACE_AMBIENT_ASSETS = {
     require('@/src/shared/assets/images/farm/ambient/space/planet-frame-3.png'),
   ],
   sparkleFrames: [
-    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-1.png'),
-    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-2.png'),
-    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-3.png'),
+    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-1-512.png'),
+    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-2-512.png'),
+    require('@/src/shared/assets/images/farm/ambient/space/sparkle-frame-3-512.png'),
   ],
 } as const;
 

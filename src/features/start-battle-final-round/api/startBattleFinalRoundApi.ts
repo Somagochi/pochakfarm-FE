@@ -1,3 +1,4 @@
+import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 import { parseApiDatetime } from '@/src/shared/lib/date/parseApiDatetime';
 
@@ -14,6 +15,14 @@ export async function startBattleFinalRoundApi(battleId: number) {
     `/api/battles/${battleId}/final-round/start`,
   );
   const receivedAtMs = Date.now();
+
+  if (
+    response.data?.battleStatus === 'FINISHED' ||
+    response.data?.reward?.rewardGranted === true
+  ) {
+    invalidateUserProfile();
+  }
+
   const serverDatetimeMs = parseApiDatetime(response.datetime);
   const estimatedClientTimeAtResponseMs =
     requestedAtMs + (receivedAtMs - requestedAtMs) / 2;

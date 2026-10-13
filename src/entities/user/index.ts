@@ -8,4 +8,9 @@ export { getUserProfileApi } from './api/getUserProfileApi';
 export { getUserAccountApi } from './api/getUserAccountApi';
 export { useUserAccount } from './model/useUserAccount';
 export { useUserProfile } from './model/useUserProfile';
+export {
+  invalidateUserProfile,
+  loadUserProfile,
+  resetUserProfile,
+} from './model/userProfileStore';
 export type { UserAccount, UserProfile } from './model/types';

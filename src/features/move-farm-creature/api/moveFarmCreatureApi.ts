@@ -1,3 +1,4 @@
+import { invalidateFarm } from '@/src/entities/farm';
 import { apiClient } from '@/src/shared/api/client';
 
 export type MoveFarmCreatureRequest = {
@@ -5,12 +6,15 @@ export type MoveFarmCreatureRequest = {
   targetSlotNum: number;
 };
 
-export function moveFarmCreatureApi(
+export async function moveFarmCreatureApi(
   animalId: number,
   body: MoveFarmCreatureRequest,
 ) {
-  return apiClient.patch<unknown, MoveFarmCreatureRequest>(
+  const response = await apiClient.patch<unknown, MoveFarmCreatureRequest>(
     `/api/animals/${animalId}/slot`,
     body,
   );
+
+  invalidateFarm();
+  return response;
 }

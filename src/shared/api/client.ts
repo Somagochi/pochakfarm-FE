@@ -3,6 +3,7 @@ import { beginApiRequest } from '@/src/shared/api/requestActivity';
 import {
   clearServiceToken,
   getServiceToken,
+  getServiceTokenSession,
   saveServiceToken,
   type ServiceToken,
 } from '@/src/shared/lib/auth/tokenStorage';
@@ -11,6 +12,11 @@ import { captureAnalyticsEvent } from '@/src/shared/lib/analytics';
 
 type RequestOptions = {
   headers?: Record<string, string>;
+};
+
+type GetRequestOptions = RequestOptions & {
+  // 자체 로딩을 관리하는 미리 조회만 전역 화면 로딩에서 제외합니다.
+  affectsScreenLoading?: boolean;
 };
 
 export type ApiResponse<TData> = {
@@ -59,7 +65,17 @@ function getErrorCode(data: unknown) {
 
 const LOGIN_PATH = '/api/auth/login';
 const REFRESH_PATH = '/api/auth/refresh';
-let refreshRequest: Promise<ServiceToken> | null = null;
+type TokenRefreshRequest = {
+  session: number;
+  promise: Promise<ServiceToken>;
+};
+let refreshRequest: TokenRefreshRequest | null = null;
+
+function assertServiceTokenSession(expectedSession: number | null) {
+  if (expectedSession !== null && expectedSession !== getServiceTokenSession()) {
+    throw new Error('로그인 상태가 변경되었습니다.');
+  }
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -120,8 +136,10 @@ async function parseResponse(response: Response) {
   return response.json().catch(() => null) as Promise<unknown>;
 }
 
-async function refreshServiceToken() {
+async function refreshServiceToken(expectedSession: number) {
+  assertServiceTokenSession(expectedSession);
   const currentToken = await getServiceToken();
+  assertServiceTokenSession(expectedSession);
 
   if (!currentToken) {
     throw new Error('로그인 정보가 없습니다.');
@@ -136,10 +154,16 @@ async function refreshServiceToken() {
       refreshToken: currentToken.refreshToken,
     }),
   });
+  assertServiceTokenSession(expectedSession);
   const data = await parseResponse(response);
+  assertServiceTokenSession(expectedSession);
 
   if (!response.ok) {
-    await clearServiceToken().finally(notifySessionExpired);
+    const clearRequest = clearServiceToken(expectedSession);
+    const clearedSession = getServiceTokenSession();
+    await clearRequest.finally(() => {
+      if (clearedSession === getServiceTokenSession()) notifySessionExpired();
+    });
 
     throw new Error(
       getErrorMessage(data) ?? '토큰을 재발급하지 못했습니다.',
@@ -150,19 +174,26 @@ async function refreshServiceToken() {
     data,
     currentToken.refreshToken,
   );
-  await saveServiceToken(refreshedToken);
+  await saveServiceToken(refreshedToken, expectedSession);
+  assertServiceTokenSession(expectedSession);
 
   return refreshedToken;
 }
 
-function getRefreshedToken() {
-  if (!refreshRequest) {
-    refreshRequest = refreshServiceToken().finally(() => {
-      refreshRequest = null;
-    });
+function getRefreshedToken(expectedSession: number) {
+  assertServiceTokenSession(expectedSession);
+  if (refreshRequest?.session === expectedSession) {
+    return refreshRequest.promise;
   }
 
-  return refreshRequest;
+  const request: TokenRefreshRequest = {
+    session: expectedSession,
+    promise: refreshServiceToken(expectedSession).finally(() => {
+      if (refreshRequest === request) refreshRequest = null;
+    }),
+  };
+  refreshRequest = request;
+  return request.promise;
 }
 
 async function withAccessToken(path: string, init: RequestInit) {
@@ -236,8 +267,12 @@ function getRequestFeature(endpoint: string) {
 async function requestWithResponse<TResponse>(
   path: string,
   init: RequestInit = {},
+  affectsScreenLoading = true,
 ): Promise<ApiResponse<TResponse>> {
-  const endApiRequest = beginApiRequest();
+  const requestSession = path === LOGIN_PATH || path === REFRESH_PATH
+    ? null
+    : getServiceTokenSession();
+  const endApiRequest = affectsScreenLoading ? beginApiRequest() : undefined;
   const requestedAt = Date.now();
   const endpoint = normalizeRequestEndpoint(path);
   const feature = getRequestFeature(endpoint);
@@ -248,25 +283,30 @@ async function requestWithResponse<TResponse>(
     }
 
     const authenticatedInit = await withAccessToken(path, init);
+    assertServiceTokenSession(requestSession);
     let response = await fetch(
       `${env.apiBaseUrl}${path}`,
       authenticatedInit,
     );
 
+    assertServiceTokenSession(requestSession);
+
     if (
       response.status === 401 &&
-      path !== LOGIN_PATH &&
-      path !== REFRESH_PATH
+      requestSession !== null
     ) {
-      const refreshedToken = await getRefreshedToken();
+      const refreshedToken = await getRefreshedToken(requestSession);
+      assertServiceTokenSession(requestSession);
       response = await retryWithAccessToken(
         path,
         init,
         refreshedToken.accessToken,
       );
+      assertServiceTokenSession(requestSession);
     }
 
     const data = await parseResponse(response);
+    assertServiceTokenSession(requestSession);
 
     if (!response.ok) {
       const message = getErrorMessage(data) ?? 'API 요청에 실패했습니다.';
@@ -303,15 +343,20 @@ async function requestWithResponse<TResponse>(
     });
     throw error;
   } finally {
-    endApiRequest();
+    endApiRequest?.();
   }
 }
 
 async function request<TResponse>(
   path: string,
   init: RequestInit = {},
+  affectsScreenLoading = true,
 ): Promise<TResponse> {
-  const response = await requestWithResponse<TResponse>(path, init);
+  const response = await requestWithResponse<TResponse>(
+    path,
+    init,
+    affectsScreenLoading,
+  );
   return response.data;
 }
 
@@ -336,17 +381,19 @@ export const apiClient = {
       body: JSON.stringify(body),
     });
   },
-  get<TResponse>(path: string, options: RequestOptions = {}) {
-    return request<TResponse>(path, {
-      method: 'GET',
-      headers: options.headers,
-    });
+  get<TResponse>(path: string, options: GetRequestOptions = {}) {
+    return request<TResponse>(
+      path,
+      { method: 'GET', headers: options.headers },
+      options.affectsScreenLoading,
+    );
   },
-  getWithResponse<TResponse>(path: string, options: RequestOptions = {}) {
-    return requestWithResponse<TResponse>(path, {
-      method: 'GET',
-      headers: options.headers,
-    });
+  getWithResponse<TResponse>(path: string, options: GetRequestOptions = {}) {
+    return requestWithResponse<TResponse>(
+      path,
+      { method: 'GET', headers: options.headers },
+      options.affectsScreenLoading,
+    );
   },
   post<TResponse, TBody extends object>(
     path: string,

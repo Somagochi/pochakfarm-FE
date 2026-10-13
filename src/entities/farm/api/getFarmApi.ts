@@ -7,9 +7,13 @@ type FarmResponse = {
   datetime: string;
 };
 
-export async function getFarmApi(type: FarmType) {
+export async function getFarmApi(
+  type: FarmType,
+  { background = false }: { background?: boolean } = {},
+) {
   const response = await apiClient.get<FarmResponse>(
     `/api/farms/${type}?page=0`,
+    { affectsScreenLoading: !background },
   );
 
   return response.data;

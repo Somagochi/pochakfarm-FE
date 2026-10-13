@@ -6,7 +6,6 @@ import {
   BackHandler,
   Easing,
   Image,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -14,11 +13,17 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { GestureDetector } from 'react-native-gesture-handler';
+import Reanimated from 'react-native-reanimated';
+
 import { scaleByDeviceWidth } from '@/src/shared/lib/layout';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CardOpeningSequence } from './CardOpeningSequence';
+import { useCaptureGameAnimation } from '../model/useCaptureGameAnimation';
+import type { CaptureLanding } from '../model/useCaptureGameAnimation';
+import { useCaptureGameResultCallback } from '../model/useCaptureGameResultCallback';
 import type {
   CaptureCardType,
   CaptureDetail,
@@ -28,6 +33,7 @@ import type {
   CaptureThrowResult,
 } from '../model/types';
 
+
 const CAPTURE_SECONDS = 10;
 const FRAME_WIDTH = scaleByDeviceWidth(44.26);
 const FRAME_HEIGHT = scaleByDeviceWidth(66.02);
@@ -36,16 +42,9 @@ const FRAME_GUIDE_GAP = scaleByDeviceWidth(15.16);
 const TARGET_SIZE = scaleByDeviceWidth(270);
 const TARGET_RING_SIZE = scaleByDeviceWidth(230);
 const SUCCESS_DISTANCE = TARGET_RING_SIZE / 2;
-const SUCCESS_SCALE = 0.38;
-const TARGET_MIN_SCALE = 0;
 const DEFAULT_RING_SHRINK_DURATION_MS = 1800;
-const TARGET_RESPAWN_DELAY = 120;
 const MIN_THROW_DISTANCE = scaleByDeviceWidth(24);
-const MIN_THROW_VELOCITY = 0.18;
 const IDEAL_THROW_DISTANCE = scaleByDeviceWidth(100);
-const IDEAL_THROW_VELOCITY = 1;
-const MIN_THROW_POWER = 0.35;
-const MAX_THROW_POWER = 1.65;
 const MAX_THROWS = 3;
 const CAMERA_CARD_ASPECT_RATIO = 1312 / 2080;
 const THROW_FRAME_IMAGE = require('@/src/shared/assets/images/capture/throw-card.png');
@@ -133,6 +132,7 @@ export function CaptureGame({
   ringShrinkDurationMs = DEFAULT_RING_SHRINK_DURATION_MS,
   tier,
 }: CaptureGameProps) {
+  const reportGameResult = useCaptureGameResultCallback(onGameResult);
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [secondsLeft, setSecondsLeft] = useState(CAPTURE_SECONDS);
@@ -140,7 +140,6 @@ export function CaptureGame({
   const [, setFailureReason] = useState<FailureReason>(null);
   const [throwsUsed, setThrowsUsed] = useState(0);
   const [isThrowing, setIsThrowing] = useState(false);
-  const [isTargetPaused, setIsTargetPaused] = useState(false);
   const [isTimingMiss, setIsTimingMiss] = useState(false);
   const [showResultActions, setShowResultActions] = useState(false);
   const [showResultNotice, setShowResultNotice] = useState(false);
@@ -148,13 +147,6 @@ export function CaptureGame({
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [displayedLevel, setDisplayedLevel] = useState<number | null>(null);
   const [hasOpenedSuccess, setHasOpenedSuccess] = useState(false);
-  const throwPosition = useRef(new Animated.ValueXY()).current;
-  const throwRotation = useRef(new Animated.Value(0)).current;
-  const throwScale = useRef(new Animated.Value(1)).current;
-  const throwArc = useRef(new Animated.Value(0)).current;
-  const throwOpacity = useRef(new Animated.Value(1)).current;
-  const pulseScale = useRef(new Animated.Value(1)).current;
-  const pulseScaleValue = useRef(1);
   const resultRef = useRef<CaptureResult>(null);
   const hasPlayedFailureLottieRef = useRef(false);
   const experienceProgress = useRef(new Animated.Value(0)).current;
@@ -164,10 +156,9 @@ export function CaptureGame({
     new Animated.Value(scaleByDeviceWidth(8)),
   ).current;
   const levelUpAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
-  const resolvedRingShrinkDurationMs =
-    ringShrinkDurationMs > 0
-      ? ringShrinkDurationMs
-      : DEFAULT_RING_SHRINK_DURATION_MS;
+  const resolvedRingShrinkDurationMs = ringShrinkDurationMs > 0
+    ? ringShrinkDurationMs
+    : DEFAULT_RING_SHRINK_DURATION_MS;
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener(
@@ -215,7 +206,7 @@ export function CaptureGame({
       }
 
       resultRef.current = nextResult;
-      onGameResult(
+      reportGameResult(
         Array.from({ length: throwCount }, (_, index) => ({
           round: index + 1,
           succeeded:
@@ -225,58 +216,76 @@ export function CaptureGame({
       setFailureReason(nextFailureReason);
       setResult(nextResult);
     },
-    [onGameResult],
+    [reportGameResult],
   );
 
-  const handleTimingMissAnimationFinish = useCallback(
-    (isCancelled: boolean) => {
-      if (isCancelled || resultRef.current) {
+  const handleThrowStart = useCallback(() => {
+    if (resultRef.current) return;
+    setIsThrowing(true);
+  }, []);
+
+  const handleReady = useCallback(() => {
+    if (resultRef.current) return;
+    setIsTimingMiss(false);
+    setIsThrowing(false);
+  }, []);
+
+  const handleLanding = useCallback((landing: CaptureLanding) => {
+    if (resultRef.current) return;
+    if (landing.succeeded) {
+      finishGame('success', landing.round);
+      return;
+    }
+    if (!landing.isPositionMatched) {
+      void triggerFailedThrowHaptics();
+      setThrowsUsed(landing.round);
+      if (landing.round >= MAX_THROWS) {
+        finishGame('failure', landing.round, 'attempts');
         return;
       }
-
-      const nextThrowsUsed = throwsUsed + 1;
-      setThrowsUsed(nextThrowsUsed);
-
-      if (nextThrowsUsed >= MAX_THROWS) {
-        hasPlayedFailureLottieRef.current = true;
-        setIsTimingMiss(false);
-        finishGame('failure', nextThrowsUsed, 'attempts');
-        return;
-      }
-
-      throwPosition.setValue({ x: 0, y: 0 });
-      throwRotation.setValue(0);
-      throwArc.setValue(0);
-      throwScale.setValue(1);
-      pulseScale.setValue(1);
-      pulseScaleValue.current = 1;
       setSecondsLeft(CAPTURE_SECONDS);
+      return;
+    }
+    setIsTimingMiss(true);
+  }, [finishGame]);
 
-      Animated.timing(throwOpacity, {
-        toValue: 1,
-        duration: 140,
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (!finished) {
-          return;
-        }
-
-        setIsTimingMiss(false);
-        setIsTargetPaused(false);
-        setIsThrowing(false);
-      });
+  const animation = useCaptureGameAnimation({
+    geometry: {
+      screenWidth: width,
+      frameCenterY: frameOrigin.y + FRAME_HEIGHT / 2,
+      targetCenterY: targetCenter.y,
+      minimumDistance: MIN_THROW_DISTANCE,
+      idealDistance: IDEAL_THROW_DISTANCE,
+      horizontalVelocityDistance: scaleByDeviceWidth(80),
     },
-    [
-      finishGame,
-      pulseScale,
-      throwArc,
-      throwOpacity,
-      throwPosition,
-      throwRotation,
-      throwScale,
-      throwsUsed,
-    ],
-  );
+    ringDurationMs: resolvedRingShrinkDurationMs,
+    successDistance: SUCCESS_DISTANCE,
+    arcHeight: scaleByDeviceWidth(-42),
+    dragLimitX: scaleByDeviceWidth(14),
+    dragLimitUp: scaleByDeviceWidth(16),
+    dragLimitDown: scaleByDeviceWidth(8),
+    throwsUsed,
+    ended: result !== null,
+    onThrowStart: handleThrowStart,
+    onLanding: handleLanding,
+    onReady: handleReady,
+  });
+
+  const { respawn, isThrowInProgress } = animation;
+
+  const handleTimingMissAnimationFinish = useCallback((isCancelled: boolean) => {
+    if (isCancelled || resultRef.current) return;
+    const nextThrowsUsed = throwsUsed + 1;
+    setThrowsUsed(nextThrowsUsed);
+    if (nextThrowsUsed >= MAX_THROWS) {
+      hasPlayedFailureLottieRef.current = true;
+      setIsTimingMiss(false);
+      finishGame('failure', nextThrowsUsed, 'attempts');
+      return;
+    }
+    setSecondsLeft(CAPTURE_SECONDS);
+    respawn(false);
+  }, [finishGame, respawn, throwsUsed]);
 
   useEffect(() => {
     if (result || isThrowing) {
@@ -284,6 +293,7 @@ export function CaptureGame({
     }
 
     const timer = setInterval(() => {
+      if (resultRef.current || isThrowInProgress()) return;
       setSecondsLeft((current) => {
         if (current <= 1) {
           const nextThrowsUsed = throwsUsed + 1;
@@ -303,46 +313,10 @@ export function CaptureGame({
       });
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [finishGame, isThrowing, result, throwsUsed]);
-
-  useEffect(() => {
-    if (result || isTargetPaused) {
-      return;
-    }
-
-    const listenerId = pulseScale.addListener(({ value }) => {
-      pulseScaleValue.current = value;
-    });
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseScale, {
-          toValue: TARGET_MIN_SCALE,
-          duration: resolvedRingShrinkDurationMs,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: false,
-        }),
-        Animated.delay(TARGET_RESPAWN_DELAY),
-        Animated.timing(pulseScale, {
-          toValue: 1,
-          duration: 0,
-          useNativeDriver: false,
-        }),
-      ]),
-    );
-
-    animation.start();
-
     return () => {
-      animation.stop();
-      pulseScale.removeListener(listenerId);
+      clearInterval(timer);
     };
-  }, [
-    isTargetPaused,
-    pulseScale,
-    resolvedRingShrinkDurationMs,
-    result,
-  ]);
+  }, [finishGame, isThrowing, isThrowInProgress, result, throwsUsed]);
 
   useEffect(() => {
     if (!result) {
@@ -504,252 +478,6 @@ export function CaptureGame({
     showResultActions,
   ]);
 
-  const resetFrame = useCallback(() => {
-    Animated.parallel([
-      Animated.spring(throwPosition, {
-        toValue: { x: 0, y: 0 },
-        speed: 18,
-        bounciness: 8,
-        useNativeDriver: true,
-      }),
-      Animated.timing(throwRotation, {
-        toValue: 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.spring(throwScale, {
-        toValue: 1,
-        speed: 18,
-        bounciness: 6,
-        useNativeDriver: true,
-      }),
-      Animated.timing(throwArc, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.timing(throwOpacity, {
-        toValue: 1,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-    ]).start(() => setIsThrowing(false));
-  }, [
-    throwArc,
-    throwOpacity,
-    throwPosition,
-    throwRotation,
-    throwScale,
-  ]);
-
-  const respawnFrame = useCallback(() => {
-    Animated.timing(throwOpacity, {
-      toValue: 0,
-      duration: 140,
-      useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (!finished) {
-        return;
-      }
-
-      throwPosition.setValue({ x: 0, y: 0 });
-      throwRotation.setValue(0);
-      throwArc.setValue(0);
-      throwScale.setValue(1);
-      pulseScale.setValue(1);
-      pulseScaleValue.current = 1;
-
-      Animated.timing(throwOpacity, {
-        toValue: 1,
-        duration: 140,
-        useNativeDriver: true,
-      }).start(({ finished: didAppear }) => {
-        if (!didAppear) {
-          return;
-        }
-
-        setIsTargetPaused(false);
-        setIsThrowing(false);
-      });
-    });
-  }, [
-    pulseScale,
-    throwArc,
-    throwOpacity,
-    throwPosition,
-    throwRotation,
-    throwScale,
-  ]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () =>
-          !isThrowing && !resultRef.current,
-        onMoveShouldSetPanResponder: (_, gestureState) =>
-          !isThrowing &&
-          !resultRef.current &&
-          (Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3),
-        onPanResponderMove: (_, gestureState) => {
-          throwPosition.setValue({
-            x: Math.max(-14, Math.min(14, gestureState.dx * 0.12)),
-            y: Math.max(-16, Math.min(8, gestureState.dy * 0.1)),
-          });
-        },
-        onPanResponderRelease: (_, gestureState) => {
-          const isUpwardFlick =
-            gestureState.dy <= -MIN_THROW_DISTANCE &&
-            gestureState.vy <= -MIN_THROW_VELOCITY;
-
-          if (!isUpwardFlick) {
-            resetFrame();
-            return;
-          }
-
-          setIsThrowing(true);
-          const nextThrowsUsed = throwsUsed + 1;
-
-          const upwardSpeed = Math.abs(gestureState.vy);
-          const upwardDistance = Math.abs(gestureState.dy);
-          const horizontalOffset = Math.max(
-            -width * 0.42,
-            Math.min(
-              width * 0.42,
-              gestureState.dx * 1.35 +
-                gestureState.vx * scaleByDeviceWidth(80),
-            ),
-          );
-          const idealVerticalTravel =
-            frameOrigin.y + FRAME_HEIGHT / 2 - targetCenter.y;
-          const distancePower = upwardDistance / IDEAL_THROW_DISTANCE;
-          const velocityPower = upwardSpeed / IDEAL_THROW_VELOCITY;
-          const throwPower = Math.max(
-            MIN_THROW_POWER,
-            Math.min(
-              MAX_THROW_POWER,
-              distancePower * 0.65 + velocityPower * 0.35,
-            ),
-          );
-          const destinationY = -idealVerticalTravel * throwPower;
-          const landingCenterY =
-            frameOrigin.y + FRAME_HEIGHT / 2 + destinationY;
-          const flightDuration = Math.max(
-            320,
-            Math.min(720, 760 - throwPower * 240),
-          );
-
-          Animated.parallel([
-            Animated.timing(throwPosition, {
-              toValue: {
-                x: horizontalOffset,
-                y: destinationY,
-              },
-              duration: flightDuration,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: true,
-            }),
-            Animated.timing(throwRotation, {
-              toValue: gestureState.vx < 0 ? -1 : 1,
-              duration: flightDuration,
-              easing: Easing.linear,
-              useNativeDriver: true,
-            }),
-            Animated.timing(throwScale, {
-              toValue: 0.72,
-              duration: flightDuration,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }),
-            Animated.sequence([
-              Animated.timing(throwArc, {
-                toValue: scaleByDeviceWidth(-42),
-                duration: flightDuration * 0.48,
-                easing: Easing.out(Easing.quad),
-                useNativeDriver: true,
-              }),
-              Animated.timing(throwArc, {
-                toValue: 0,
-                duration: flightDuration * 0.52,
-                easing: Easing.in(Easing.quad),
-                useNativeDriver: true,
-              }),
-            ]),
-          ]).start(({ finished }) => {
-            if (!finished || resultRef.current) {
-              return;
-            }
-
-            pulseScale.stopAnimation();
-            setIsTargetPaused(true);
-
-            const landingDistanceFromTarget = Math.hypot(
-              horizontalOffset,
-              landingCenterY - targetCenter.y,
-            );
-            const isPositionMatched =
-              landingDistanceFromTarget <= SUCCESS_DISTANCE;
-            const isTimingMatched =
-              pulseScaleValue.current <= SUCCESS_SCALE;
-
-            if (isPositionMatched && isTimingMatched) {
-              finishGame('success', nextThrowsUsed);
-              return;
-            }
-
-            if (!isPositionMatched) {
-              void triggerFailedThrowHaptics();
-              setThrowsUsed(nextThrowsUsed);
-
-              if (nextThrowsUsed >= MAX_THROWS) {
-                finishGame('failure', nextThrowsUsed, 'attempts');
-                return;
-              }
-
-              setSecondsLeft(CAPTURE_SECONDS);
-              respawnFrame();
-              return;
-            }
-
-            throwOpacity.setValue(0);
-            setIsTimingMiss(true);
-          });
-        },
-        onPanResponderTerminate: resetFrame,
-      }),
-    [
-      frameOrigin.y,
-      finishGame,
-      isThrowing,
-      resetFrame,
-      respawnFrame,
-      pulseScale,
-      targetCenter.y,
-      throwPosition,
-      throwArc,
-      throwOpacity,
-      throwRotation,
-      throwScale,
-      throwsUsed,
-      width,
-    ],
-  );
-
-  const frameRotation = throwRotation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
-  });
-  const targetRingColor = pulseScale.interpolate({
-    inputRange: [0, 0.333, 0.334, 0.666, 0.667, 1],
-    outputRange: [
-      '#628D38',
-      '#628D38',
-      '#E28112',
-      '#E28112',
-      '#D93920',
-      '#D93920',
-    ],
-  });
-  const targetRingTextureScale = Animated.multiply(pulseScale, 0.95);
   const progressionBefore =
     gameResult?.progression.before ?? initialProgression;
   const progressionAfter = gameResult?.progression.after;
@@ -921,54 +649,32 @@ export function CaptureGame({
           source={TARGET_FRAME_IMAGE}
           style={styles.targetFrameImage}
         />
-        <Animated.View
-          style={[
-            styles.targetContractingRingTexture,
-            {
-              transform: [{ scale: targetRingTextureScale }],
-            },
-          ]}
-        >
-          <Animated.Image
+        <Reanimated.View style={[styles.targetContractingRingTexture, animation.ringStyle]}>
+          <Reanimated.Image
             resizeMode="contain"
             source={TARGET_CONTRACTING_RING_IMAGE}
-            style={[
-              styles.targetRingTextureImage,
-              { tintColor: targetRingColor },
-            ]}
+            style={[styles.targetRingTextureImage, animation.ringImageStyle]}
           />
-        </Animated.View>
+        </Reanimated.View>
       </View>
 
-      <Animated.View
-        style={[
-          styles.throwingFrame,
-          {
-            left: frameOrigin.x,
-            opacity: throwOpacity,
-            top: frameOrigin.y,
-            transform: [
-              ...throwPosition.getTranslateTransform(),
-              { translateY: throwArc },
-              { rotate: frameRotation },
-              { scale: throwScale },
-            ],
-          },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <View
-          accessibilityLabel="위로 튕겨 던지는 포착 액자"
-          accessibilityRole="button"
-          style={styles.frameButton}
+      <GestureDetector gesture={animation.gesture}>
+        <Reanimated.View
+          style={[
+            styles.throwingFrame,
+            { left: frameOrigin.x, top: frameOrigin.y },
+            animation.cardStyle,
+          ]}
         >
-          <Image
-            resizeMode="contain"
-            source={THROW_FRAME_IMAGE}
-            style={styles.throwFrameImage}
-          />
-        </View>
-      </Animated.View>
+          <View
+            accessibilityLabel="위로 튕겨 던지는 포착 액자"
+            accessibilityRole="button"
+            style={styles.frameButton}
+          >
+            <Image resizeMode="contain" source={THROW_FRAME_IMAGE} style={styles.throwFrameImage} />
+          </View>
+        </Reanimated.View>
+      </GestureDetector>
 
       <Image
         accessibilityLabel="카드 던지기"

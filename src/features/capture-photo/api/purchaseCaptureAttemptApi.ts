@@ -1,3 +1,4 @@
+import { invalidateUserProfile } from '@/src/entities/user';
 import { apiClient } from '@/src/shared/api/client';
 
 type PurchaseCaptureAttemptRequest = {
@@ -25,5 +26,6 @@ export async function purchaseCaptureAttemptApi(clientRequestId: string) {
     { clientRequestId },
   );
 
+  invalidateUserProfile();
   return response.data;
 }

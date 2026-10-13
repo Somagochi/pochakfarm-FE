@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { getBattleStateApi } from '@/src/entities/battle';
+import { invalidateUserProfile } from '@/src/entities/user';
 import { ApiError } from '@/src/shared/api/client';
 
 import { submitBattleFinalRoundApi } from '../api/submitBattleFinalRoundApi';
@@ -112,6 +113,13 @@ export function useSubmitBattleFinalRound() {
 
         if (!result) {
           const state = await getBattleStateApi(attempt.battleId);
+
+          if (
+            state.status === 'FINISHED' ||
+            state.reward?.rewardGranted === true
+          ) {
+            invalidateUserProfile();
+          }
 
           if (state.status === 'IN_PROGRESS') {
             throw (

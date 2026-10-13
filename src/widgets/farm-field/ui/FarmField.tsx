@@ -1,5 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { router } from 'expo-router';
+import { Image as ExpoImage } from 'expo-image';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Reanimated from 'react-native-reanimated';
+import { useFarmCreatureDrag, type FarmDragSlot } from '@/src/features/move-farm-creature';
 import {
   Animated,
   Image,
@@ -14,7 +18,13 @@ import {
   FarmExpansionModal,
   useExpandFarmFloor,
 } from '@/src/features/unlock-farm-area';
-import type { FarmAnimal, FarmFloor, FarmType } from '@/src/entities/farm';
+import {
+  getFarmAnimalImageKey,
+  useFarmAnimalImages,
+  type FarmAnimal,
+  type FarmFloor,
+  type FarmType,
+} from '@/src/entities/farm';
 import { ErrorModal } from '@/src/shared/ui/ErrorModal';
 import { FarmAmbientEffects } from './FarmAmbientEffects';
 import { SkyFarmCloudLayer } from './SkyFarmCloudLayer';
@@ -64,6 +74,7 @@ type FarmFieldProps = {
   ) => void;
   onExpansionSuccess?: () => Promise<unknown>;
   onBackgroundReady?: () => void;
+  onAnimalImagesReady?: (ready: boolean) => void;
   onStartReordering?: () => void;
   onPressEmptySlot?: (floorNumber: number, slotNumber: number) => void;
   onPressCreature?: (
@@ -86,6 +97,7 @@ export function FarmField({
   onMoveCreature,
   onExpansionSuccess,
   onBackgroundReady,
+  onAnimalImagesReady,
   onStartReordering,
   onPressEmptySlot,
   onPressCreature,
@@ -94,15 +106,6 @@ export function FarmField({
   selectedSlotImageSource,
   width,
 }: FarmFieldProps) {
-  const canvasRef = useRef<View>(null);
-  const canvasOriginRef = useRef({ x: 0, y: 0 });
-  const [draggedCreature, setDraggedCreature] = useState<{
-    animal: FarmAnimal;
-    floorNumber: number;
-    pageX: number;
-    pageY: number;
-    slotNumber: number;
-  } | null>(null);
   const [hasDraggedCreatureImageFailed, setHasDraggedCreatureImageFailed] =
     useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -129,6 +132,26 @@ export function FarmField({
   const slotSize = BASE_SLOT_SIZE * uiScale;
   const slotGap = BASE_SLOT_GAP * uiScale;
   const rowWidth = slotSize * SLOT_COUNT + slotGap * (SLOT_COUNT - 1);
+  const visibleImageFloors = useMemo(
+    () => floors.filter((floor) => FARM_AREAS.some(({ areaNumber }) => areaNumber === floor.floorNum)),
+    [floors],
+  );
+  const {
+    batchKey: animalImagesBatchKey,
+    images: animalImages,
+    isReady: areAnimalImagesReady,
+    markDisplayed: markAnimalImageDisplayed,
+    markFailed: markAnimalImageFailed,
+  } = useFarmAnimalImages({
+    type: farmType,
+    floors: visibleImageFloors,
+    imageWidth: 80 * uiScale,
+    imageHeight: 73 * uiScale,
+  });
+
+  useEffect(() => {
+    onAnimalImagesReady?.(areAnimalImagesReady);
+  }, [animalImagesBatchKey, areAnimalImagesReady, onAnimalImagesReady]);
 
   useEffect(() => {
     if (background === displayedBackground) {
@@ -175,32 +198,44 @@ export function FarmField({
     });
   };
 
-  const getDropTarget = (pageX: number, pageY: number) => {
-    const x = pageX - canvasOriginRef.current.x;
-    const y = pageY - canvasOriginRef.current.y;
-    const rowLeft = (width - rowWidth) / 2;
-
-    for (const { areaNumber, sourceCenterY } of FARM_AREAS) {
+  const dragSlots = useMemo<FarmDragSlot[]>(
+    () => FARM_AREAS.flatMap(({ areaNumber, sourceCenterY }) => {
       const floor = floors.find(({ floorNum }) => floorNum === areaNumber);
-      if (!floor?.unlocked) continue;
+      if (!floor?.unlocked) return [];
 
-      const rowTop = (sourceCenterY / 2983) * canvasHeight - slotSize / 2;
-      if (y < rowTop || y > rowTop + slotSize) continue;
-
-      for (
-        let slotNumber = 1;
-        slotNumber <= SLOT_COUNT;
-        slotNumber += 1
-      ) {
-        const slotLeft = rowLeft + (slotNumber - 1) * (slotSize + slotGap);
-        if (x >= slotLeft && x <= slotLeft + slotSize) {
-          return { floorNumber: areaNumber, slotNumber };
-        }
-      }
-    }
-
-    return null;
-  };
+      return Array.from({ length: SLOT_COUNT }, (_, index) => ({
+        animal: floor.slots.find(({ slotNum }) => slotNum === index + 1)
+          ?.animal ?? null,
+        floorNumber: areaNumber,
+        slotNumber: index + 1,
+        left: (width - rowWidth) / 2 + index * (slotSize + slotGap),
+        top: (sourceCenterY / 2983) * canvasHeight - slotSize / 2,
+        size: slotSize,
+      }));
+    }),
+    [canvasHeight, floors, rowWidth, slotGap, slotSize, width],
+  );
+  const { canvasRef, draggedSlot, dragStyle, gesture } = useFarmCreatureDrag({
+    enabled: isActive && (isReordering || onStartReordering !== undefined),
+    slots: dragSlots,
+    scale: uiScale,
+    onStart: () => {
+      setHasDraggedCreatureImageFailed(false);
+      if (!isReordering) onStartReordering?.();
+    },
+    onMove: onMoveCreature,
+  });
+  const draggedCreature = draggedSlot?.animal;
+  const draggedAnimalImageKey = draggedSlot && draggedCreature
+    ? getFarmAnimalImageKey(
+        draggedSlot.floorNumber,
+        draggedSlot.slotNumber,
+        draggedCreature,
+      )
+    : null;
+  const preparedDraggedAnimalImage = draggedAnimalImageKey
+    ? animalImages.get(draggedAnimalImageKey)
+    : undefined;
 
   const handleExpandFloor = async () => {
     try {
@@ -227,214 +262,189 @@ export function FarmField({
   };
 
   return (
-    <View
-      ref={canvasRef}
-      style={[styles.canvas, { width, height: canvasHeight }]}
-    >
-      <Image
-        resizeMode={displayedBackground === background ? 'contain' : 'cover'}
-        source={displayedBackground}
-        style={[styles.background, { width, height: canvasHeight }]}
-      />
-      {incomingBackground !== null && (
-        <Animated.Image
-          onLoad={handleIncomingBackgroundLoad}
-          resizeMode="contain"
-          source={incomingBackground}
-          style={[
-            styles.background,
-            {
-              width,
-              height: canvasHeight,
-              opacity: backgroundTransitionOpacity,
-            },
-          ]}
+    <GestureDetector gesture={gesture}>
+      <View
+        collapsable={false}
+        ref={canvasRef}
+        style={[styles.canvas, { width, height: canvasHeight }]}
+      >
+        <Image
+          resizeMode={displayedBackground === background ? 'contain' : 'cover'}
+          source={displayedBackground}
+          style={[styles.background, { width, height: canvasHeight }]}
         />
-      )}
-      {isActive && (
-        <>
-          <FarmAmbientEffects
-            environment={environment}
-            height={canvasHeight}
-            width={width}
-          />
-          <SkyFarmCloudLayer
-            depth="background"
-            environment={environment}
-            height={canvasHeight}
-            width={width}
-          />
-          <SkyFarmCloudLayer
-            depth="foreground"
-            environment={environment}
-            height={canvasHeight}
-            width={width}
-          />
-        </>
-      )}
-
-      {FARM_AREAS.map(({ areaNumber, sourceCenterY }) => {
-        const floor = floors.find(
-          ({ floorNum }) => floorNum === areaNumber,
-        );
-        const previousFloor = floors.find(
-          ({ floorNum }) => floorNum === areaNumber - 1,
-        );
-
-        return (
-          <View
-            key={areaNumber}
+        {incomingBackground !== null && (
+          <Animated.Image
+            onLoad={handleIncomingBackgroundLoad}
+            resizeMode="contain"
+            source={incomingBackground}
             style={[
-              styles.areaRow,
+              styles.background,
               {
-                top:
-                  (sourceCenterY / 2983) * canvasHeight -
-                  slotSize / 2,
+                width,
+                height: canvasHeight,
+                opacity: backgroundTransitionOpacity,
               },
             ]}
-          >
-            <FarmAreaRow
-              areaNumber={areaNumber}
-              creatureSlots={(floor?.slots ?? []).flatMap((slot) => {
-                const animal = slot.animal;
-                if (!animal) {
-                  return [];
-                }
+          />
+        )}
+        {isActive && (
+          <>
+            <FarmAmbientEffects
+              environment={environment}
+              height={canvasHeight}
+              width={width}
+            />
+            <SkyFarmCloudLayer
+              depth="background"
+              environment={environment}
+              height={canvasHeight}
+              width={width}
+            />
+            <SkyFarmCloudLayer
+              depth="foreground"
+              environment={environment}
+              height={canvasHeight}
+              width={width}
+            />
+          </>
+        )}
 
-                return [{
-                  animal,
-                  animalId: animal.animalId,
-                  animalImageSource: animal.animalImageUrl
-                    ? { uri: animal.animalImageUrl }
-                    : undefined,
-                  animalImageUri: animal.animalImageUrl ?? undefined,
-                  name: animal.animalName,
-                  nameplateImageSource: CREATURE_NAMEPLATE_IMAGE,
-                  slotNumber: slot.slotNum,
-                }];
-              })}
-              draggingAnimalId={draggedCreature?.animal.animalId}
-              isUnlockAvailable={
-                floor?.unlocked === false &&
-                (areaNumber === 1 || previousFloor?.unlocked === true)
-              }
-              isUnlockDisabled={isReordering}
-              isUnlocked={floor?.unlocked === true}
-              onPressCreature={onPressCreature}
-              onCreatureDragEnd={(pageX, pageY) => {
-                if (!draggedCreature) return;
+        {FARM_AREAS.map(({ areaNumber, sourceCenterY }) => {
+          const floor = floors.find(
+            ({ floorNum }) => floorNum === areaNumber,
+          );
+          const previousFloor = floors.find(
+            ({ floorNum }) => floorNum === areaNumber - 1,
+          );
 
-                const target = getDropTarget(pageX, pageY);
-                setDraggedCreature(null);
-                if (
-                  target &&
-                  (target.floorNumber !== draggedCreature.floorNumber ||
-                    target.slotNumber !== draggedCreature.slotNumber)
-                ) {
-                  onMoveCreature?.(
-                    draggedCreature.animal.animalId,
-                    target.floorNumber,
-                    target.slotNumber,
+          return (
+            <View
+              key={areaNumber}
+              style={[
+                styles.areaRow,
+                {
+                  top:
+                    (sourceCenterY / 2983) * canvasHeight -
+                    slotSize / 2,
+                },
+              ]}
+            >
+              <FarmAreaRow
+                areaNumber={areaNumber}
+                animalImagesBatchKey={animalImagesBatchKey}
+                creatureSlots={(floor?.slots ?? []).flatMap((slot) => {
+                  const animal = slot.animal;
+                  if (!animal) {
+                    return [];
+                  }
+
+                  const animalImageKey = getFarmAnimalImageKey(
+                    areaNumber,
+                    slot.slotNum,
+                    animal,
                   );
+                  return [{
+                    animal,
+                    animalId: animal.animalId,
+                    animalImageKey,
+                    preparedAnimalImage: animalImages.get(animalImageKey),
+                    name: animal.animalName,
+                    nameplateImageSource: CREATURE_NAMEPLATE_IMAGE,
+                    slotNumber: slot.slotNum,
+                  }];
+                })}
+                draggingAnimalId={draggedCreature?.animalId}
+                isUnlockAvailable={
+                  floor?.unlocked === false &&
+                  (areaNumber === 1 || previousFloor?.unlocked === true)
+                }
+                isUnlockDisabled={isReordering}
+                isUnlocked={floor?.unlocked === true}
+                onAnimalImageDisplayed={markAnimalImageDisplayed}
+                onAnimalImageFailed={markAnimalImageFailed}
+                onPressCreature={onPressCreature}
+                onPressSlot={(slotNumber) => {
+                  if (isReordering) return;
+
+                  if (onPressEmptySlot) {
+                    onPressEmptySlot(areaNumber, slotNumber);
+                    return;
+                  }
+
+                  router.push('/(tabs)/capture');
+                }}
+                onPressUnlock={() => {
+                  if (!isReordering) setExpansionFloorNumber(areaNumber);
+                }}
+                scale={uiScale}
+                selectedSlotNumber={
+                  selectedSlot?.floorNumber === areaNumber
+                    ? selectedSlot.slotNumber
+                    : undefined
+                }
+                selectionSlotImageSource={selectionSlotImageSource}
+                selectedSlotImageSource={selectedSlotImageSource}
+                unlockImageSource={unlock}
+              />
+            </View>
+          );
+        })}
+        {isReordering && draggedCreature && (
+          <Reanimated.View
+            pointerEvents="none"
+            style={[
+              styles.draggedCreature,
+              {
+                width: 80 * uiScale,
+                height: 73 * uiScale,
+              },
+              dragStyle,
+            ]}
+          >
+            <ExpoImage
+              contentFit="contain"
+              key={`${animalImagesBatchKey}:${draggedAnimalImageKey}:${preparedDraggedAnimalImage === undefined ? 'pending' : preparedDraggedAnimalImage === null || hasDraggedCreatureImageFailed ? 'fallback' : 'prepared'}`}
+              onDisplay={() => {
+                if (preparedDraggedAnimalImage !== undefined && draggedAnimalImageKey) {
+                  markAnimalImageDisplayed(draggedAnimalImageKey);
                 }
               }}
-              onCreatureDragMove={(pageX, pageY) => {
-                setDraggedCreature((current) =>
-                  current ? { ...current, pageX, pageY } : null,
-                );
-              }}
-              onCreatureDragStart={
-                isReordering || onStartReordering
-                  ? (animal, floorNumber, slotNumber, pageX, pageY) => {
-                      if (!isReordering) onStartReordering?.();
-
-                      canvasRef.current?.measureInWindow((x, y) => {
-                        canvasOriginRef.current = { x, y };
-                        setHasDraggedCreatureImageFailed(false);
-                        setDraggedCreature({
-                          animal,
-                          floorNumber,
-                          pageX,
-                          pageY,
-                          slotNumber,
-                        });
-                      });
-                    }
-                  : undefined
-              }
-              onPressSlot={(slotNumber) => {
-                if (isReordering) return;
-
-                if (onPressEmptySlot) {
-                  onPressEmptySlot(areaNumber, slotNumber);
+              onError={() => {
+                if (preparedDraggedAnimalImage === undefined || !draggedAnimalImageKey) return;
+                if (preparedDraggedAnimalImage === null || hasDraggedCreatureImageFailed) {
+                  markAnimalImageDisplayed(draggedAnimalImageKey);
                   return;
                 }
-
-                router.push('/(tabs)/capture');
+                setHasDraggedCreatureImageFailed(true);
+                markAnimalImageFailed(draggedAnimalImageKey);
               }}
-              onPressUnlock={() => {
-                if (!isReordering) setExpansionFloorNumber(areaNumber);
-              }}
-              scale={uiScale}
-              selectedSlotNumber={
-                selectedSlot?.floorNumber === areaNumber
-                  ? selectedSlot.slotNumber
-                  : undefined
+              recyclingKey={`${animalImagesBatchKey}:${draggedAnimalImageKey}`}
+              source={
+                preparedDraggedAnimalImage && !hasDraggedCreatureImageFailed
+                  ? preparedDraggedAnimalImage
+                  : ANIMAL_IMAGE_PLACEHOLDER
               }
-              selectionSlotImageSource={selectionSlotImageSource}
-              selectedSlotImageSource={selectedSlotImageSource}
-              unlockImageSource={unlock}
+              style={styles.draggedCreatureImage}
+              transition={0}
             />
-          </View>
-        );
-      })}
-      {isReordering && draggedCreature && (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.draggedCreature,
-            {
-              left:
-                draggedCreature.pageX -
-                canvasOriginRef.current.x -
-                40 * uiScale,
-              top:
-                draggedCreature.pageY -
-                canvasOriginRef.current.y -
-                36.5 * uiScale,
-              width: 80 * uiScale,
-              height: 73 * uiScale,
-            },
-          ]}
-        >
-          <Image
-            defaultSource={ANIMAL_IMAGE_PLACEHOLDER}
-            onError={() => setHasDraggedCreatureImageFailed(true)}
-            resizeMode="contain"
-            source={
-              draggedCreature.animal.animalImageUrl &&
-              !hasDraggedCreatureImageFailed
-                ? { uri: draggedCreature.animal.animalImageUrl }
-                : ANIMAL_IMAGE_PLACEHOLDER
-            }
-            style={styles.draggedCreatureImage}
-          />
-        </View>
-      )}
-      <FarmExpansionModal
-        floorNumber={expansionFloorNumber}
-        isConfirming={isExpanding}
-        onClose={() => setExpansionFloorNumber(null)}
-        onConfirm={() => void handleExpandFloor()}
-        onDismiss={() => {
-          if (pendingExpansionErrorMessage === null) return;
+          </Reanimated.View>
+        )}
+        <FarmExpansionModal
+          floorNumber={expansionFloorNumber}
+          isConfirming={isExpanding}
+          onClose={() => setExpansionFloorNumber(null)}
+          onConfirm={() => void handleExpandFloor()}
+          onDismiss={() => {
+            if (pendingExpansionErrorMessage === null) return;
 
-          setErrorMessage(pendingExpansionErrorMessage);
-          setPendingExpansionErrorMessage(null);
-        }}
-      />
-      <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
-    </View>
+            setErrorMessage(pendingExpansionErrorMessage);
+            setPendingExpansionErrorMessage(null);
+          }}
+        />
+        <ErrorModal message={errorMessage} onClose={() => setErrorMessage(null)} />
+      </View>
+    </GestureDetector>
   );
 }
 
@@ -454,8 +464,8 @@ const styles = StyleSheet.create({
   draggedCreature: {
     position: 'absolute',
     zIndex: 10,
-    opacity: 0.9,
-    transform: [{ scale: 1.08 }],
+    top: 0,
+    left: 0,
   },
   draggedCreatureImage: {
     width: '100%',
