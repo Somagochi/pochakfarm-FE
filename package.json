@@ -13,6 +13,7 @@
     "test:capture-game": "node --test src/features/capture-photo/model/captureGameAnimation.test.cjs src/features/capture-photo/model/useCaptureGameResultCallback.test.cjs",
     "test:user-profile": "node --test src/entities/user/model/userProfileStore.test.cjs",
     "test:farm": "node --test src/entities/farm/model/farmStore.test.cjs",
+    "test:farm-entry": "node --test src/features/restore-session/model/resolveAuthenticatedRoute.test.cjs src/widgets/farm-field/ui/FarmField.test.cjs",
     "test:api": "node --test src/shared/api/client.test.cjs",
     "test:auth": "node --test src/shared/lib/auth/tokenStorage.test.cjs",
     "test:farm-images": "node --test src/shared/lib/image/preparedImageCache.test.cjs src/entities/farm/model/useFarmAnimalImages.test.cjs"

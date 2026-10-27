@@ -64,7 +64,7 @@ export function FarmScreen() {
     reload: reloadFarm,
   } = useFarm(FARM_TYPE_BY_ENVIRONMENT[selectedEnvironment]);
   const [isEnvironmentChanging, setIsEnvironmentChanging] = useState(false);
-  const [isFarmBackgroundReady, setIsFarmBackgroundReady] = useState(true);
+  const [isFarmBackgroundReady, setIsFarmBackgroundReady] = useState(false);
   const [animalImageReadiness, setAnimalImageReadiness] = useState<{
     farm: Farm | null;
     width: number;
@@ -108,6 +108,7 @@ export function FarmScreen() {
       farm?.type === 'GROUND' &&
       !isFarmLoading &&
       !isEnvironmentChanging &&
+      isFarmBackgroundReady &&
       areFarmAnimalImagesReady &&
       contentSize.width > 0 &&
       contentSize.height > 0,
@@ -199,6 +200,7 @@ export function FarmScreen() {
             floors={farm?.floors ?? []}
             isActive={isFocused}
             isReordering={isReordering}
+            isTransitionCovered={isEnvironmentChanging}
             onAnimalImagesReady={handleAnimalImagesReady}
             onBackgroundReady={() => setIsFarmBackgroundReady(true)}
             onMoveCreature={async (
@@ -328,6 +330,7 @@ export function FarmScreen() {
         style={styles.environmentLoadingOverlay}
         visible={
           isEnvironmentChanging ||
+          !isFarmBackgroundReady ||
           (farm === null && isFarmLoading) ||
           (farm !== null && !areFarmAnimalImagesReady) ||
           contentSize.width === 0 ||

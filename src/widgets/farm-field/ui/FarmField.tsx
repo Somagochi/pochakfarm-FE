@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { router } from 'expo-router';
 import { Image as ExpoImage } from 'expo-image';
 import { GestureDetector } from 'react-native-gesture-handler';
@@ -67,6 +67,7 @@ type FarmFieldProps = {
   floors: FarmFloor[];
   isActive?: boolean;
   isReordering?: boolean;
+  isTransitionCovered?: boolean;
   onMoveCreature?: (
     animalId: number,
     targetFloorNumber: number,
@@ -94,6 +95,7 @@ export function FarmField({
   floors,
   isActive = true,
   isReordering = false,
+  isTransitionCovered = false,
   onMoveCreature,
   onExpansionSuccess,
   onBackgroundReady,
@@ -116,6 +118,26 @@ export function FarmField({
   >(null);
   const { expandFloor, isExpanding } = useExpandFarmFloor(farmType);
   const { background, unlock } = ENVIRONMENT_ASSETS[environment];
+  const backgroundRequest = useRef({ source: background, generation: 0 });
+  if (backgroundRequest.current.source !== background) {
+    backgroundRequest.current = {
+      source: background,
+      generation: backgroundRequest.current.generation + 1,
+    };
+  }
+  const backgroundGeneration = backgroundRequest.current.generation;
+  const loadedBackgrounds = useRef(new Set<ImageSourcePropType>());
+  const notifiedBackgroundGeneration = useRef(-1);
+  const backgroundReadyCallback = useRef(onBackgroundReady);
+  backgroundReadyCallback.current = onBackgroundReady;
+  const notifyBackgroundReady = useCallback(() => {
+    if (
+      backgroundRequest.current.generation !== backgroundGeneration ||
+      notifiedBackgroundGeneration.current === backgroundGeneration
+    ) return;
+    notifiedBackgroundGeneration.current = backgroundGeneration;
+    backgroundReadyCallback.current?.();
+  }, [backgroundGeneration]);
   const [displayedBackground, setDisplayedBackground] =
     useState<ImageSourcePropType>(background);
   const [incomingBackground, setIncomingBackground] =
@@ -154,14 +176,17 @@ export function FarmField({
   }, [animalImagesBatchKey, areAnimalImagesReady, onAnimalImagesReady]);
 
   useEffect(() => {
+    backgroundTransitionRef.current?.stop();
+    backgroundTransitionRef.current = null;
     if (background === displayedBackground) {
+      setIncomingBackground(null);
+      if (loadedBackgrounds.current.has(background)) notifyBackgroundReady();
       return;
     }
 
-    backgroundTransitionRef.current?.stop();
     backgroundTransitionOpacity.setValue(0);
     setIncomingBackground(background);
-  }, [background, backgroundTransitionOpacity, displayedBackground]);
+  }, [background, backgroundTransitionOpacity, displayedBackground, notifyBackgroundReady]);
 
   useEffect(
     () => () => {
@@ -172,12 +197,30 @@ export function FarmField({
 
   const handleIncomingBackgroundLoad = () => {
     const loadedBackground = incomingBackground;
+    if (loadedBackground !== null) loadedBackgrounds.current.add(loadedBackground);
 
-    if (loadedBackground === null) {
+    if (
+      loadedBackground === null || loadedBackground !== background ||
+      backgroundRequest.current.generation !== backgroundGeneration
+    ) {
       return;
     }
 
     backgroundTransitionRef.current?.stop();
+    const completeTransition = () => {
+      if (backgroundRequest.current.generation !== backgroundGeneration) return;
+      setDisplayedBackground(loadedBackground);
+      notifyBackgroundReady();
+      setIncomingBackground((currentBackground) =>
+        currentBackground === loadedBackground ? null : currentBackground,
+      );
+      backgroundTransitionRef.current = null;
+    };
+    // 불투명 로딩 화면 뒤의 페이드는 보이지 않으므로 표시를 늦추지 않습니다.
+    if (isTransitionCovered) {
+      completeTransition();
+      return;
+    }
     const transition = Animated.timing(backgroundTransitionOpacity, {
       toValue: 1,
       duration: BACKGROUND_TRANSITION_DURATION_MS,
@@ -189,13 +232,29 @@ export function FarmField({
         return;
       }
 
-      setDisplayedBackground(loadedBackground);
-      onBackgroundReady?.();
-      setIncomingBackground((currentBackground) =>
-        currentBackground === loadedBackground ? null : currentBackground,
-      );
-      backgroundTransitionRef.current = null;
+      completeTransition();
     });
+  };
+
+  const handleDisplayedBackgroundLoad = () => {
+    loadedBackgrounds.current.add(displayedBackground);
+    if (
+      displayedBackground === background &&
+      backgroundRequest.current.generation === backgroundGeneration
+    ) {
+      notifyBackgroundReady();
+    }
+  };
+  const handleBackgroundError = (source: ImageSourcePropType) => {
+    if (
+      source !== background ||
+      backgroundRequest.current.generation !== backgroundGeneration
+    ) return;
+    backgroundTransitionRef.current?.stop();
+    setIncomingBackground(null);
+    setErrorMessage('농장 배경을 불러오지 못했습니다. 다시 진입해 주세요.');
+    // 오류 안내를 닫고 화면을 다시 진입할 수 있도록 로딩을 해제합니다.
+    notifyBackgroundReady();
   };
 
   const dragSlots = useMemo<FarmDragSlot[]>(
@@ -269,12 +328,15 @@ export function FarmField({
         style={[styles.canvas, { width, height: canvasHeight }]}
       >
         <Image
+          onError={() => handleBackgroundError(displayedBackground)}
+          onLoad={handleDisplayedBackgroundLoad}
           resizeMode={displayedBackground === background ? 'contain' : 'cover'}
           source={displayedBackground}
           style={[styles.background, { width, height: canvasHeight }]}
         />
         {incomingBackground !== null && (
           <Animated.Image
+            onError={() => handleBackgroundError(incomingBackground)}
             onLoad={handleIncomingBackgroundLoad}
             resizeMode="contain"
             source={incomingBackground}
