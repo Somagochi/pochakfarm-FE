@@ -18,6 +18,7 @@ function createHookRunner() {
   let props;
   let hook;
   let output;
+  let renderCount = 0;
   let pendingEffects = [];
   const sameDeps = (first, second) => first && second &&
     first.length === second.length && first.every((value, index) => Object.is(value, second[index]));
@@ -66,6 +67,7 @@ function createHookRunner() {
       dirty = false;
       cursor = 0;
       pendingEffects = [];
+      renderCount += 1;
       output = hook(props);
       for (const effect of pendingEffects) effect();
     }
@@ -76,6 +78,7 @@ function createHookRunner() {
     setHook(value) { hook = value; },
     render(value) { props = value; dirty = true; return flush(); },
     snapshot: flush,
+    renderCount: () => renderCount,
   };
 }
 
@@ -215,6 +218,24 @@ test('전부 메모리 캐시에 있어도 네이티브 표시 완료를 각각 
   assert.equal(harness.snapshot().isReady, false);
   harness.snapshot().markDisplayed(secondKey);
   assert.equal(harness.snapshot().isReady, true);
+});
+
+test('동물별 표시 완료는 농장을 다시 렌더링하지 않고 마지막 완료에서 한 번만 갱신한다', () => {
+  const harness = createHarness();
+  const slots = Array.from({ length: 4 }, (_, index) => slot(index + 1, `https://images.test/${index}.png`));
+  const props = options(slots);
+  for (const item of slots) harness.seed(item.animal.animalImageUrl, harness.image(item.animal.animalName));
+  const pending = harness.render(props);
+  const initialRenders = harness.renderCount();
+  const imageKeys = keys(harness, props);
+  for (const key of imageKeys.slice(0, -1)) {
+    pending.markDisplayed(key);
+    assert.equal(harness.snapshot().isReady, false);
+    assert.equal(harness.renderCount(), initialRenders);
+  }
+  pending.markDisplayed(imageKeys.at(-1));
+  assert.equal(harness.snapshot().isReady, true);
+  assert.equal(harness.renderCount(), initialRenders + 1);
 });
 
 test('일부 캐시 동물의 표시가 먼저 끝나도 나머지 준비 및 표시를 기다린다', async () => {

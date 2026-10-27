@@ -16,7 +16,6 @@ type ImageBatch = {
   batchKey: string;
   images: FarmAnimalImageSources;
   isPrepared: boolean;
-  displayed: ReadonlySet<string>;
 };
 
 export function useFarmAnimalImages({
@@ -54,13 +53,19 @@ export function useFarmAnimalImages({
       batchKey,
       images,
       isPrepared: images.size === manifest.length,
-      displayed: new Set(),
     };
   }, [batchKey, manifest, size]);
   const [storedBatch, setBatch] = useState<ImageBatch>(initialBatch);
   const batch = storedBatch.batchKey === batchKey ? storedBatch : initialBatch;
   const currentBatchKey = useRef(batchKey);
   currentBatchKey.current = batchKey;
+  const currentBatch = useRef(batch);
+  currentBatch.current = batch;
+  const displayed = useRef({ batchKey, keys: new Set<string>() });
+  if (displayed.current.batchKey !== batchKey) {
+    displayed.current = { batchKey, keys: new Set() };
+  }
+  const [, notifyDisplayComplete] = useState(0);
 
   useEffect(() => {
     let isCancelled = false;
@@ -90,13 +95,14 @@ export function useFarmAnimalImages({
 
   const markDisplayed = useCallback((key: string) => {
     if (currentBatchKey.current !== batchKey || session !== getPreparedImageCacheSession()) return;
-    setBatch((current) => {
-      if (currentBatchKey.current !== batchKey || session !== getPreparedImageCacheSession()) return current;
-      const previous = current.batchKey === batchKey ? current : initialBatch;
-      if (!previous.images.has(key) || previous.displayed.has(key)) return previous;
-      return { ...previous, displayed: new Set([...previous.displayed, key]) };
-    });
-  }, [batchKey, initialBatch, session]);
+    const completed = displayed.current.keys;
+    if (!currentBatch.current.images.has(key) || completed.has(key)) return;
+    completed.add(key);
+    // 개별 이미지 완료는 기록만 하고, 모두 표시됐을 때 한 번만 렌더링합니다.
+    if (manifest.every((image) => completed.has(image.key))) {
+      notifyDisplayComplete((revision) => revision + 1);
+    }
+  }, [batchKey, manifest, session]);
   const markFailed = useCallback((key: string) => {
     if (currentBatchKey.current !== batchKey || session !== getPreparedImageCacheSession()) return;
     setBatch((current) => {
@@ -105,12 +111,11 @@ export function useFarmAnimalImages({
       if (!previous.images.has(key) || previous.images.get(key) === null) return previous;
       const images = new Map(previous.images);
       images.set(key, null);
-      const displayed = new Set(previous.displayed);
-      displayed.delete(key);
-      return { ...previous, images, displayed };
+      displayed.current.keys.delete(key);
+      return { ...previous, images };
     });
   }, [batchKey, initialBatch, session]);
-  const isReady = batch.isPrepared && manifest.every((image) => batch.displayed.has(image.key));
+  const isReady = batch.isPrepared && manifest.every((image) => displayed.current.keys.has(image.key));
 
   return {
     batchKey,
